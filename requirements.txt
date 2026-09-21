@@ -1,0 +1,29 @@
+# Core web framework
+Flask
+Werkzeug
+itsdangerous
+
+# ORM / DB
+Flask-SQLAlchemy
+SQLAlchemy
+PyMySQL
+cryptography
+
+# Mail
+Flask-Mail
+
+# Config
+python-dotenv
+
+# Data / reporting
+pandas
+openpyxl
+
+# PDF generation (used for invoice PDFs)
+xhtml2pdf
+
+# HTTP client (WhatsApp connector / provider calls)
+requests
+
+# WSGI server for production (Nginx + Gunicorn deployment)
+gunicorn
