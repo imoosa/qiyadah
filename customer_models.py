@@ -11,7 +11,7 @@ managed per-company by db_router.py, not by Flask's app context.
 from sqlalchemy.orm import DeclarativeBase, relationship as _relationship
 from sqlalchemy import (
     Column, Integer, String, Float, Boolean,
-    Date, DateTime, Text, ForeignKey,
+    Date, DateTime, Text, ForeignKey, Numeric, UniqueConstraint,
 )
 from datetime import datetime, date
 
@@ -36,10 +36,32 @@ class _CustomerDB:
     DateTime     = DateTime
     Text         = Text
     ForeignKey   = staticmethod(ForeignKey)
+    Numeric       = Numeric
+    UniqueConstraint = staticmethod(UniqueConstraint)
     relationship = staticmethod(_relationship)
 
 
 customer_db = _CustomerDB()
+
+
+class FinancePeriodControl(customer_db.Model):
+    __tablename__ = 'finance_period_controls'
+    company_id = Column(String(20), primary_key=True)
+    closed_through = Column(Date, nullable=True)
+    version = Column(Integer, nullable=False, default=0)
+
+
+class FinancePeriodAudit(customer_db.Model):
+    __tablename__ = 'finance_period_audits'
+    id = Column(Integer, primary_key=True)
+    company_id = Column(String(20), nullable=False, index=True)
+    action = Column(String(10), nullable=False)
+    previous_date = Column(Date, nullable=True)
+    new_date = Column(Date, nullable=True)
+    reason = Column(Text, nullable=False)
+    actor = Column(String(100), nullable=False)
+    changed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    version = Column(Integer, nullable=False)
 
 
 # ── 4. Company Users ──────────────────────────────────────────────────────────
@@ -357,6 +379,8 @@ class DeletedInvoiceLog(_Base):
 class CustomerInvoice(customer_db.Model):
     """Standard Sales / Tax Invoice"""
     __tablename__ = "customer_invoices"
+    sales_order_id = customer_db.Column(customer_db.Integer, nullable=True, unique=True)
+    note_adjustment = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
     
     id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
     invoice_number = customer_db.Column(customer_db.String(30), unique=True, nullable=False)
@@ -370,6 +394,8 @@ class CustomerInvoice(customer_db.Model):
     invoice_date = customer_db.Column(customer_db.Date, nullable=False, default=date.today)
     due_date = customer_db.Column(customer_db.Date, nullable=True)
     invoice_type = customer_db.Column(customer_db.String(10), nullable=False, default="credit")  # 'cash' or 'credit'
+    # Business category: product_sale or workshop_repair. Kept separate from payment type.
+    invoice_category = customer_db.Column(customer_db.String(30), nullable=False, default="product_sale")
     status = customer_db.Column(customer_db.String(50), nullable=False, default="Pending")
     payment_terms = customer_db.Column(customer_db.String(100), nullable=True)
     currency = customer_db.Column(customer_db.String(10), nullable=False, default="INR")
@@ -407,6 +433,34 @@ class CustomerInvoice(customer_db.Model):
         if session and self.client_id:
             return session.query(Client).filter_by(id=self.client_id).first()
         return None
+
+
+class FinanceNote(customer_db.Model):
+    """Posted customer credits and supplier debits, with an immutable audit trail."""
+    __tablename__ = "finance_notes"
+    __table_args__ = (UniqueConstraint('company_id', 'request_token', name='uq_finance_note_request'),)
+    id = Column(Integer, primary_key=True)
+    company_id = Column(String(20), nullable=False, index=True)
+    kind = Column(String(10), nullable=False)
+    number = Column(String(40), nullable=False, unique=True)
+    request_token = Column(String(64), nullable=False)
+    invoice_id = Column(Integer, nullable=False, index=True)
+    invoice_reference = Column(String(100), nullable=False)
+    party_id = Column(Integer, nullable=True)
+    party_name = Column(String(200), nullable=False)
+    note_date = Column(Date, nullable=False)
+    currency = Column(String(10), nullable=False)
+    exchange_rate = Column(Numeric(18, 6), nullable=False)
+    subtotal = Column(Numeric(18, 2), nullable=False)
+    tax_amount = Column(Numeric(18, 2), nullable=False)
+    total = Column(Numeric(18, 2), nullable=False)
+    reason = Column(Text, nullable=False)
+    status = Column(String(20), nullable=False, default='Posted')
+    created_by = Column(String(100), nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    voided_by = Column(String(100), nullable=True)
+    voided_at = Column(DateTime, nullable=True)
+    void_reason = Column(Text, nullable=True)
 
 
 class CustomerInvoiceItem(customer_db.Model):
@@ -594,6 +648,8 @@ class EstimateItem(customer_db.Model):
 # ── 10. Purchase Invoices ─────────────────────────────────────────────────────
 class PurchaseInvoice(customer_db.Model):
     __tablename__ = "purchase_invoices"
+    purchase_order_id = customer_db.Column(customer_db.Integer, nullable=True, unique=True)
+    note_adjustment = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
 
     id             = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
     invoice_id     = customer_db.Column(customer_db.String(30),  unique=True, nullable=False)
@@ -801,6 +857,155 @@ class CashTransaction(customer_db.Model):
     applied_breakdown_json = customer_db.Column(customer_db.Text, nullable=True)
 
 
+
+
+# ── Finance: Chart of Accounts ────────────────────────────────────────────────
+class ChartOfAccount(customer_db.Model):
+    """Company-scoped account master.
+
+    This is deliberately only the account master for Step 2. Journal posting
+    is introduced in the next accounting step so existing ERP transactions are
+    not silently re-posted or duplicated.
+    """
+    __tablename__ = "chart_of_accounts"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "code", name="uq_coa_company_code"),
+    )
+
+    id              = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id      = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    code            = customer_db.Column(customer_db.String(20), nullable=False)
+    name            = customer_db.Column(customer_db.String(150), nullable=False)
+    account_type    = customer_db.Column(customer_db.String(20), nullable=False)  # Asset/Liability/Equity/Income/Expense
+    account_group   = customer_db.Column(customer_db.String(60), nullable=False)
+    normal_balance  = customer_db.Column(customer_db.String(6), nullable=False)   # Debit/Credit
+    parent_id       = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("chart_of_accounts.id"), nullable=True)
+    opening_balance = customer_db.Column(customer_db.Numeric(18, 2), nullable=False, default=0)
+    is_system       = customer_db.Column(customer_db.Boolean, nullable=False, default=False)
+    is_active       = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    notes           = customer_db.Column(customer_db.Text, nullable=True)
+    created_at      = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at      = customer_db.Column(customer_db.DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    parent   = customer_db.relationship("ChartOfAccount", remote_side=[id], back_populates="children")
+    children = customer_db.relationship("ChartOfAccount", back_populates="parent")
+
+
+
+
+# ── Finance: Journal Engine ───────────────────────────────────────────────────
+class JournalEntry(customer_db.Model):
+    """Immutable-after-posting journal header for double-entry accounting."""
+    __tablename__ = "journal_entries"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "entry_no", name="uq_journal_company_entry_no"),
+    )
+
+    id              = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id      = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    entry_no        = customer_db.Column(customer_db.String(30), nullable=False)
+    entry_date      = customer_db.Column(customer_db.Date, nullable=False, default=date.today, index=True)
+    reference       = customer_db.Column(customer_db.String(100), nullable=True)
+    narration       = customer_db.Column(customer_db.Text, nullable=False)
+    source_type     = customer_db.Column(customer_db.String(40), nullable=False, default="manual")
+    source_id       = customer_db.Column(customer_db.String(80), nullable=True)
+    status          = customer_db.Column(customer_db.String(20), nullable=False, default="Draft")  # Draft/Posted/Reversed
+    reversal_of_id  = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("journal_entries.id"), nullable=True)
+    created_by      = customer_db.Column(customer_db.String(100), nullable=True)
+    posted_by       = customer_db.Column(customer_db.String(100), nullable=True)
+    created_at      = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    posted_at       = customer_db.Column(customer_db.DateTime, nullable=True)
+    reversed_at     = customer_db.Column(customer_db.DateTime, nullable=True)
+
+    lines = customer_db.relationship(
+        "JournalEntryLine", back_populates="entry",
+        cascade="all, delete-orphan", order_by="JournalEntryLine.id"
+    )
+    reversal_of = customer_db.relationship("JournalEntry", remote_side=[id], uselist=False)
+
+
+class JournalEntryLine(customer_db.Model):
+    """One debit or credit line belonging to a journal entry."""
+    __tablename__ = "journal_entry_lines"
+
+    id          = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    entry_id    = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("journal_entries.id"), nullable=False, index=True)
+    account_id  = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("chart_of_accounts.id"), nullable=False, index=True)
+    description = customer_db.Column(customer_db.String(300), nullable=True)
+    debit       = customer_db.Column(customer_db.Numeric(18, 2), nullable=False, default=0)
+    credit      = customer_db.Column(customer_db.Numeric(18, 2), nullable=False, default=0)
+    party_type  = customer_db.Column(customer_db.String(30), nullable=True)
+    party_id    = customer_db.Column(customer_db.String(80), nullable=True)
+
+    entry   = customer_db.relationship("JournalEntry", back_populates="lines")
+    account = customer_db.relationship("ChartOfAccount")
+
+
+
+
+# ── Finance Step 13: Bank Reconciliation ─────────────────────────────────────
+class BankReconciliation(customer_db.Model):
+    __tablename__ = "bank_reconciliations"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "bank_account_id", "statement_date",
+                                     name="uq_bank_recon_company_account_date"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    bank_account_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("bank_accounts.id"), nullable=False, index=True)
+    statement_date = customer_db.Column(customer_db.Date, nullable=False)
+    statement_balance = customer_db.Column(customer_db.Numeric(18, 2), nullable=False, default=0)
+    book_balance = customer_db.Column(customer_db.Numeric(18, 2), nullable=False, default=0)
+    difference = customer_db.Column(customer_db.Numeric(18, 2), nullable=False, default=0)
+    status = customer_db.Column(customer_db.String(20), nullable=False, default="Open")
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    created_by = customer_db.Column(customer_db.String(100), nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    completed_at = customer_db.Column(customer_db.DateTime, nullable=True)
+
+    bank_account = customer_db.relationship("BankAccount")
+    items = customer_db.relationship("BankReconciliationItem", back_populates="reconciliation",
+                                     cascade="all, delete-orphan")
+
+
+class BankReconciliationItem(customer_db.Model):
+    __tablename__ = "bank_reconciliation_items"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    reconciliation_id = customer_db.Column(customer_db.Integer,
+        customer_db.ForeignKey("bank_reconciliations.id"), nullable=False, index=True)
+    bank_transaction_id = customer_db.Column(customer_db.Integer,
+        customer_db.ForeignKey("bank_transactions.id"), nullable=False, index=True)
+    is_cleared = customer_db.Column(customer_db.Boolean, nullable=False, default=False)
+    cleared_date = customer_db.Column(customer_db.Date, nullable=True)
+    notes = customer_db.Column(customer_db.String(300), nullable=True)
+
+    reconciliation = customer_db.relationship("BankReconciliation", back_populates="items")
+    bank_transaction = customer_db.relationship("BankTransaction")
+
+
+# ── Finance Step 14: Fixed Assets ─────────────────────────────────────────────
+class FixedAsset(customer_db.Model):
+    __tablename__ = "fixed_assets"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "asset_code", name="uq_fixed_asset_company_code"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    asset_code = customer_db.Column(customer_db.String(30), nullable=False)
+    name = customer_db.Column(customer_db.String(180), nullable=False)
+    category = customer_db.Column(customer_db.String(80), nullable=True)
+    purchase_date = customer_db.Column(customer_db.Date, nullable=False)
+    purchase_cost = customer_db.Column(customer_db.Numeric(18, 2), nullable=False, default=0)
+    salvage_value = customer_db.Column(customer_db.Numeric(18, 2), nullable=False, default=0)
+    useful_life_months = customer_db.Column(customer_db.Integer, nullable=False, default=60)
+    depreciation_method = customer_db.Column(customer_db.String(30), nullable=False, default="Straight Line")
+    accumulated_depreciation = customer_db.Column(customer_db.Numeric(18, 2), nullable=False, default=0)
+    status = customer_db.Column(customer_db.String(20), nullable=False, default="Active")
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = customer_db.Column(customer_db.DateTime, nullable=True, onupdate=datetime.utcnow)
+
+
 # ── 13. Bank Accounts ─────────────────────────────────────────────────────────
 class BankAccount(customer_db.Model):
     __tablename__ = "bank_accounts"
@@ -947,65 +1152,6 @@ class Cheque(customer_db.Model):
 
 
 
-# ── 16. Company Manifest ──────────────────────────────────────────────────────
-# Tracks boxes received from a shipper client and how they are distributed
-# to different courier companies. Saving a manifest DEDUCTS stock from StockItem.
-class CompanyManifest(customer_db.Model):
-    __tablename__ = "company_manifests"
-
-    id             = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
-    manifest_id    = customer_db.Column(customer_db.String(30),  unique=True, nullable=False)
-    company_id     = customer_db.Column(customer_db.String(20),  nullable=False)
-    date           = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
-    # shipper = the customer who brought boxes in (links to Client.id)
-    shipper_client_id   = customer_db.Column(customer_db.Integer, nullable=True)
-    shipper_client_name = customer_db.Column(customer_db.String(200), nullable=False)
-    # stock item whose qty is deducted (box/parcel stock)
-    stock_item_id  = customer_db.Column(customer_db.Integer,     nullable=True)
-    total_boxes    = customer_db.Column(customer_db.Integer,     nullable=False, default=0)
-    notes          = customer_db.Column(customer_db.Text,        nullable=True)
-    created_at     = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
-    created_by     = customer_db.Column(customer_db.String(50),  nullable=True)
-    status         = Column(String(20), default='Pending', nullable=False)
-    stock_deducted = Column(Boolean, default=False, nullable=False)
-    generated_at   = Column(DateTime, nullable=True)
-    generated_by   = Column(String(255), nullable=True)
-
-    entries = customer_db.relationship(
-        "ManifestEntry", back_populates="manifest", cascade="all, delete-orphan"
-    )
-
-    def __repr__(self):
-        return f"<CompanyManifest {self.manifest_id}>"
-
-
-# ── 17. Manifest Entry (courier allocation per manifest) ──────────────────────
-class ManifestEntry(customer_db.Model):
-    __tablename__ = "manifest_entries"
-
-    id            = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
-    manifest_id   = customer_db.Column(customer_db.Integer,
-                        customer_db.ForeignKey("company_manifests.id"), nullable=False)
-    courier_name  = customer_db.Column(customer_db.String(200), nullable=False)
-    boxes         = customer_db.Column(customer_db.Integer,     nullable=False, default=0)
-    docket_no     = customer_db.Column(customer_db.String(100), nullable=True)
-    docket_id     = customer_db.Column(customer_db.Integer,     nullable=True)   # ← ADD
-    stock_item_id = customer_db.Column(customer_db.Integer,     nullable=True)
-    stock_item_name = customer_db.Column(customer_db.String(200), nullable=True) # ← ADD
-    notes         = customer_db.Column(customer_db.Text,        nullable=True)
-    item_type = customer_db.Column(customer_db.String(50), nullable=True)
-    status        = customer_db.Column(customer_db.String(20),  nullable=False, default='Pending')  # ← ADD: 'Pending' or 'Generated', per box row
-    generated_at  = customer_db.Column(customer_db.DateTime,    nullable=True)  # ← ADD
-    generated_by  = customer_db.Column(customer_db.String(255), nullable=True)  # ← ADD
-    dispatched_at = customer_db.Column(customer_db.DateTime, nullable=True)     # ← ADD: set only by /manifest/entry/<id>/dispatch
-    dispatched_by = customer_db.Column(customer_db.String(255), nullable=True)  # ← ADD
-
-    manifest = customer_db.relationship("CompanyManifest", back_populates="entries")
-
-    def __repr__(self):
-        return f"<ManifestEntry {self.courier_name} x{self.boxes} [{self.status}]>"
-
-
 # Expenses
 # ── 18. Daily Expenses ────────────────────────────────────────────────────────
 class Expense(customer_db.Model):
@@ -1056,6 +1202,7 @@ class WhatsAppLog(customer_db.Model):
 # ── 22. Delivery Challans (Dispatch / Delivery Note) ─────────────────────────
 class DeliveryChallan(customer_db.Model):
     __tablename__ = "delivery_challans"
+    sales_order_id = customer_db.Column(customer_db.Integer, nullable=True, unique=True)
 
     id                  = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
     challan_no          = customer_db.Column(customer_db.String(30),  unique=True, nullable=False)
@@ -1157,6 +1304,12 @@ class SalesOrder(customer_db.Model):
         return f"<SalesOrder {self.order_no}>"
 
     @property
+    def sales_invoice(self):
+        from sqlalchemy.orm import object_session
+        db = object_session(self)
+        return db.query(CustomerInvoice).filter_by(company_id=self.company_id, sales_order_id=self.id).first() if db else None
+
+    @property
     def client_obj(self):
         from sqlalchemy.orm import object_session
         session = object_session(self)
@@ -1166,6 +1319,7 @@ class SalesOrder(customer_db.Model):
     
     def to_dict(self):
         client = self.client_obj
+        invoice = self.sales_invoice
         from sqlalchemy.orm import object_session
         sess = object_session(self)
         item_list = []
@@ -1184,6 +1338,7 @@ class SalesOrder(customer_db.Model):
         return {
             'id': self.id,
             'order_no': self.order_no,
+            'sales_invoice_id': invoice.id if invoice else None,
             'company_id': self.company_id,
             'client_id': self.client_id,
             'client_name': self.client_name or (client.name if client else ''),
@@ -1362,6 +1517,7 @@ class OrderFlow(customer_db.Model):
     Distinct from legacy simple invoice-orders.
     """
     __tablename__ = 'order_flows'
+    sales_order_id = customer_db.Column(customer_db.Integer, nullable=True, unique=True)
 
     id               = customer_db.Column(customer_db.String(50), primary_key=True)
     company_id       = customer_db.Column(customer_db.String(50), nullable=False)
@@ -1787,6 +1943,11 @@ class WorkshopJobCard(customer_db.Model):
     def to_dict(self):
         veh = self.vehicle_obj
         cli = self.client_obj
+        from sqlalchemy.orm import object_session
+        sess = object_session(self)
+        bill = sess.query(CustomerInvoice).filter_by(
+            id=self.invoice_id, company_id=self.company_id
+        ).first() if sess and self.invoice_id else None
         return {
             'id': self.id,
             'job_card_no': self.job_card_no,
@@ -1816,6 +1977,7 @@ class WorkshopJobCard(customer_db.Model):
             'tax_amount': self.tax_amount or 0.0,
             'grand_total': self.grand_total or 0.0,
             'invoice_id': self.invoice_id,
+            'repair_bill_number': bill.invoice_number if bill else None,
             'created_by': self.created_by or 'Staff',
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
         }
@@ -2141,3 +2303,692 @@ class ServiceReminder(customer_db.Model):
             'notes': self.notes or '',
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None
         }
+
+
+class CRMProject(customer_db.Model):
+    """Customer project tracked independently of sales opportunities."""
+    __tablename__ = 'crm_projects'
+    id = customer_db.Column(customer_db.String(50), primary_key=True)
+    company_id = customer_db.Column(customer_db.String(50), nullable=False, index=True)
+    client_id = customer_db.Column(customer_db.String(50), nullable=True)
+    name = customer_db.Column(customer_db.String(200), nullable=False)
+    description = customer_db.Column(customer_db.Text, nullable=True)
+    owner = customer_db.Column(customer_db.String(200), nullable=True)
+    status = customer_db.Column(customer_db.String(30), nullable=False, default='Planned')
+    due_date = customer_db.Column(customer_db.Date, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return dict(id=self.id, client_id=self.client_id, name=self.name,
+                    description=self.description or '', owner=self.owner or '', status=self.status,
+                    due_date=self.due_date.isoformat() if self.due_date else None)
+
+
+# ===========================================================================
+# HR & PAYROLL — PHASE 1
+# Employee Master, Departments and Designations
+# Stored per company in the customer database.
+# ===========================================================================
+
+class HRDepartment(customer_db.Model):
+    __tablename__ = "hr_departments"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "name", name="uq_hr_department_company_name"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    name = customer_db.Column(customer_db.String(120), nullable=False)
+    code = customer_db.Column(customer_db.String(30), nullable=True)
+    description = customer_db.Column(customer_db.Text, nullable=True)
+    is_active = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class HRDesignation(customer_db.Model):
+    __tablename__ = "hr_designations"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "name", name="uq_hr_designation_company_name"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    name = customer_db.Column(customer_db.String(120), nullable=False)
+    code = customer_db.Column(customer_db.String(30), nullable=True)
+    level = customer_db.Column(customer_db.String(50), nullable=True)
+    description = customer_db.Column(customer_db.Text, nullable=True)
+    is_active = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class HREmployee(customer_db.Model):
+    __tablename__ = "hr_employees"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "employee_code", name="uq_hr_employee_company_code"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    employee_code = customer_db.Column(customer_db.String(30), nullable=False)
+    full_name = customer_db.Column(customer_db.String(180), nullable=False)
+    email = customer_db.Column(customer_db.String(255), nullable=True)
+    phone = customer_db.Column(customer_db.String(30), nullable=True)
+    alternate_phone = customer_db.Column(customer_db.String(30), nullable=True)
+    date_of_birth = customer_db.Column(customer_db.Date, nullable=True)
+    gender = customer_db.Column(customer_db.String(30), nullable=True)
+    address = customer_db.Column(customer_db.Text, nullable=True)
+    city = customer_db.Column(customer_db.String(100), nullable=True)
+    state = customer_db.Column(customer_db.String(100), nullable=True)
+    country = customer_db.Column(customer_db.String(100), nullable=False, default="India")
+    pincode = customer_db.Column(customer_db.String(20), nullable=True)
+    emergency_contact_name = customer_db.Column(customer_db.String(150), nullable=True)
+    emergency_contact_phone = customer_db.Column(customer_db.String(30), nullable=True)
+
+    department_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_departments.id"), nullable=True)
+    designation_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_designations.id"), nullable=True)
+    manager_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=True)
+    branch = customer_db.Column(customer_db.String(120), nullable=True)
+    joining_date = customer_db.Column(customer_db.Date, nullable=False, default=date.today)
+    employment_type = customer_db.Column(customer_db.String(50), nullable=False, default="Full Time")
+    status = customer_db.Column(customer_db.String(30), nullable=False, default="Active")
+
+    pan_number = customer_db.Column(customer_db.String(20), nullable=True)
+    aadhaar_number = customer_db.Column(customer_db.String(20), nullable=True)
+    bank_name = customer_db.Column(customer_db.String(150), nullable=True)
+    bank_account_number = customer_db.Column(customer_db.String(50), nullable=True)
+    bank_ifsc = customer_db.Column(customer_db.String(30), nullable=True)
+    uan_number = customer_db.Column(customer_db.String(30), nullable=True)
+    esi_number = customer_db.Column(customer_db.String(30), nullable=True)
+
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = customer_db.Column(customer_db.DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    department = customer_db.relationship("HRDepartment")
+    designation = customer_db.relationship("HRDesignation")
+    manager = customer_db.relationship("HREmployee", remote_side="HREmployee.id")
+
+
+# ===========================================================================
+# HR & PAYROLL — PHASE 2
+# Shifts, employee shift assignments, holidays and attendance.
+# ===========================================================================
+
+class HRShift(customer_db.Model):
+    __tablename__ = "hr_shifts"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "name", name="uq_hr_shift_company_name"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    name = customer_db.Column(customer_db.String(100), nullable=False)
+    code = customer_db.Column(customer_db.String(30), nullable=True)
+    start_time = customer_db.Column(customer_db.String(5), nullable=False, default="09:00")
+    end_time = customer_db.Column(customer_db.String(5), nullable=False, default="18:00")
+    break_minutes = customer_db.Column(customer_db.Integer, nullable=False, default=60)
+    grace_minutes = customer_db.Column(customer_db.Integer, nullable=False, default=10)
+    half_day_hours = customer_db.Column(customer_db.Float, nullable=False, default=4.0)
+    full_day_hours = customer_db.Column(customer_db.Float, nullable=False, default=8.0)
+    overtime_after_minutes = customer_db.Column(customer_db.Integer, nullable=False, default=0)
+    weekly_off_days = customer_db.Column(customer_db.String(100), nullable=False, default="Sunday")
+    is_active = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class HRShiftAssignment(customer_db.Model):
+    __tablename__ = "hr_shift_assignments"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False, index=True)
+    shift_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_shifts.id"), nullable=False, index=True)
+    effective_from = customer_db.Column(customer_db.Date, nullable=False, default=date.today)
+    effective_to = customer_db.Column(customer_db.Date, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+
+    employee = customer_db.relationship("HREmployee")
+    shift = customer_db.relationship("HRShift")
+
+
+class HRHoliday(customer_db.Model):
+    __tablename__ = "hr_holidays"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "holiday_date", "name", name="uq_hr_holiday_company_date_name"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    holiday_date = customer_db.Column(customer_db.Date, nullable=False, index=True)
+    name = customer_db.Column(customer_db.String(150), nullable=False)
+    holiday_type = customer_db.Column(customer_db.String(40), nullable=False, default="Company Holiday")
+    branch = customer_db.Column(customer_db.String(120), nullable=True)
+    is_optional = customer_db.Column(customer_db.Boolean, nullable=False, default=False)
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class HRAttendance(customer_db.Model):
+    __tablename__ = "hr_attendance"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "employee_id", "attendance_date",
+                                     name="uq_hr_attendance_company_employee_date"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False, index=True)
+    shift_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_shifts.id"), nullable=True)
+    attendance_date = customer_db.Column(customer_db.Date, nullable=False, index=True)
+    check_in = customer_db.Column(customer_db.DateTime, nullable=True)
+    check_out = customer_db.Column(customer_db.DateTime, nullable=True)
+    status = customer_db.Column(customer_db.String(30), nullable=False, default="Absent")
+    work_minutes = customer_db.Column(customer_db.Integer, nullable=False, default=0)
+    late_minutes = customer_db.Column(customer_db.Integer, nullable=False, default=0)
+    early_exit_minutes = customer_db.Column(customer_db.Integer, nullable=False, default=0)
+    overtime_minutes = customer_db.Column(customer_db.Integer, nullable=False, default=0)
+    source = customer_db.Column(customer_db.String(30), nullable=False, default="Manual")
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = customer_db.Column(customer_db.DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    employee = customer_db.relationship("HREmployee")
+    shift = customer_db.relationship("HRShift")
+
+
+# ===========================================================================
+# HR & PAYROLL — PHASE 3
+# Leave policies/balances/requests and overtime approval.
+# ===========================================================================
+
+class HRLeaveType(customer_db.Model):
+    __tablename__ = "hr_leave_types"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "name", name="uq_hr_leave_type_company_name"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    name = customer_db.Column(customer_db.String(100), nullable=False)
+    code = customer_db.Column(customer_db.String(30), nullable=True)
+    annual_entitlement = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    is_paid = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    carry_forward = customer_db.Column(customer_db.Boolean, nullable=False, default=False)
+    max_carry_forward = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    requires_approval = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    is_active = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class HRLeaveBalance(customer_db.Model):
+    __tablename__ = "hr_leave_balances"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "employee_id", "leave_type_id", "year",
+                                     name="uq_hr_leave_balance_employee_type_year"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False, index=True)
+    leave_type_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_leave_types.id"), nullable=False, index=True)
+    year = customer_db.Column(customer_db.Integer, nullable=False, index=True)
+    opening_balance = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    entitled = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    used = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    adjusted = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    employee = customer_db.relationship("HREmployee")
+    leave_type = customer_db.relationship("HRLeaveType")
+
+    @property
+    def available(self):
+        return (self.opening_balance or 0) + (self.entitled or 0) + (self.adjusted or 0) - (self.used or 0)
+
+
+class HRLeaveRequest(customer_db.Model):
+    __tablename__ = "hr_leave_requests"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False, index=True)
+    leave_type_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_leave_types.id"), nullable=False)
+    start_date = customer_db.Column(customer_db.Date, nullable=False, index=True)
+    end_date = customer_db.Column(customer_db.Date, nullable=False, index=True)
+    days = customer_db.Column(customer_db.Float, nullable=False, default=1)
+    day_part = customer_db.Column(customer_db.String(20), nullable=False, default="Full Day")
+    reason = customer_db.Column(customer_db.Text, nullable=True)
+    status = customer_db.Column(customer_db.String(20), nullable=False, default="Pending")
+    requested_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    approved_by = customer_db.Column(customer_db.String(255), nullable=True)
+    approved_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    approval_notes = customer_db.Column(customer_db.Text, nullable=True)
+    employee = customer_db.relationship("HREmployee")
+    leave_type = customer_db.relationship("HRLeaveType")
+
+
+class HROvertimeRequest(customer_db.Model):
+    __tablename__ = "hr_overtime_requests"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "attendance_id", name="uq_hr_ot_attendance"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    attendance_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_attendance.id"), nullable=False, index=True)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False, index=True)
+    requested_minutes = customer_db.Column(customer_db.Integer, nullable=False, default=0)
+    approved_minutes = customer_db.Column(customer_db.Integer, nullable=False, default=0)
+    status = customer_db.Column(customer_db.String(20), nullable=False, default="Pending")
+    reason = customer_db.Column(customer_db.Text, nullable=True)
+    approved_by = customer_db.Column(customer_db.String(255), nullable=True)
+    approved_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    attendance = customer_db.relationship("HRAttendance")
+    employee = customer_db.relationship("HREmployee")
+
+
+# ===========================================================================
+# HR & PAYROLL — PHASE 4
+# Salary components, salary structures and employee salary assignments.
+# ===========================================================================
+
+class HRSalaryComponent(customer_db.Model):
+    __tablename__ = "hr_salary_components"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "name", name="uq_hr_salary_component_company_name"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    name = customer_db.Column(customer_db.String(120), nullable=False)
+    code = customer_db.Column(customer_db.String(30), nullable=True)
+    component_type = customer_db.Column(customer_db.String(20), nullable=False, default="Earning")  # Earning/Deduction
+    calculation_type = customer_db.Column(customer_db.String(30), nullable=False, default="Fixed")  # Fixed/Percent of Basic
+    default_value = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    taxable = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    affects_gross = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    is_statutory = customer_db.Column(customer_db.Boolean, nullable=False, default=False)
+    is_active = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    sort_order = customer_db.Column(customer_db.Integer, nullable=False, default=100)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class HRSalaryStructure(customer_db.Model):
+    __tablename__ = "hr_salary_structures"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "name", name="uq_hr_salary_structure_company_name"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    name = customer_db.Column(customer_db.String(150), nullable=False)
+    code = customer_db.Column(customer_db.String(30), nullable=True)
+    description = customer_db.Column(customer_db.Text, nullable=True)
+    pay_frequency = customer_db.Column(customer_db.String(30), nullable=False, default="Monthly")
+    is_active = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    lines = customer_db.relationship("HRSalaryStructureLine", back_populates="structure",
+        cascade="all, delete-orphan", order_by="HRSalaryStructureLine.sort_order")
+
+
+class HRSalaryStructureLine(customer_db.Model):
+    __tablename__ = "hr_salary_structure_lines"
+    __table_args__ = (
+        customer_db.UniqueConstraint("structure_id", "component_id", name="uq_hr_structure_component"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    structure_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_salary_structures.id"), nullable=False, index=True)
+    component_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_salary_components.id"), nullable=False)
+    value = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    calculation_type = customer_db.Column(customer_db.String(30), nullable=False, default="Fixed")
+    sort_order = customer_db.Column(customer_db.Integer, nullable=False, default=100)
+    structure = customer_db.relationship("HRSalaryStructure", back_populates="lines")
+    component = customer_db.relationship("HRSalaryComponent")
+
+
+class HREmployeeSalaryAssignment(customer_db.Model):
+    __tablename__ = "hr_employee_salary_assignments"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False, index=True)
+    structure_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_salary_structures.id"), nullable=False)
+    effective_from = customer_db.Column(customer_db.Date, nullable=False, index=True)
+    effective_to = customer_db.Column(customer_db.Date, nullable=True)
+    basic_monthly = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    annual_ctc = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    employee = customer_db.relationship("HREmployee")
+    structure = customer_db.relationship("HRSalaryStructure")
+
+
+# ===========================================================================
+# HR & PAYROLL — PHASE 5
+# Monthly payroll runs, employee payroll snapshots, line items and payslips.
+# ===========================================================================
+
+class HRPayrollRun(customer_db.Model):
+    __tablename__ = "hr_payroll_runs"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "year", "month", name="uq_hr_payroll_company_period"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    year = customer_db.Column(customer_db.Integer, nullable=False, index=True)
+    month = customer_db.Column(customer_db.Integer, nullable=False, index=True)
+    status = customer_db.Column(customer_db.String(20), nullable=False, default="Draft")  # Draft/Calculated/Approved/Locked
+    total_gross = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    total_deductions = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    total_net = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    created_by = customer_db.Column(customer_db.String(255), nullable=True)
+    approved_by = customer_db.Column(customer_db.String(255), nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    calculated_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    approved_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    locked_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    finance_posted_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    finance_posted_by = customer_db.Column(customer_db.String(255), nullable=True)
+    payment_status = customer_db.Column(customer_db.String(20), nullable=False, default="Unpaid")
+    paid_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    paid_by = customer_db.Column(customer_db.String(255), nullable=True)
+    bank_transaction_id = customer_db.Column(customer_db.Integer, nullable=True)
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    entries = customer_db.relationship("HRPayrollEntry", back_populates="run", cascade="all, delete-orphan")
+
+
+class HRPayrollEntry(customer_db.Model):
+    __tablename__ = "hr_payroll_entries"
+    __table_args__ = (
+        customer_db.UniqueConstraint("payroll_run_id", "employee_id", name="uq_hr_payroll_run_employee"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    payroll_run_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_payroll_runs.id"), nullable=False, index=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False, index=True)
+    salary_assignment_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employee_salary_assignments.id"), nullable=True)
+    calendar_days = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    working_days = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    present_days = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    paid_leave_days = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    unpaid_leave_days = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    absent_days = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    payable_days = customer_db.Column(customer_db.Float, nullable=False, default=0)
+    approved_overtime_minutes = customer_db.Column(customer_db.Integer, nullable=False, default=0)
+    basic_monthly = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    gross_earnings = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    total_deductions = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    net_pay = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    status = customer_db.Column(customer_db.String(20), nullable=False, default="Calculated")
+    generated_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    run = customer_db.relationship("HRPayrollRun", back_populates="entries")
+    employee = customer_db.relationship("HREmployee")
+    salary_assignment = customer_db.relationship("HREmployeeSalaryAssignment")
+    lines = customer_db.relationship("HRPayrollLine", back_populates="entry", cascade="all, delete-orphan",
+                                     order_by="HRPayrollLine.sort_order")
+
+
+class HRPayrollLine(customer_db.Model):
+    __tablename__ = "hr_payroll_lines"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    payroll_entry_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_payroll_entries.id"), nullable=False, index=True)
+    component_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_salary_components.id"), nullable=True)
+    component_name = customer_db.Column(customer_db.String(120), nullable=False)
+    component_code = customer_db.Column(customer_db.String(30), nullable=True)
+    component_type = customer_db.Column(customer_db.String(20), nullable=False)
+    amount = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    is_prorated = customer_db.Column(customer_db.Boolean, nullable=False, default=False)
+    sort_order = customer_db.Column(customer_db.Integer, nullable=False, default=100)
+    entry = customer_db.relationship("HRPayrollEntry", back_populates="lines")
+    component = customer_db.relationship("HRSalaryComponent")
+
+
+# ===========================================================================
+# HR & PAYROLL — PHASE 6
+# Effective-dated statutory payroll configuration and employee declarations.
+# ===========================================================================
+
+class HRStatutoryRule(customer_db.Model):
+    __tablename__ = "hr_statutory_rules"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "rule_code", "effective_from",
+                                     name="uq_hr_statutory_rule_effective"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    rule_code = customer_db.Column(customer_db.String(30), nullable=False, index=True) # PF/ESI/PT/TDS
+    name = customer_db.Column(customer_db.String(120), nullable=False)
+    effective_from = customer_db.Column(customer_db.Date, nullable=False, index=True)
+    effective_to = customer_db.Column(customer_db.Date, nullable=True)
+    enabled = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    settings_json = customer_db.Column(customer_db.Text, nullable=False, default="{}")
+    source_note = customer_db.Column(customer_db.Text, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class HREmployeeStatutoryProfile(customer_db.Model):
+    __tablename__ = "hr_employee_statutory_profiles"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "employee_id", name="uq_hr_statutory_employee"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False, index=True)
+    pf_enabled = customer_db.Column(customer_db.Boolean, nullable=False, default=False)
+    pf_on_actual_basic = customer_db.Column(customer_db.Boolean, nullable=False, default=False)
+    esi_enabled = customer_db.Column(customer_db.Boolean, nullable=False, default=False)
+    pt_enabled = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    tds_enabled = customer_db.Column(customer_db.Boolean, nullable=False, default=False)
+    tax_regime = customer_db.Column(customer_db.String(20), nullable=False, default="New")
+    annual_other_income = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    annual_deductions = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    tds_already_deducted = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    manual_monthly_tds = customer_db.Column(customer_db.Numeric(18,2), nullable=True)
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    updated_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    employee = customer_db.relationship("HREmployee")
+
+
+class HRPayrollStatutoryLine(customer_db.Model):
+    __tablename__ = "hr_payroll_statutory_lines"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    payroll_entry_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_payroll_entries.id"), nullable=False, index=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    rule_code = customer_db.Column(customer_db.String(30), nullable=False)
+    description = customer_db.Column(customer_db.String(150), nullable=False)
+    employee_amount = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    employer_amount = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    wage_base = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    rule_snapshot = customer_db.Column(customer_db.Text, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    entry = customer_db.relationship("HRPayrollEntry")
+
+
+# ===========================================================================
+# HR & PAYROLL — PHASE 7
+# Employee loans/advances, payroll recovery and reimbursement claims.
+# ===========================================================================
+
+class HREmployeeLoan(customer_db.Model):
+    __tablename__ = "hr_employee_loans"
+    __table_args__ = (
+        customer_db.UniqueConstraint("company_id", "loan_number", name="uq_hr_employee_loan_number"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    loan_number = customer_db.Column(customer_db.String(40), nullable=False)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False, index=True)
+    loan_type = customer_db.Column(customer_db.String(40), nullable=False, default="Loan") # Loan/Salary Advance
+    principal_amount = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    installment_amount = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    total_installments = customer_db.Column(customer_db.Integer, nullable=False, default=1)
+    start_month = customer_db.Column(customer_db.Integer, nullable=False)
+    start_year = customer_db.Column(customer_db.Integer, nullable=False)
+    outstanding_amount = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    status = customer_db.Column(customer_db.String(20), nullable=False, default="Active") # Active/Closed/Hold
+    purpose = customer_db.Column(customer_db.Text, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    employee = customer_db.relationship("HREmployee")
+    recoveries = customer_db.relationship("HRLoanRecovery", back_populates="loan")
+
+
+class HRLoanRecovery(customer_db.Model):
+    __tablename__ = "hr_loan_recoveries"
+    __table_args__ = (
+        customer_db.UniqueConstraint("loan_id", "payroll_entry_id", name="uq_hr_loan_payroll_recovery"),
+    )
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    loan_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employee_loans.id"), nullable=False, index=True)
+    payroll_entry_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_payroll_entries.id"), nullable=False, index=True)
+    amount = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    status = customer_db.Column(customer_db.String(20), nullable=False, default="Pending") # Pending/Applied
+    recovered_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    loan = customer_db.relationship("HREmployeeLoan", back_populates="recoveries")
+    payroll_entry = customer_db.relationship("HRPayrollEntry")
+
+
+class HRExpenseClaim(customer_db.Model):
+    __tablename__ = "hr_expense_claims"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False, index=True)
+    claim_date = customer_db.Column(customer_db.Date, nullable=False, default=date.today, index=True)
+    expense_type = customer_db.Column(customer_db.String(80), nullable=False)
+    amount = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    merchant = customer_db.Column(customer_db.String(150), nullable=True)
+    description = customer_db.Column(customer_db.Text, nullable=True)
+    receipt_reference = customer_db.Column(customer_db.String(255), nullable=True)
+    status = customer_db.Column(customer_db.String(20), nullable=False, default="Pending") # Pending/Approved/Rejected/Paid
+    approved_amount = customer_db.Column(customer_db.Numeric(18,2), nullable=False, default=0)
+    approved_by = customer_db.Column(customer_db.String(255), nullable=True)
+    approved_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    approval_notes = customer_db.Column(customer_db.Text, nullable=True)
+    include_in_payroll = customer_db.Column(customer_db.Boolean, nullable=False, default=True)
+    payroll_entry_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_payroll_entries.id"), nullable=True)
+    paid_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    employee = customer_db.relationship("HREmployee")
+    payroll_entry = customer_db.relationship("HRPayrollEntry")
+
+
+# ── HR Phase 10: Talent, lifecycle, assets and exits ───────────────────────────
+
+class HRJobOpening(customer_db.Model):
+    __tablename__ = "hr_job_openings"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False)
+    job_code = customer_db.Column(customer_db.String(30), nullable=False)
+    title = customer_db.Column(customer_db.String(150), nullable=False)
+    department_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_departments.id"), nullable=True)
+    designation_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_designations.id"), nullable=True)
+    openings = customer_db.Column(customer_db.Integer, nullable=False, default=1)
+    location = customer_db.Column(customer_db.String(150), nullable=True)
+    employment_type = customer_db.Column(customer_db.String(50), nullable=False, default="Full Time")
+    description = customer_db.Column(customer_db.Text, nullable=True)
+    status = customer_db.Column(customer_db.String(30), nullable=False, default="Open")
+    opened_on = customer_db.Column(customer_db.Date, nullable=False, default=date.today)
+    target_close_date = customer_db.Column(customer_db.Date, nullable=True)
+    created_by = customer_db.Column(customer_db.String(255), nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    __table_args__ = (customer_db.UniqueConstraint("company_id","job_code",name="uq_hr_job_company_code"),)
+    department = customer_db.relationship("HRDepartment")
+    designation = customer_db.relationship("HRDesignation")
+    candidates = customer_db.relationship("HRCandidate", back_populates="job", cascade="all, delete-orphan")
+
+class HRCandidate(customer_db.Model):
+    __tablename__ = "hr_candidates"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False)
+    job_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_job_openings.id"), nullable=False)
+    full_name = customer_db.Column(customer_db.String(150), nullable=False)
+    email = customer_db.Column(customer_db.String(255), nullable=True)
+    phone = customer_db.Column(customer_db.String(30), nullable=True)
+    source = customer_db.Column(customer_db.String(100), nullable=True)
+    experience_years = customer_db.Column(customer_db.Float, nullable=True)
+    current_company = customer_db.Column(customer_db.String(150), nullable=True)
+    current_ctc = customer_db.Column(customer_db.Numeric(14,2), nullable=True)
+    expected_ctc = customer_db.Column(customer_db.Numeric(14,2), nullable=True)
+    notice_period_days = customer_db.Column(customer_db.Integer, nullable=True)
+    stage = customer_db.Column(customer_db.String(40), nullable=False, default="Applied")
+    rating = customer_db.Column(customer_db.Integer, nullable=True)
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    applied_on = customer_db.Column(customer_db.Date, nullable=False, default=date.today)
+    converted_employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=True)
+    job = customer_db.relationship("HRJobOpening", back_populates="candidates")
+    converted_employee = customer_db.relationship("HREmployee")
+
+class HROnboardingTask(customer_db.Model):
+    __tablename__ = "hr_onboarding_tasks"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False)
+    task_name = customer_db.Column(customer_db.String(200), nullable=False)
+    category = customer_db.Column(customer_db.String(80), nullable=True)
+    due_date = customer_db.Column(customer_db.Date, nullable=True)
+    owner = customer_db.Column(customer_db.String(150), nullable=True)
+    status = customer_db.Column(customer_db.String(30), nullable=False, default="Pending")
+    completed_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    employee = customer_db.relationship("HREmployee")
+
+class HRPerformanceReview(customer_db.Model):
+    __tablename__ = "hr_performance_reviews"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False)
+    review_period = customer_db.Column(customer_db.String(100), nullable=False)
+    review_date = customer_db.Column(customer_db.Date, nullable=False, default=date.today)
+    reviewer_employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=True)
+    goals = customer_db.Column(customer_db.Text, nullable=True)
+    achievements = customer_db.Column(customer_db.Text, nullable=True)
+    strengths = customer_db.Column(customer_db.Text, nullable=True)
+    improvement_areas = customer_db.Column(customer_db.Text, nullable=True)
+    rating = customer_db.Column(customer_db.Float, nullable=True)
+    outcome = customer_db.Column(customer_db.String(80), nullable=True)
+    status = customer_db.Column(customer_db.String(30), nullable=False, default="Draft")
+    employee = customer_db.relationship("HREmployee", foreign_keys=[employee_id])
+    reviewer = customer_db.relationship("HREmployee", foreign_keys=[reviewer_employee_id])
+
+class HREmployeeAsset(customer_db.Model):
+    __tablename__ = "hr_employee_assets"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False)
+    asset_code = customer_db.Column(customer_db.String(50), nullable=False)
+    asset_type = customer_db.Column(customer_db.String(100), nullable=False)
+    description = customer_db.Column(customer_db.String(255), nullable=True)
+    serial_number = customer_db.Column(customer_db.String(100), nullable=True)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=True)
+    issued_on = customer_db.Column(customer_db.Date, nullable=True)
+    expected_return_date = customer_db.Column(customer_db.Date, nullable=True)
+    returned_on = customer_db.Column(customer_db.Date, nullable=True)
+    condition_issued = customer_db.Column(customer_db.String(100), nullable=True)
+    condition_returned = customer_db.Column(customer_db.String(100), nullable=True)
+    status = customer_db.Column(customer_db.String(30), nullable=False, default="Available")
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    __table_args__ = (customer_db.UniqueConstraint("company_id","asset_code",name="uq_hr_asset_company_code"),)
+    employee = customer_db.relationship("HREmployee")
+
+class HREmployeeMovement(customer_db.Model):
+    __tablename__ = "hr_employee_movements"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False)
+    movement_type = customer_db.Column(customer_db.String(40), nullable=False)
+    effective_date = customer_db.Column(customer_db.Date, nullable=False)
+    old_department_id = customer_db.Column(customer_db.Integer, nullable=True)
+    new_department_id = customer_db.Column(customer_db.Integer, nullable=True)
+    old_designation_id = customer_db.Column(customer_db.Integer, nullable=True)
+    new_designation_id = customer_db.Column(customer_db.Integer, nullable=True)
+    old_manager_id = customer_db.Column(customer_db.Integer, nullable=True)
+    new_manager_id = customer_db.Column(customer_db.Integer, nullable=True)
+    reason = customer_db.Column(customer_db.Text, nullable=True)
+    approved_by = customer_db.Column(customer_db.String(255), nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    employee = customer_db.relationship("HREmployee")
+
+class HRExitCase(customer_db.Model):
+    __tablename__ = "hr_exit_cases"
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False)
+    employee_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("hr_employees.id"), nullable=False)
+    exit_type = customer_db.Column(customer_db.String(50), nullable=False, default="Resignation")
+    resignation_date = customer_db.Column(customer_db.Date, nullable=True)
+    last_working_date = customer_db.Column(customer_db.Date, nullable=False)
+    reason = customer_db.Column(customer_db.Text, nullable=True)
+    notice_days = customer_db.Column(customer_db.Integer, nullable=True)
+    handover_status = customer_db.Column(customer_db.String(30), nullable=False, default="Pending")
+    asset_clearance_status = customer_db.Column(customer_db.String(30), nullable=False, default="Pending")
+    finance_clearance_status = customer_db.Column(customer_db.String(30), nullable=False, default="Pending")
+    final_settlement_amount = customer_db.Column(customer_db.Numeric(14,2), nullable=False, default=0)
+    settlement_status = customer_db.Column(customer_db.String(30), nullable=False, default="Pending")
+    status = customer_db.Column(customer_db.String(30), nullable=False, default="Open")
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    closed_at = customer_db.Column(customer_db.DateTime, nullable=True)
+    employee = customer_db.relationship("HREmployee")

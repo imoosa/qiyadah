@@ -34,6 +34,9 @@ QUOTATION_STATUSES = ["Draft", "Sent", "Accepted", "Rejected"]
 
 def register_crm_routes(app, login_required, get_cdb, get_current_company, get_current_user, get_company_by_id):
 
+    from crm_workspace import register_crm_workspace
+    register_crm_workspace(app, login_required, get_cdb, get_current_company, get_current_user)
+
     def is_owner_user():
         user = get_current_user() or {}
         return user.get('role') in ('owner', 'super_admin')
@@ -94,6 +97,7 @@ def register_crm_routes(app, login_required, get_cdb, get_current_company, get_c
             'won_revenue': won_revenue,
             'win_rate': win_rate,
             'funnel': funnel,
+            'stage_order': LEAD_STAGES,
             'pending_followups': [f.to_dict() for f in pending_followups],
             'recent_leads': recent_leads,
             'is_owner': is_owner
@@ -320,6 +324,9 @@ def register_crm_routes(app, login_required, get_cdb, get_current_company, get_c
         if not name or not client_id:
             return jsonify({'error': 'Name and Client ID are required'}), 400
 
+        if not cdb.query(Client).filter_by(id=client_id, company_id=company_id).first():
+            return jsonify({'error': 'Account not found'}), 404
+
         contact = CRMContact(
             id=f"cnt-{uuid.uuid4().hex[:8]}",
             company_id=company_id,
@@ -361,6 +368,8 @@ def register_crm_routes(app, login_required, get_cdb, get_current_company, get_c
             search_f = request.args.get('search', '').strip().lower()
 
             query = cdb.query(CRMLead).filter_by(company_id=company_id)
+            if request.args.get('module') == 'deals':
+                query = query.filter(CRMLead.stage.in_(['Qualified', 'Proposal Sent', 'Won', 'Lost']))
             if stage_f and stage_f != 'all':
                 query = query.filter_by(stage=stage_f)
 
@@ -535,23 +544,23 @@ def register_crm_routes(app, login_required, get_cdb, get_current_company, get_c
     def api_crm_lead_convert_order(lead_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        lead = cdb.query(CRMLead).filter_by(id=lead_id, company_id=company_id).first()
+        lead = cdb.query(CRMLead).filter_by(id=lead_id, company_id=company_id).with_for_update().populate_existing().first()
         if not lead:
             return jsonify({'error': 'Lead not found'}), 404
 
         data = request.get_json() or {}
+        modules = app.extensions.get('module_access')
+        if modules and not modules('orderflow'):
+            return jsonify(error='OrderFlow access is required for conversion'), 403
+        if lead.converted_order_id:
+            existing = cdb.query(OrderFlow).filter_by(id=lead.converted_order_id, company_id=company_id).first()
+            if not existing:
+                return jsonify(error='The linked production order is missing; review the source before converting again'), 409
+            return jsonify(success=True, already_exists=True, order_id=existing.id, order=existing.to_dict())
         user = get_current_user() or {}
         user_name = user.get('full_name') or user.get('email') or 'User'
 
-        # Generate unique order id
-        last_order = cdb.query(OrderFlow).filter_by(company_id=company_id).order_by(desc(OrderFlow.created_at)).first()
-        seq = 1001
-        if last_order and last_order.id and last_order.id.startswith("ORD-"):
-            try:
-                seq = int(last_order.id.split('-')[1]) + 1
-            except Exception:
-                seq = 1001
-        order_id = f"ORD-{seq}"
+        order_id = f"ORD-{uuid.uuid4().hex[:12].upper()}"
 
         quantity = int(data.get('quantity') or 1)
         unit_price = float(data.get('unit_price') or (lead.estimated_value / max(quantity, 1) if lead.estimated_value else 0.0))
@@ -633,6 +642,10 @@ def register_crm_routes(app, login_required, get_cdb, get_current_company, get_c
         summary = data.get('summary', '').strip()
         client_id = str(data.get('client_id', '')).strip()
 
+        if act_type not in INTERACTION_TYPES:
+            return jsonify({'error': 'Invalid activity type'}), 400
+        if client_id and not cdb.query(Client).filter_by(id=client_id, company_id=company_id).first():
+            return jsonify({'error': 'Account not found'}), 404
         if not summary:
             return jsonify({'error': 'Activity description or summary is required'}), 400
 
@@ -642,8 +655,8 @@ def register_crm_routes(app, login_required, get_cdb, get_current_company, get_c
         if data.get('due_date'):
             try:
                 due_d = date.fromisoformat(data.get('due_date'))
-            except Exception:
-                pass
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Use a valid due date'}), 400
 
         act = CRMInteraction(
             company_id=company_id,
@@ -718,9 +731,13 @@ def register_crm_routes(app, login_required, get_cdb, get_current_company, get_c
 
         items = data.get('items', [])
         subtotal = sum(float(it.get('qty', 1)) * float(it.get('rate', 0.0)) for it in items)
+        tax_vat = float(data.get('vat') or 0.0)
         tax_cgst = float(data.get('cgst') or 0.0)
         tax_sgst = float(data.get('sgst') or 0.0)
-        total_amount = subtotal + tax_cgst + tax_sgst
+        if tax_vat > 0:
+            tax_cgst = tax_vat
+            tax_sgst = 0.0
+        total_amount = subtotal + (tax_vat if tax_vat > 0 else (tax_cgst + tax_sgst))
 
         valid_until_d = None
         if data.get('valid_until'):
@@ -791,22 +808,22 @@ def register_crm_routes(app, login_required, get_cdb, get_current_company, get_c
     def api_crm_quotation_convert(quote_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        quote = cdb.query(CRMQuotation).filter_by(id=quote_id, company_id=company_id).first()
+        quote = cdb.query(CRMQuotation).filter_by(id=quote_id, company_id=company_id).with_for_update().populate_existing().first()
         if not quote:
             return jsonify({'error': 'Quotation not found'}), 404
 
+        modules = app.extensions.get('module_access')
+        if modules and not modules('orderflow'):
+            return jsonify(error='OrderFlow access is required for conversion'), 403
+        if quote.converted_order_id:
+            existing = cdb.query(OrderFlow).filter_by(id=quote.converted_order_id, company_id=company_id).first()
+            if not existing:
+                return jsonify(error='The linked production order is missing; review the source before converting again'), 409
+            return jsonify(success=True, already_exists=True, order_id=existing.id, order=existing.to_dict())
         user = get_current_user() or {}
         user_name = user.get('full_name') or user.get('email') or 'User'
 
-        # Generate order id
-        last_order = cdb.query(OrderFlow).filter_by(company_id=company_id).order_by(desc(OrderFlow.created_at)).first()
-        seq = 1001
-        if last_order and last_order.id and last_order.id.startswith("ORD-"):
-            try:
-                seq = int(last_order.id.split('-')[1]) + 1
-            except Exception:
-                seq = 1001
-        order_id = f"ORD-{seq}"
+        order_id = f"ORD-{uuid.uuid4().hex[:12].upper()}"
 
         # Combine items summary
         items = []
@@ -913,6 +930,7 @@ def register_crm_routes(app, login_required, get_cdb, get_current_company, get_c
             'total_leads': len(leads),
             'source_distribution': sources,
             'stage_breakdown': stage_breakdown,
+            'stage_order': LEAD_STAGES,
             'quotations_summary': {
                 'total': len(quotes),
                 'accepted': len([q for q in quotes if q.status == 'Accepted']),

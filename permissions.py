@@ -1,20 +1,18 @@
 """
 permissions.py
 ──────────────
-Per-company, per-role access control for the two non-owner roles:
-'employee' (sales), 'accountant', and 'manager'.
+Per-company, per-role access control for sales, finance and HR staff.
 
 Scope, deliberately:
-- Three actions only: view, create, edit. NO delete anywhere in this
-  system — that was an explicit decision, not an oversight. Every delete
-  route in app.py is untouched and still governed only by owner_required
-  / login_required as before.
+- Actions are view, create, edit and delete. Delete is disabled by default.
 - 'owner' and 'super_admin' always have full access and never touch this
   matrix.
 - company_settings, whatsapp_connect, and employees/user-management stay
   behind the existing @owner_required decorator — they are intentionally
   NOT part of this override system, so an owner can never accidentally
   (or an accountant never can) grant access to them via the settings UI.
+- HR staff permission delegation is explicitly owner-issued and separately
+  enforced in hr_user_access.py; it never grants company-settings access.
 
 Resolution order for a given (company, role, module, action):
   1. Per-user override on CompanyUser.permission_overrides (if the key
@@ -29,9 +27,10 @@ from customer_models import CompanyUser, CompanyRolePermission
 # Modules governed by this matrix. (company_settings / whatsapp_connect /
 # employees are intentionally excluded — see module docstring.)
 MODULES = [
+    "finance", "hr", "hr_employees", "hr_masters", "hr_attendance", "hr_shifts", "hr_holidays", "hr_leave", "hr_overtime", "hr_salary", "hr_payroll", "hr_statutory", "hr_loans", "hr_claims", "hr_recruitment", "hr_onboarding", "hr_performance", "hr_assets", "hr_movements", "hr_exits",
     "dashboard", "analytics", "clients", "suppliers", "estimates", 
     "sales_orders", "delivery_challans", "customer_invoices",
-    "purchase_orders", "purchase", "stock", "pricelist", "manifest", "invoices",
+    "purchase_orders", "purchase", "stock", "invoices",
     "creditors", "debtors", "expenses", "cash", "bank", "cheques",
     "loans", "receipts_payments", "backup",
 ]
@@ -40,8 +39,28 @@ ACTIONS = ["view", "create", "edit", "delete"]
 
 # Human-readable labels for the settings UI matrix.
 MODULE_LABELS = {
+    "hr":                "HR & Payroll Workspace",
+    "hr_employees":      "HR Employee Master",
+    "hr_masters":        "HR Departments & Designations",
+    "hr_attendance":     "HR Attendance",
+    "hr_shifts":         "HR Shifts & Rosters",
+    "hr_holidays":       "HR Holiday Calendar",
+    "hr_leave":          "HR Leave Management",
+    "hr_overtime":       "HR Overtime Approval",
+    "hr_salary":         "HR Salary Structures",
+    "hr_payroll":        "HR Payroll Run & Payslips",
+    "hr_statutory":      "HR Statutory Payroll",
+    "hr_loans":          "HR Loans & Advances",
+    "hr_claims":         "HR Expense Claims",
+    "hr_recruitment":    "HR Recruitment",
+    "hr_onboarding":     "HR Onboarding",
+    "hr_performance":    "HR Performance Reviews",
+    "hr_assets":         "HR Employee Assets",
+    "hr_movements":      "HR Employee Movements",
+    "hr_exits":          "HR Employee Exits",
+    "finance":           "Core Finance Workspace",
     "dashboard":         "Dashboard",
-    "analytics":         "Analytics / Reports",
+    "analytics":         "Business Intelligence (BI Developer only)",
     "clients":           "Clients / Customers",
     "suppliers":         "Suppliers / Vendors",
     "estimates":         "Quotations / Estimates",
@@ -51,9 +70,7 @@ MODULE_LABELS = {
     "purchase_orders":   "Purchase Orders",
     "purchase":          "Purchase Invoices",
     "stock":             "Stock / Inventory",
-    "pricelist":         "Price List",
-    "manifest":          "Manifest",
-    "invoices":          "Booking Invoice",
+    "invoices":          "Legacy Invoice Records",
     "creditors":         "Creditors",
     "debtors":           "Debtors",
     "expenses":          "Expenses",
@@ -95,8 +112,21 @@ DEFAULT_ROLE_PERMISSIONS = {
     },
     "accountant": {
         **_all(MODULES),
+        "hr": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_employees": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_masters": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_attendance": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_shifts": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_holidays": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_leave": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_overtime": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_salary": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_payroll": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_statutory": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_loans": {"view": False, "create": False, "edit": False, "delete": False},
+        "hr_claims": {"view": False, "create": False, "edit": False, "delete": False},
         "dashboard": {"view": False, "create": False, "edit": False},
-        "analytics": {"view": False, "create": False, "edit": False},
+        "analytics": {"view": True, "create": False, "edit": False},
         "customer_invoices": {"view": True, "create": True, "edit": True},
         "delivery_challans": {"view": True, "create": True, "edit": True},
         "sales_orders":      {"view": True, "create": True, "edit": True},
@@ -110,6 +140,17 @@ DEFAULT_ROLE_PERMISSIONS = {
         "purchase_orders":   {"view": True, "create": True, "edit": True},
     },
 }
+
+HR_MODULES = [m for m in MODULES if m == "hr" or m.startswith("hr_")]
+HR_ROLES = {"hr_admin": "HR Administrator", "hr_staff": "HR Staff", "payroll_officer": "Payroll Officer"}
+DEFAULT_ROLE_PERMISSIONS['bi_developer'] = _none(MODULES)
+for _defaults in DEFAULT_ROLE_PERMISSIONS.values():
+    _defaults['analytics'] = {a: False for a in ACTIONS}
+# New HR accounts start closed. Owners explicitly grant operational access;
+# an HR job title alone never grants payroll or user-administration authority.
+for _hr_role in HR_ROLES:
+    DEFAULT_ROLE_PERMISSIONS[_hr_role] = _none(MODULES)
+    DEFAULT_ROLE_PERMISSIONS[_hr_role]["hr"]["view"] = True
 
 # The per-module override dicts above (e.g. "clients": {"view": True, ...})
 # only specify the actions that differ from _none()'s baseline, so they don't
@@ -278,7 +319,8 @@ def get_field_permissions(role, user_id=None, company_id=None, cdb=None):
     # per-user override JSON that only contained some field groups caused
     # every *other* group to read as {} -> view=False, edit=False.
     import copy
-    result = copy.deepcopy(DEFAULT_FIELD_PERMISSIONS.get(role, DEFAULT_FIELD_PERMISSIONS["employee"]))
+    result = copy.deepcopy(DEFAULT_FIELD_PERMISSIONS.get(role,
+        {key: {"view": False, "edit": False} for key in INVOICE_FIELDS}))
 
     # Layer 2: company-wide role override, if set.
     if company_id and cdb:
@@ -349,6 +391,17 @@ def _merge(base, override_json):
     return base
 
 
+def explicitly_granted_bi(member):
+    """Only a live BI Developer with an individual owner grant may enter BI."""
+    if not member or not member.is_active or member.role != 'bi_developer':
+        return False
+    try:
+        data = json.loads(member.permission_overrides or '{}')
+        return isinstance(data, dict) and isinstance(data.get('analytics'), dict) and data['analytics'].get('view') is True
+    except (ValueError, TypeError):
+        return False
+
+
 def get_effective_permissions(role, company_id, user_id, cdb, CompanyRolePermission, CompanyUser):
     """
     Compute the effective view/create/edit matrix for a non-owner user.
@@ -371,5 +424,8 @@ def get_effective_permissions(role, company_id, user_id, cdb, CompanyRolePermiss
     )
     if user_row:
         perms = _merge(perms, user_row.permission_overrides)
+
+    if not explicitly_granted_bi(user_row):
+        perms['analytics'] = {a: False for a in ACTIONS}
 
     return perms

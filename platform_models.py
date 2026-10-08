@@ -30,6 +30,7 @@ class SubscriptionPlan(db.Model):
     price_lifetime = db.Column(db.String(50),  nullable=True)
     max_companies  = db.Column(db.String(20),  nullable=False)
     max_users      = db.Column(db.String(20),  nullable=False)
+    max_branches   = db.Column(db.Integer, nullable=True)
     features       = db.Column(db.Text,        nullable=True)
 
     companies        = db.relationship("Company",        back_populates="plan_obj")
@@ -86,6 +87,8 @@ class RegisteredUser(db.Model):
     amount_paid    = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     registered_by  = db.Column(db.String(255), nullable=True)   # super admin email who created this account
     registered_at  = db.Column(db.DateTime,    nullable=False, default=datetime.utcnow)
+    last_trial_notice_date = db.Column(db.Date, nullable=True)
+    last_trial_email_date = db.Column(db.Date, nullable=True)
     custom_max_companies = db.Column(db.Integer, nullable=True)
     custom_max_users = db.Column(db.Integer, nullable=True)
     custom_yearly_amount = db.Column(db.Numeric(10, 2), nullable=True)
@@ -172,6 +175,7 @@ class Company(db.Model):
     id                    = db.Column(db.Integer,    primary_key=True, autoincrement=True)
     company_id            = db.Column(db.String(20),  unique=True, nullable=False)
     company_name          = db.Column(db.String(200), nullable=False)
+    branch_name           = db.Column(db.String(100), nullable=True)
     owner_email           = db.Column(db.String(255),
                                 db.ForeignKey("registered_users.email"), nullable=False)
     subscription_plan     = db.Column(db.String(20),
@@ -268,6 +272,31 @@ class Company(db.Model):
 
     @property
     def state(self):
+        country = (self.country or "India").strip()
+        regime = (self.tax_regime or "GST").strip().upper()
+        addr = (self.address or "").lower()
+
+        if country in ("United Arab Emirates", "UAE"):
+            for em in ["Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ras Al Khaimah", "Fujairah"]:
+                if em.lower() in addr:
+                    return em
+            return "Dubai"
+        elif country in ("Saudi Arabia", "KSA"):
+            for city in ["Riyadh", "Jeddah", "Dammam", "Mecca", "Medina", "Khobar"]:
+                if city.lower() in addr:
+                    return city
+            return "Riyadh"
+        elif country == "Kuwait":
+            return "Kuwait City"
+        elif country == "Qatar":
+            return "Doha"
+        elif country == "Bahrain":
+            return "Manama"
+        elif country == "Oman":
+            return "Muscat"
+        elif country not in ("India", "") or regime != "GST":
+            return ""
+
         gst = (self.gst_number or "").strip().upper()
         if gst and len(gst) >= 2 and gst[:2].isdigit():
             gst_state_map = {
@@ -472,3 +501,27 @@ def generate_api_key(company_id, label=None, allowed_origin=None):
     db.session.add(row)
     db.session.commit()
     return plaintext, row
+
+
+class PlatformAccessRule(db.Model):
+    """Super-admin entitlements, separate from customer-editable role permissions."""
+    __tablename__ = 'platform_access_rules'
+    scope = db.Column(db.String(20), primary_key=True)
+    target = db.Column(db.String(150), primary_key=True)
+    overrides = db.Column(db.JSON, nullable=False, default=dict)
+    trial_end = db.Column(db.Date, nullable=True)
+    revision = db.Column(db.Integer, nullable=False, default=0)
+    updated_by = db.Column(db.String(255), nullable=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class PlatformAccessAudit(db.Model):
+    __tablename__ = 'platform_access_audit'
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    scope = db.Column(db.String(20), nullable=False, index=True)
+    target = db.Column(db.String(150), nullable=False, index=True)
+    actor = db.Column(db.String(255), nullable=False)
+    before_json = db.Column(db.JSON, nullable=False)
+    after_json = db.Column(db.JSON, nullable=False)
+    reason = db.Column(db.String(1000), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)

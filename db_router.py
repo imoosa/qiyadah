@@ -5,7 +5,7 @@ Manages per-company database connections.
 
 Platform DB  → YOUR MySQL (configured via PLATFORM_DB_URI env var in app.py)
 Customer DB  → Separate MySQL database on the SAME VPS, one per company.
-               Name pattern:  erp_<company_id_lowercase>
+               Name pattern:  qiy_<company_id_lowercase>
                URI built from env vars: VPS_MYSQL_HOST/PORT/USER/PASSWORD
 
 Every company that registers gets its own isolated MySQL database created
@@ -27,18 +27,24 @@ Usage in routes
 """
 
 import os
+from pathlib import Path
+from dotenv import load_dotenv
+from sqlalchemy.engine import URL, make_url
+load_dotenv(Path(__file__).resolve().with_name('.env'))
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import PendingRollbackError, OperationalError
 from sqlalchemy.orm import sessionmaker, scoped_session
 from customer_models import customer_db   # exposes .metadata (plain SQLAlchemy Base)
+from finance_periods import setup_period_control
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MySQL connection settings for customer databases on this VPS
 # ─────────────────────────────────────────────────────────────────────────────
-VPS_MYSQL_HOST     = os.environ.get("VPS_MYSQL_HOST",     "127.0.0.1")
-VPS_MYSQL_PORT     = os.environ.get("VPS_MYSQL_PORT",     "3306")
-VPS_MYSQL_USER     = os.environ.get("VPS_MYSQL_USER",     "root")
-VPS_MYSQL_PASSWORD = os.environ.get("VPS_MYSQL_PASSWORD", "")
+_platform_url = make_url(os.environ.get('PLATFORM_DB_URI', 'mysql+pymysql://root@localhost/qiyadah_erp'))
+VPS_MYSQL_HOST = os.environ.get('VPS_MYSQL_HOST', _platform_url.host or '127.0.0.1')
+VPS_MYSQL_PORT = os.environ.get('VPS_MYSQL_PORT', str(_platform_url.port or 3306))
+VPS_MYSQL_USER = os.environ.get('VPS_MYSQL_USER', _platform_url.username or 'root')
+VPS_MYSQL_PASSWORD = os.environ.get('VPS_MYSQL_PASSWORD', _platform_url.password or '')
 
 # ─────────────────────────────────────────────────────────────────────────────
 # In-process cache:  { company_id → scoped_session factory }
@@ -49,17 +55,14 @@ _session_cache: dict = {}
 
 def _db_name(company_id) -> str:
     """Return the MySQL database name for a company."""
-    return f"erp_{str(company_id).lower()}"
+    return f"qiy_{str(company_id).lower()}"
 
 
 def _build_uri(company_id: str) -> str:
     """Build the mysql+pymysql URI for a company's dedicated database."""
-    db_name = _db_name(company_id)
-    pwd     = VPS_MYSQL_PASSWORD
-    return (
-        f"mysql+pymysql://{VPS_MYSQL_USER}:{pwd}"
-        f"@{VPS_MYSQL_HOST}:{VPS_MYSQL_PORT}/{db_name}"
-    )
+    return URL.create('mysql+pymysql', username=VPS_MYSQL_USER,
+                      password=VPS_MYSQL_PASSWORD, host=VPS_MYSQL_HOST,
+                      port=int(VPS_MYSQL_PORT), database=_db_name(company_id))
 
 
 def _create_database_if_missing(company_id: str):
@@ -68,10 +71,8 @@ def _create_database_if_missing(company_id: str):
     Uses a root-level connection (no database selected).
     """
     db_name = _db_name(company_id)
-    root_uri = (
-        f"mysql+pymysql://{VPS_MYSQL_USER}:{VPS_MYSQL_PASSWORD}"
-        f"@{VPS_MYSQL_HOST}:{VPS_MYSQL_PORT}/"
-    )
+    # URL.set ignores None; _replace actually removes the not-yet-created database.
+    root_uri = _build_uri(company_id)._replace(database=None)
     engine = create_engine(root_uri)
     try:
         with engine.connect() as conn:
@@ -85,6 +86,11 @@ def _create_database_if_missing(company_id: str):
 
 
 CUSTOMER_SCHEMA_PATCHES = [
+    "ALTER TABLE order_flows ADD COLUMN sales_order_id INTEGER NULL UNIQUE",
+    "ALTER TABLE delivery_challans ADD COLUMN sales_order_id INTEGER NULL UNIQUE",
+    "ALTER TABLE purchase_invoices ADD COLUMN purchase_order_id INTEGER NULL UNIQUE",
+    "ALTER TABLE customer_invoices ADD COLUMN note_adjustment FLOAT NOT NULL DEFAULT 0.0",
+    "ALTER TABLE purchase_invoices ADD COLUMN note_adjustment FLOAT NOT NULL DEFAULT 0.0",
     # company_users
     "ALTER TABLE company_users ADD COLUMN field_permissions JSON",
     "ALTER TABLE company_users ADD COLUMN editable_fields JSON",
@@ -134,6 +140,7 @@ CUSTOMER_SCHEMA_PATCHES = [
     "ALTER TABLE invoices ADD COLUMN has_resale BOOLEAN DEFAULT FALSE",
 
     # customer_invoices
+    "ALTER TABLE customer_invoices ADD COLUMN sales_order_id INTEGER NULL UNIQUE",
     "ALTER TABLE customer_invoices ADD COLUMN billing_address TEXT NULL",
     "ALTER TABLE customer_invoices ADD COLUMN shipping_address TEXT NULL",
     "ALTER TABLE customer_invoices ADD COLUMN client_gstin VARCHAR(50) NULL",
@@ -143,8 +150,12 @@ CUSTOMER_SCHEMA_PATCHES = [
     "ALTER TABLE customer_invoices ADD COLUMN cgst_total FLOAT NOT NULL DEFAULT 0.0",
     "ALTER TABLE customer_invoices ADD COLUMN sgst_total FLOAT NOT NULL DEFAULT 0.0",
     "ALTER TABLE customer_invoices ADD COLUMN igst_total FLOAT NOT NULL DEFAULT 0.0",
+    "ALTER TABLE customer_invoices ADD COLUMN invoice_category VARCHAR(30) NOT NULL DEFAULT 'product_sale'",
+    "ALTER TABLE customer_invoices ADD COLUMN invoice_number VARCHAR(30) NULL", 
 
     # customer_invoice_items
+    # Older booking-only schemas required this link; product sales have no booking.
+    "ALTER TABLE customer_invoice_items MODIFY COLUMN booking_invoice_id INTEGER NULL",
     "ALTER TABLE customer_invoice_items ADD COLUMN stock_item_id INTEGER NULL",
     "ALTER TABLE customer_invoice_items ADD COLUMN item_code VARCHAR(50) NULL",
     "ALTER TABLE customer_invoice_items ADD COLUMN item_name VARCHAR(200) NULL",
@@ -299,6 +310,30 @@ CUSTOMER_SCHEMA_PATCHES = [
     "ALTER TABLE workshop_estimate_items ADD COLUMN brand VARCHAR(100) NULL",
     "ALTER TABLE workshop_part_issues ADD COLUMN brand VARCHAR(100) NULL",
     "ALTER TABLE workshop_part_issues ADD COLUMN item_type VARCHAR(30) DEFAULT 'Part'",
+
+    # hr_payroll_runs & entries
+    "ALTER TABLE hr_payroll_runs ADD COLUMN finance_posted_at DATETIME NULL",
+    "ALTER TABLE hr_payroll_runs ADD COLUMN finance_posted_by VARCHAR(255) NULL",
+    "ALTER TABLE hr_payroll_runs ADD COLUMN payment_status VARCHAR(20) DEFAULT 'Unpaid'",
+    "ALTER TABLE hr_payroll_runs ADD COLUMN paid_at DATETIME NULL",
+    "ALTER TABLE hr_payroll_runs ADD COLUMN paid_by VARCHAR(255) NULL",
+    "ALTER TABLE hr_payroll_runs ADD COLUMN bank_transaction_id INTEGER NULL",
+    "ALTER TABLE hr_payroll_runs ADD COLUMN notes TEXT NULL",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN salary_assignment_id INTEGER NULL",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN calendar_days FLOAT DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN working_days FLOAT DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN present_days FLOAT DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN paid_leave_days FLOAT DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN unpaid_leave_days FLOAT DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN absent_days FLOAT DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN payable_days FLOAT DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN approved_overtime_minutes INTEGER DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN basic_monthly DECIMAL(18,2) DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN gross_earnings DECIMAL(18,2) DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN total_deductions DECIMAL(18,2) DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN net_pay DECIMAL(18,2) DEFAULT 0",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN status VARCHAR(20) DEFAULT 'Calculated'",
+    "ALTER TABLE hr_payroll_entries ADD COLUMN generated_at DATETIME NULL",
 ]
 
 
@@ -335,8 +370,9 @@ def _get_or_create(company_id: str):
         # 3. Create all customer tables if they don't exist yet
         customer_db.metadata.create_all(engine)
         _ensure_customer_schema(engine)
+        setup_period_control(engine, company_id)
 
-        factory = scoped_session(sessionmaker(bind=engine))
+        factory = scoped_session(sessionmaker(bind=engine, info={'finance_period_company': company_id}))
         _engine_cache[company_id]  = engine
         _session_cache[company_id] = factory
 

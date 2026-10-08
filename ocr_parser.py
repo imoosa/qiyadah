@@ -402,20 +402,44 @@ Important:
 - Ensure all numeric values are numbers (float/int), not strings with currency symbols.
 """
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[
-                types.Part.from_bytes(
-                    data=file_bytes,
-                    mime_type=mime_type,
-                ),
-                prompt
-            ],
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.1
-            )
-        )
+        import time
+        response = None
+        models_to_try = [
+            "gemini-3.8-flash",
+            "gemini-3.5-flash",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-2.5-pro",
+            "gemini-3.5-flash-lite",
+            "gemini-flash-latest"
+        ]
+        for m_candidate in models_to_try:
+            for attempt in range(2):
+                try:
+                    response = client.models.generate_content(
+                        model=m_candidate,
+                        contents=[
+                            types.Part.from_bytes(
+                                data=file_bytes,
+                                mime_type=mime_type,
+                            ),
+                            prompt
+                        ],
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            temperature=0.1
+                        )
+                    )
+                    if response and response.text:
+                        break
+                except Exception as ex_m:
+                    print(f"[Gemini model {m_candidate} attempt {attempt+1} failed]: {ex_m}")
+                    time.sleep(1)
+            if response and response.text:
+                break
+
+        if not response or not response.text:
+            return None
 
         resp_text = response.text.strip()
         if resp_text.startswith("```json"):

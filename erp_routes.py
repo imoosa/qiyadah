@@ -16,12 +16,13 @@ from customer_models import (
     SalesOrder, SalesOrderItem,
     PurchaseOrder, PurchaseOrderItem,
     CustomerInvoice, CustomerInvoiceItem,
-    PurchaseInvoice, PurchaseInvoiceItem
+    PurchaseInvoice, PurchaseInvoiceItem, StockPurchaseHistory, OrderFlow
 )
 from platform_models import Company
+from tax_service import tax_profile, billing_rate, split_tax
 
 
-def register_erp_routes(app, login_required, require_permission, get_cdb, get_current_company, resolve_user_names):
+def register_erp_routes(app, login_required, require_permission, get_cdb, get_current_company, resolve_user_names, post_customer_invoice, post_purchase_invoice=None):
 
     # 1. DELIVERY CHALLANS
     @app.route("/delivery-challans")
@@ -138,6 +139,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
 
         subtotal = 0.0
         tax_amount = 0.0
+        cgst_total = sgst_total = 0.0
 
         for i in range(len(item_names)):
             name = item_names[i].strip() if i < len(item_names) else ""
@@ -156,15 +158,14 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             base = qty * rate
             disc = (base * disc_pct) / 100.0
             taxable = max(0.0, base - disc)
-            tax = (taxable * gst_pct) / 100.0
+            gst_pct = billing_rate(company, gst_pct)
+            tax, cgst, sgst, igst = split_tax(taxable, gst_pct, tax_profile(company)['regime'])
             line_total = taxable + tax
-
-            cgst = tax / 2.0
-            sgst = tax / 2.0
-            igst = 0.0
 
             subtotal += taxable
             tax_amount += tax
+            cgst_total += cgst
+            sgst_total += sgst
 
             ch_item = DeliveryChallanItem(
                 challan_id=challan.id,
@@ -210,7 +211,9 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         cdb = get_cdb()
         company_id = get_current_company()
         company = Company.query.filter_by(company_id=company_id).first()
-        challan = cdb.query(DeliveryChallan).filter_by(id=challan_id, company_id=company_id).first_or_404()
+        challan = cdb.query(DeliveryChallan).filter_by(id=challan_id, company_id=company_id).first()
+        if challan is None:
+            abort(404)
 
         company_logo_url = None
         if company and company.logo_filename:
@@ -231,7 +234,9 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         cdb = get_cdb()
         company_id = get_current_company()
         company = Company.query.filter_by(company_id=company_id).first()
-        challan = cdb.query(DeliveryChallan).filter_by(id=challan_id, company_id=company_id).first_or_404()
+        challan = cdb.query(DeliveryChallan).filter_by(id=challan_id, company_id=company_id).first()
+        if challan is None:
+            abort(404)
 
         if request.method == "GET":
             clients = cdb.query(Client).filter_by(company_id=company_id).order_by(Client.name.asc()).all()
@@ -287,6 +292,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
 
         subtotal = 0.0
         tax_amount = 0.0
+        cgst_total = sgst_total = 0.0
 
         for i in range(len(item_names)):
             name = item_names[i].strip() if i < len(item_names) else ""
@@ -305,15 +311,14 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             base = qty * rate
             disc = (base * disc_pct) / 100.0
             taxable = max(0.0, base - disc)
-            tax = (taxable * gst_pct) / 100.0
+            gst_pct = billing_rate(company, gst_pct)
+            tax, cgst, sgst, igst = split_tax(taxable, gst_pct, tax_profile(company)['regime'])
             line_total = taxable + tax
-
-            cgst = tax / 2.0
-            sgst = tax / 2.0
-            igst = 0.0
 
             subtotal += taxable
             tax_amount += tax
+            cgst_total += cgst
+            sgst_total += sgst
 
             ch_item = DeliveryChallanItem(
                 challan_id=challan.id,
@@ -348,27 +353,55 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         cdb = get_cdb()
         company_id = get_current_company()
         company = Company.query.filter_by(company_id=company_id).first()
-        challan = cdb.query(DeliveryChallan).filter_by(id=challan_id, company_id=company_id).first_or_404()
+        challan = cdb.query(DeliveryChallan).filter_by(id=challan_id, company_id=company_id).first()
+        if challan is None:
+            abort(404)
         return render_template("delivery_challan_pdf.html", challan=challan, company=company)
 
-    @app.route("/delivery-challan/<int:challan_id>/convert-to-invoice")
+    @app.route("/delivery-challan/<int:challan_id>/convert-to-invoice", methods=["POST"])
     @login_required
+    @require_permission("delivery_challans", "view")
     @require_permission("customer_invoices", "create")
     def delivery_challan_convert_to_invoice(challan_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        challan = cdb.query(DeliveryChallan).filter_by(id=challan_id, company_id=company_id).first_or_404()
+        challan = cdb.query(DeliveryChallan).filter_by(id=challan_id, company_id=company_id).with_for_update().populate_existing().first()
+        if challan is None:
+            abort(404)
 
-        count = cdb.query(CustomerInvoice).filter_by(company_id=company_id).count()
+        if challan.invoiced_invoice_id:
+            existing = cdb.query(CustomerInvoice).filter_by(id=challan.invoiced_invoice_id, company_id=company_id).first()
+            if not existing:
+                abort(409, description="The linked invoice is missing; review this challan before billing again")
+            return redirect(url_for("customer_invoice_view", cust_inv_id=existing.id))
+        if challan.status not in ('Dispatched', 'Delivered') or not challan.items:
+            flash("Dispatch a challan with items before invoicing it.", "warning")
+            return redirect(url_for("delivery_challan_view", challan_id=challan.id))
+        sales_order = None
+        if challan.sales_order_id:
+            sales_order = cdb.query(SalesOrder).filter_by(id=challan.sales_order_id, company_id=company_id).with_for_update().first()
+            if not sales_order:
+                abort(409, description="Linked sales order is missing")
+            existing = cdb.query(CustomerInvoice).filter_by(company_id=company_id, sales_order_id=sales_order.id).first()
+            if existing:
+                challan.invoiced_invoice_id = existing.id
+                challan.status = "Invoiced"
+                cdb.commit()
+                return redirect(url_for("customer_invoice_view", cust_inv_id=existing.id))
+        company = Company.query.filter_by(company_id=company_id).first()
+        count = cdb.query(CustomerInvoice).count()
         inv_no = f"INV-{count + 1:04d}"
-        while cdb.query(CustomerInvoice).filter_by(company_id=company_id, invoice_number=inv_no).first():
+        while cdb.query(CustomerInvoice).filter_by(invoice_number=inv_no).first():
             count += 1
             inv_no = f"INV-{count + 1:04d}"
 
         cust_inv = CustomerInvoice(
+            sales_order_id=sales_order.id if sales_order else None,
+            currency=company.currency or "INR", tax_regime=tax_profile(company)["regime"], exchange_rate=1.0,
+            base_subtotal=challan.subtotal, base_tax_amount=challan.tax_amount, base_grand_total=challan.grand_total,
             invoice_number=inv_no,
             company_id=company_id,
-            client_id=challan.client_id or 0,
+            client_id=challan.client_id or None,
             client_name=challan.client_name or (challan.client_obj.name if challan.client_obj else "Direct Customer"),
             invoice_date=date.today(),
             due_date=date.today(),
@@ -376,9 +409,9 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             status="Pending",
             subtotal=challan.subtotal,
             tax_amount=challan.tax_amount,
-            cgst_total=challan.tax_amount / 2.0,
-            sgst_total=challan.tax_amount / 2.0,
-            igst_total=0.0,
+            cgst_total=sum(item.cgst_amount or 0 for item in challan.items),
+            sgst_total=sum(item.sgst_amount or 0 for item in challan.items),
+            igst_total=sum(item.igst_amount or 0 for item in challan.items),
             grand_total=challan.grand_total,
             paid_amount=0.0,
             balance=challan.grand_total,
@@ -391,7 +424,9 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         for item in challan.items:
             ci_item = CustomerInvoiceItem(
                 customer_invoice_id=cust_inv.id,
-                booking_invoice_id=challan.id,
+                stock_item_id=item.stock_item_id, item_code=item.item_code, item_name=item.item_name,
+                hsn=item.hsn, unit=item.unit, rate=item.rate, discount_percent=item.discount_percent,
+                base_rate=item.rate, base_taxable_amount=item.taxable_amount, base_total_amount=item.total_amount,
                 booking_invoice_ref=challan.challan_no,
                 docket_no=challan.challan_no,
                 receiver_name=challan.client_name,
@@ -411,7 +446,14 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
 
         challan.status = "Invoiced"
         challan.invoiced_invoice_id = cust_inv.id
-        cdb.commit()
+        if sales_order:
+            sales_order.status = "Invoiced"
+        try:
+            post_customer_invoice(cdb, company_id, cust_inv)
+            cdb.commit()
+        except Exception:
+            cdb.rollback()
+            raise
         flash(f"Delivery Challan {challan.challan_no} converted to Tax Invoice {cust_inv.invoice_number}!", "success")
         return redirect(url_for("customer_invoice_view", cust_inv_id=cust_inv.id))
 
@@ -421,7 +463,9 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
     def delivery_challan_delete(challan_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        challan = cdb.query(DeliveryChallan).filter_by(id=challan_id, company_id=company_id).first_or_404()
+        challan = cdb.query(DeliveryChallan).filter_by(id=challan_id, company_id=company_id).first()
+        if challan is None:
+            abort(404)
         ch_no = challan.challan_no
         cdb.delete(challan)
         cdb.commit()
@@ -534,6 +578,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
 
         subtotal = 0.0
         tax_amount = 0.0
+        cgst_total = sgst_total = 0.0
 
         for i in range(len(item_names)):
             name = item_names[i].strip() if i < len(item_names) else ""
@@ -552,15 +597,14 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             base = qty * rate
             disc = (base * disc_pct) / 100.0
             taxable = max(0.0, base - disc)
-            tax = (taxable * gst_pct) / 100.0
+            gst_pct = billing_rate(company, gst_pct)
+            tax, cgst, sgst, igst = split_tax(taxable, gst_pct, tax_profile(company)['regime'])
             line_total = taxable + tax
-
-            cgst = tax / 2.0
-            sgst = tax / 2.0
-            igst = 0.0
 
             subtotal += taxable
             tax_amount += tax
+            cgst_total += cgst
+            sgst_total += sgst
 
             so_item = SalesOrderItem(
                 sales_order_id=so.id,
@@ -585,8 +629,8 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
 
         so.subtotal = subtotal
         so.tax_amount = tax_amount
-        so.cgst_total = tax_amount / 2.0
-        so.sgst_total = tax_amount / 2.0
+        so.cgst_total = cgst_total
+        so.sgst_total = sgst_total
         so.igst_total = 0.0
         so.grand_total = subtotal + tax_amount
 
@@ -601,7 +645,9 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         cdb = get_cdb()
         company_id = get_current_company()
         company = Company.query.filter_by(company_id=company_id).first()
-        order = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).first_or_404()
+        order = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).first()
+        if order is None:
+            abort(404)
 
         company_logo_url = None
         if company and company.logo_filename:
@@ -610,6 +656,8 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         return render_template(
             "sales_order_view.html",
             order=order,
+            production_order=cdb.query(OrderFlow).filter(OrderFlow.company_id == company_id,
+                or_(OrderFlow.sales_order_id == order.id, OrderFlow.source == f"Sales Order {order.order_no}")).first(),
             company=company,
             company_logo_url=company_logo_url,
             active="sales_orders"
@@ -622,7 +670,9 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         cdb = get_cdb()
         company_id = get_current_company()
         company = Company.query.filter_by(company_id=company_id).first()
-        order = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).first_or_404()
+        order = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).first()
+        if order is None:
+            abort(404)
 
         if request.method == "GET":
             clients = cdb.query(Client).filter_by(company_id=company_id).order_by(Client.name.asc()).all()
@@ -672,6 +722,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
 
         subtotal = 0.0
         tax_amount = 0.0
+        cgst_total = sgst_total = 0.0
 
         for i in range(len(item_names)):
             name = item_names[i].strip() if i < len(item_names) else ""
@@ -690,15 +741,14 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             base = qty * rate
             disc = (base * disc_pct) / 100.0
             taxable = max(0.0, base - disc)
-            tax = (taxable * gst_pct) / 100.0
+            gst_pct = billing_rate(company, gst_pct)
+            tax, cgst, sgst, igst = split_tax(taxable, gst_pct, tax_profile(company)['regime'])
             line_total = taxable + tax
-
-            cgst = tax / 2.0
-            sgst = tax / 2.0
-            igst = 0.0
 
             subtotal += taxable
             tax_amount += tax
+            cgst_total += cgst
+            sgst_total += sgst
 
             so_item = SalesOrderItem(
                 sales_order_id=order.id,
@@ -723,8 +773,8 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
 
         order.subtotal = subtotal
         order.tax_amount = tax_amount
-        order.cgst_total = tax_amount / 2.0
-        order.sgst_total = tax_amount / 2.0
+        order.cgst_total = cgst_total
+        order.sgst_total = sgst_total
         order.igst_total = 0.0
         order.grand_total = subtotal + tax_amount
 
@@ -732,17 +782,44 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         flash(f"Sales Order {order.order_no} updated successfully!", "success")
         return redirect(url_for("sales_order_view", order_id=order.id))
 
-    @app.route("/sales-order/<int:order_id>/convert-to-challan")
+    @app.route("/sales-order/<int:order_id>/convert-to-challan", methods=["POST"])
     @login_required
+    @require_permission("sales_orders", "view")
     @require_permission("delivery_challans", "create")
     def sales_order_convert_to_challan(order_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        order = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).first_or_404()
+        order = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).with_for_update().populate_existing().first()
+        if order is None:
+            abort(404)
 
-        count = cdb.query(DeliveryChallan).filter_by(company_id=company_id).count()
+        existing = cdb.query(DeliveryChallan).filter(
+            DeliveryChallan.company_id == company_id,
+            or_(DeliveryChallan.sales_order_id == order.id, DeliveryChallan.reference_order_no == order.order_no),
+        ).first()
+        if existing:
+            return redirect(url_for("delivery_challan_view", challan_id=existing.id))
+        if order.status not in ('Confirmed', 'Invoiced') or not order.items:
+            flash("Confirm an order with items before dispatch.", "warning")
+            return redirect(url_for("sales_order_view", order_id=order.id))
+        needed = {}
+        for item in order.items:
+            if item.quantity <= 0:
+                abort(400, description="Dispatch quantities must be positive")
+            if item.stock_item_id:
+                needed[item.stock_item_id] = needed.get(item.stock_item_id, 0) + item.quantity
+        stocks = {}
+        for stock_id, quantity in sorted(needed.items()):
+            stock = cdb.query(StockItem).filter_by(id=stock_id, company_id=company_id).with_for_update().first()
+            if not stock or stock.quantity < quantity:
+                cdb.rollback()
+                flash("Insufficient company stock to dispatch this order.", "warning")
+                return redirect(url_for("sales_order_view", order_id=order.id))
+            stocks[stock_id] = stock
+        company = Company.query.filter_by(company_id=company_id).first()
+        count = cdb.query(DeliveryChallan).count()
         dc_no = f"DC-{count + 1:04d}"
-        while cdb.query(DeliveryChallan).filter_by(company_id=company_id, challan_no=dc_no).first():
+        while cdb.query(DeliveryChallan).filter_by(challan_no=dc_no).first():
             count += 1
             dc_no = f"DC-{count + 1:04d}"
 
@@ -752,6 +829,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             shipping_addr = ", ".join(p for p in parts if p)
 
         challan = DeliveryChallan(
+            sales_order_id=order.id,
             challan_no=dc_no,
             company_id=company_id,
             client_id=order.client_id,
@@ -795,33 +873,68 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             cdb.add(ch_item)
 
             if item.stock_item_id:
-                stk = cdb.query(StockItem).filter_by(id=item.stock_item_id, company_id=company_id).first()
+                stk = stocks[item.stock_item_id]
                 if stk:
-                    stk.quantity = max(0.0, (stk.quantity or 0.0) - item.quantity)
+                    stk.quantity -= item.quantity
+                    stk.last_updated = date.today()
+                    cdb.add(StockPurchaseHistory(stock_item_id=stk.id, quantity=item.quantity,
+                        purchase_rate=stk.purchase_rate or 0, base_purchase_rate=stk.purchase_rate or 0,
+                        currency=company.currency or "INR", exchange_rate=1.0,
+                        movement_type="OUT", reference=dc_no, purchase_date=date.today()))
+            item.delivered_qty = item.quantity
 
-        order.status = "Shipped"
+        if order.status != "Invoiced":
+            order.status = "Shipped"
         cdb.commit()
         flash(f"Delivery Challan {challan.challan_no} created for Sales Order {order.order_no}!", "success")
         return redirect(url_for("delivery_challan_view", challan_id=challan.id))
 
-    @app.route("/sales-order/<int:order_id>/convert-to-invoice")
+    @app.route("/sales-order/<int:order_id>/convert-to-invoice", methods=["POST"])
     @login_required
+    @require_permission("sales_orders", "view")
     @require_permission("customer_invoices", "create")
     def sales_order_convert_to_invoice(order_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        order = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).first_or_404()
 
-        count = cdb.query(CustomerInvoice).filter_by(company_id=company_id).count()
+        # Lock the source until both the invoice and its accounting entry commit.
+        order = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).with_for_update().populate_existing().first()
+        if order is None:
+            abort(404)
+        existing = cdb.query(CustomerInvoice).filter_by(company_id=company_id, sales_order_id=order.id).first()
+        if existing:
+            return redirect(url_for("customer_invoice_view", cust_inv_id=existing.id))
+        if order.status != "Confirmed":
+            flash("Only confirmed sales orders can be converted to a sales invoice.", "warning")
+            return redirect(url_for("sales_order_view", order_id=order.id))
+        if not order.items:
+            flash("Add at least one item before converting this order.", "warning")
+            return redirect(url_for("sales_order_view", order_id=order.id))
+        company = Company.query.filter_by(company_id=company_id).first()
+        client = cdb.query(Client).filter_by(id=order.client_id, company_id=company_id).first() if order.client_id else None
+        address = ", ".join(p for p in (client.address_line1, client.city, client.state, client.pincode) if p) if client else ""
+        count = cdb.query(CustomerInvoice).count()
         inv_no = f"INV-{count + 1:04d}"
-        while cdb.query(CustomerInvoice).filter_by(company_id=company_id, invoice_number=inv_no).first():
+        while cdb.query(CustomerInvoice).filter_by(invoice_number=inv_no).first():
             count += 1
             inv_no = f"INV-{count + 1:04d}"
 
         cust_inv = CustomerInvoice(
+            sales_order_id=order.id,
             invoice_number=inv_no,
             company_id=company_id,
-            client_id=order.client_id or 0,
+            client_id=client.id if client else None,
+            billing_address=address,
+            shipping_address=address,
+            client_gstin=client.gst_number if client else None,
+            client_state=client.state if client else None,
+            currency=company.currency or "INR",
+            tax_regime=company.tax_regime or "INDIA_GST",
+            exchange_rate=1.0,
+            base_subtotal=order.subtotal,
+            base_tax_amount=order.tax_amount,
+            base_grand_total=order.grand_total,
+            terms=order.terms,
             client_name=order.client_name or (order.client_obj.name if order.client_obj else "Direct Customer"),
             invoice_date=date.today(),
             due_date=date.today(),
@@ -835,7 +948,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             grand_total=order.grand_total,
             paid_amount=0.0,
             balance=order.grand_total,
-            notes=f"Generated from Sales Order: {order.order_no}",
+            notes=f"Generated from Sales Order: {order.order_no}\n{order.notes or ''}",
             created_by=session.get("user", {}).get("email", "System"),
         )
         cdb.add(cust_inv)
@@ -844,11 +957,17 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         for item in order.items:
             ci_item = CustomerInvoiceItem(
                 customer_invoice_id=cust_inv.id,
-                booking_invoice_id=order.id,
-                booking_invoice_ref=order.order_no,
-                docket_no=order.order_no,
-                receiver_name=order.client_name,
-                item_description=item.item_name,
+                stock_item_id=item.stock_item_id,
+                item_code=item.item_code,
+                item_name=item.item_name,
+                item_description=item.description or item.item_name,
+                hsn=item.hsn,
+                unit=item.unit,
+                rate=item.rate,
+                discount_percent=item.discount_percent,
+                base_rate=item.rate,
+                base_taxable_amount=item.taxable_amount,
+                base_total_amount=item.total_amount,
                 quantity=item.quantity,
                 rate_per_kg=item.rate,
                 taxable_amount=item.taxable_amount,
@@ -862,7 +981,12 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             cdb.add(ci_item)
 
         order.status = "Invoiced"
-        cdb.commit()
+        try:
+            post_customer_invoice(cdb, company_id, cust_inv)
+            cdb.commit()
+        except Exception:
+            cdb.rollback()
+            raise
         flash(f"Sales Order {order.order_no} converted to Tax Invoice {cust_inv.invoice_number}!", "success")
         return redirect(url_for("customer_invoice_view", cust_inv_id=cust_inv.id))
 
@@ -872,7 +996,9 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
     def sales_order_delete(order_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        order = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).first_or_404()
+        order = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).first()
+        if order is None:
+            abort(404)
         so_no = order.order_no
         cdb.delete(order)
         cdb.commit()
@@ -950,7 +1076,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         supplier_name = request.form.get("supplier_name", "").strip()
 
         po_date_str = request.form.get("po_date")
-        expected_date_str = request.form.get("expected_date")
+        expected_date_str = request.form.get("expected_delivery_date") or request.form.get("expected_date")
 
         try:
             po_date = datetime.strptime(po_date_str, "%Y-%m-%d").date() if po_date_str else date.today()
@@ -978,7 +1104,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
                 if not supplier_phone: supplier_phone = sup.phone or ""
                 if not supplier_email: supplier_email = sup.email or ""
 
-        reference_quote_no = request.form.get("reference_quote_no", "").strip()
+        reference_quote_no = request.form.get("reference_no", request.form.get("reference_quote_no", "")).strip()
         payment_terms = request.form.get("payment_terms", "").strip()
         delivery_terms = request.form.get("delivery_terms", "").strip()
         terms = request.form.get("terms", "").strip()
@@ -989,16 +1115,9 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             company_id=company_id,
             supplier_id=supplier_id,
             supplier_name=supplier_name,
-            supplier_address=supplier_address,
-            supplier_gstin=supplier_gstin,
-            supplier_state=supplier_state,
-            supplier_phone=supplier_phone,
-            supplier_email=supplier_email,
             po_date=po_date,
-            expected_date=expected_date,
-            reference_quote_no=reference_quote_no,
-            payment_terms=payment_terms,
-            delivery_terms=delivery_terms,
+            expected_delivery_date=expected_date,
+            reference_no=reference_quote_no,
             terms=terms,
             notes=notes,
             status="Draft",
@@ -1008,20 +1127,21 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         cdb.flush()
 
         subtotal = 0.0
+        total_tax = 0.0
         cgst_total = 0.0
         sgst_total = 0.0
         igst_total = 0.0
 
         item_names = request.form.getlist("item_name[]")
         item_codes = request.form.getlist("item_code[]")
-        stock_ids = request.form.getlist("stock_item_id[]")
+        stock_ids = (request.form.getlist("stock_item_id[]") or request.form.getlist("item_stock_id[]"))
         descriptions = request.form.getlist("description[]")
-        hsns = request.form.getlist("hsn[]")
-        quantities = request.form.getlist("quantity[]")
-        units = request.form.getlist("unit[]")
-        rates = request.form.getlist("rate[]")
-        discounts = request.form.getlist("discount_percent[]")
-        gst_percents = request.form.getlist("gst_percent[]")
+        hsns = (request.form.getlist("hsn[]") or request.form.getlist("item_hsn[]"))
+        quantities = (request.form.getlist("quantity[]") or request.form.getlist("item_qty[]"))
+        units = (request.form.getlist("unit[]") or request.form.getlist("item_unit[]"))
+        rates = (request.form.getlist("rate[]") or request.form.getlist("item_rate[]"))
+        discounts = (request.form.getlist("discount_percent[]") or request.form.getlist("item_discount[]"))
+        gst_percents = (request.form.getlist("gst_percent[]") or request.form.getlist("item_gst[]"))
 
         for i in range(len(item_names)):
             iname = item_names[i].strip() if i < len(item_names) else ""
@@ -1053,16 +1173,10 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
                 if company.state.strip().lower() != supplier_state.strip().lower():
                     is_interstate = True
 
-            if is_interstate:
-                cgst = 0.0
-                sgst = 0.0
-                igst = round(taxable * (gst / 100.0), 2)
-            else:
-                cgst = round(taxable * (gst / 200.0), 2)
-                sgst = round(taxable * (gst / 200.0), 2)
-                igst = 0.0
-
-            total = round(taxable + cgst + sgst + igst, 2)
+            gst = billing_rate(company, gst)
+            line_tax, cgst, sgst, igst = split_tax(taxable, gst, tax_profile(company)['regime'], is_interstate)
+            total_tax += line_tax
+            total = round(taxable + line_tax, 2)
 
             subtotal += taxable
             cgst_total += cgst
@@ -1093,7 +1207,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         order.cgst_total = round(cgst_total, 2)
         order.sgst_total = round(sgst_total, 2)
         order.igst_total = round(igst_total, 2)
-        order.tax_amount = round(cgst_total + sgst_total + igst_total, 2)
+        order.tax_amount = round(total_tax, 2)
         order.grand_total = round(subtotal + order.tax_amount, 2)
 
         cdb.commit()
@@ -1106,12 +1220,16 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
     def purchase_order_view(po_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        order = cdb.query(PurchaseOrder).filter_by(id=po_id, company_id=company_id).first_or_404()
+        order = cdb.query(PurchaseOrder).filter_by(id=po_id, company_id=company_id).first()
+        if order is None:
+            abort(404)
         company = Company.query.filter_by(company_id=company_id).first()
 
         return render_template(
             "purchase_order_view.html",
             po=order,
+            linked_invoice=cdb.query(PurchaseInvoice).filter(PurchaseInvoice.company_id == company_id,
+                or_(PurchaseInvoice.purchase_order_id == order.id, PurchaseInvoice.reference_po_no == order.po_number)).first(),
             order=order,
             company=company,
             active="purchase_orders"
@@ -1123,7 +1241,9 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
     def purchase_order_edit(po_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        order = cdb.query(PurchaseOrder).filter_by(id=po_id, company_id=company_id).first_or_404()
+        order = cdb.query(PurchaseOrder).filter_by(id=po_id, company_id=company_id).first()
+        if order is None:
+            abort(404)
         company = Company.query.filter_by(company_id=company_id).first()
 
         if request.method == "GET":
@@ -1149,7 +1269,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         order.supplier_name = request.form.get("supplier_name", order.supplier_name).strip()
 
         po_date_str = request.form.get("po_date")
-        expected_date_str = request.form.get("expected_date")
+        expected_date_str = request.form.get("expected_delivery_date") or request.form.get("expected_date")
 
         try:
             order.po_date = datetime.strptime(po_date_str, "%Y-%m-%d").date() if po_date_str else date.today()
@@ -1157,16 +1277,16 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             pass
 
         try:
-            order.expected_date = datetime.strptime(expected_date_str, "%Y-%m-%d").date() if expected_date_str else None
+            order.expected_delivery_date = datetime.strptime(expected_date_str, "%Y-%m-%d").date() if expected_date_str else None
         except ValueError:
-            order.expected_date = None
+            order.expected_delivery_date = None
 
         order.supplier_address = request.form.get("supplier_address", "").strip()
         order.supplier_gstin = request.form.get("supplier_gstin", "").strip()
         order.supplier_state = request.form.get("supplier_state", "").strip()
         order.supplier_phone = request.form.get("supplier_phone", "").strip()
         order.supplier_email = request.form.get("supplier_email", "").strip()
-        order.reference_quote_no = request.form.get("reference_quote_no", "").strip()
+        order.reference_quote_no = request.form.get("reference_no", request.form.get("reference_quote_no", "")).strip()
         order.payment_terms = request.form.get("payment_terms", "").strip()
         order.delivery_terms = request.form.get("delivery_terms", "").strip()
         order.terms = request.form.get("terms", "").strip()
@@ -1176,20 +1296,21 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         cdb.query(PurchaseOrderItem).filter_by(purchase_order_id=order.id).delete()
 
         subtotal = 0.0
+        total_tax = 0.0
         cgst_total = 0.0
         sgst_total = 0.0
         igst_total = 0.0
 
         item_names = request.form.getlist("item_name[]")
         item_codes = request.form.getlist("item_code[]")
-        stock_ids = request.form.getlist("stock_item_id[]")
+        stock_ids = (request.form.getlist("stock_item_id[]") or request.form.getlist("item_stock_id[]"))
         descriptions = request.form.getlist("description[]")
-        hsns = request.form.getlist("hsn[]")
-        quantities = request.form.getlist("quantity[]")
-        units = request.form.getlist("unit[]")
-        rates = request.form.getlist("rate[]")
-        discounts = request.form.getlist("discount_percent[]")
-        gst_percents = request.form.getlist("gst_percent[]")
+        hsns = (request.form.getlist("hsn[]") or request.form.getlist("item_hsn[]"))
+        quantities = (request.form.getlist("quantity[]") or request.form.getlist("item_qty[]"))
+        units = (request.form.getlist("unit[]") or request.form.getlist("item_unit[]"))
+        rates = (request.form.getlist("rate[]") or request.form.getlist("item_rate[]"))
+        discounts = (request.form.getlist("discount_percent[]") or request.form.getlist("item_discount[]"))
+        gst_percents = (request.form.getlist("gst_percent[]") or request.form.getlist("item_gst[]"))
 
         for i in range(len(item_names)):
             iname = item_names[i].strip() if i < len(item_names) else ""
@@ -1221,16 +1342,10 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
                 if company.state.strip().lower() != order.supplier_state.strip().lower():
                     is_interstate = True
 
-            if is_interstate:
-                cgst = 0.0
-                sgst = 0.0
-                igst = round(taxable * (gst / 100.0), 2)
-            else:
-                cgst = round(taxable * (gst / 200.0), 2)
-                sgst = round(taxable * (gst / 200.0), 2)
-                igst = 0.0
-
-            total = round(taxable + cgst + sgst + igst, 2)
+            gst = billing_rate(company, gst)
+            line_tax, cgst, sgst, igst = split_tax(taxable, gst, tax_profile(company)['regime'], is_interstate)
+            total_tax += line_tax
+            total = round(taxable + line_tax, 2)
 
             subtotal += taxable
             cgst_total += cgst
@@ -1261,7 +1376,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         order.cgst_total = round(cgst_total, 2)
         order.sgst_total = round(sgst_total, 2)
         order.igst_total = round(igst_total, 2)
-        order.tax_amount = round(cgst_total + sgst_total + igst_total, 2)
+        order.tax_amount = round(total_tax, 2)
         order.grand_total = round(subtotal + order.tax_amount, 2)
 
         cdb.commit()
@@ -1274,28 +1389,56 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
     def purchase_order_delete(po_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        order = cdb.query(PurchaseOrder).filter_by(id=po_id, company_id=company_id).first_or_404()
+        order = cdb.query(PurchaseOrder).filter_by(id=po_id, company_id=company_id).first()
+        if order is None:
+            abort(404)
         po_no = order.po_number
         cdb.delete(order)
         cdb.commit()
         flash(f"Purchase Order {po_no} deleted successfully.", "info")
         return redirect(url_for("purchase_order_list"))
 
-    @app.route("/purchase-order/<int:po_id>/convert-to-bill")
+    @app.route("/purchase-order/<int:po_id>/convert-to-bill", methods=["POST"])
     @login_required
-    @require_permission("purchase_invoices", "create")
+    @require_permission("purchase_orders", "view")
+    @require_permission("purchase", "create")
     def purchase_order_convert_to_bill(po_id):
         cdb = get_cdb()
         company_id = get_current_company()
-        order = cdb.query(PurchaseOrder).filter_by(id=po_id, company_id=company_id).first_or_404()
+        order = cdb.query(PurchaseOrder).filter_by(id=po_id, company_id=company_id).with_for_update().populate_existing().first()
+        if order is None:
+            abort(404)
 
-        count = cdb.query(PurchaseInvoice).filter_by(company_id=company_id).count()
+        existing = cdb.query(PurchaseInvoice).filter(
+            PurchaseInvoice.company_id == company_id,
+            or_(PurchaseInvoice.purchase_order_id == order.id, PurchaseInvoice.reference_po_no == order.po_number),
+        ).first()
+        if existing:
+            return redirect(url_for("purchase_invoice_view", invoice_id=existing.invoice_id))
+        if (order.status or '').lower() in ('draft', 'cancelled', 'canceled', 'void') or not order.items:
+            flash("Confirm a purchase order with items before generating its invoice.", "warning")
+            return redirect(url_for("purchase_order_view", po_id=order.id))
+        if post_purchase_invoice is None:
+            abort(503, description="Purchase accounting is not configured")
+        company = Company.query.filter_by(company_id=company_id).first()
+        currency = company.currency or "INR"
+        for item in order.items:
+            if item.quantity <= 0:
+                abort(400, description="Purchase quantities must be positive")
+            if item.stock_item_id and not cdb.query(StockItem).filter_by(id=item.stock_item_id, company_id=company_id).with_for_update().first():
+                abort(400, description="Stock item does not belong to this company")
+        count = cdb.query(PurchaseInvoice).count()
         inv_id_val = f"PB-{count + 1:04d}"
-        while cdb.query(PurchaseInvoice).filter_by(company_id=company_id, invoice_id=inv_id_val).first():
+        while cdb.query(PurchaseInvoice).filter_by(invoice_id=inv_id_val).first():
             count += 1
             inv_id_val = f"PB-{count + 1:04d}"
 
         p_inv = PurchaseInvoice(
+            purchase_order_id=order.id,
+            currency=currency, exchange_rate=1.0,
+            tax_regime=tax_profile(company)["regime"],
+            base_subtotal=order.subtotal, base_tax_amount=order.tax_amount,
+            base_grand_total=order.grand_total, base_balance=order.grand_total,
             invoice_id=inv_id_val,
             company_id=company_id,
             supplier_id=order.supplier_id,
@@ -1336,6 +1479,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
                 hsn=item.hsn,
                 quantity=item.quantity,
                 unit=item.unit,
+                base_rate=item.rate, base_taxable_amount=item.taxable_amount, base_total_amount=item.total_amount,
                 rate=item.rate,
                 purchase_rate=item.rate,
                 discount_percent=item.discount_percent,
@@ -1351,11 +1495,23 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
             cdb.add(pi_item)
 
             if item.stock_item_id:
-                stk = cdb.query(StockItem).filter_by(id=item.stock_item_id, company_id=company_id).first()
+                stk = cdb.query(StockItem).filter_by(id=item.stock_item_id, company_id=company_id).with_for_update().first()
                 if stk:
                     stk.quantity = (stk.quantity or 0.0) + item.quantity
+                    stk.last_updated = date.today()
+                    stk.last_purchase_rate = item.rate
+                    cdb.add(StockPurchaseHistory(stock_item_id=stk.id, purchase_invoice_id=p_inv.id,
+                        quantity=item.quantity, purchase_rate=item.rate, base_purchase_rate=item.rate,
+                        currency=currency, exchange_rate=1.0, gst_percent=item.gst_percent,
+                        purchase_date=date.today(), movement_type="IN", reference=p_inv.invoice_id))
+            item.received_qty = item.quantity
 
         order.status = "Received"
-        cdb.commit()
+        try:
+            post_purchase_invoice(cdb, company_id, p_inv)
+            cdb.commit()
+        except Exception:
+            cdb.rollback()
+            raise
         flash(f"Purchase Order {order.po_number} converted to Purchase Bill {p_inv.invoice_id}! Stock updated.", "success")
         return redirect(url_for("purchase_invoice_view", invoice_id=p_inv.invoice_id))

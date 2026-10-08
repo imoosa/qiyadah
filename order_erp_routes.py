@@ -6,12 +6,13 @@ Handles manufacturing orders, status workflow pipelines, accounts credit checks,
 quality checks, partner assignment, and audit timelines.
 """
 
-from flask import render_template, request, redirect, url_for, session, jsonify, flash
+from flask import render_template, request, redirect, url_for, session, jsonify, flash, abort
 from datetime import datetime, date
 import uuid
+from tax_service import tax_profile, billing_rate, split_tax
 from sqlalchemy import or_, and_, desc
 from customer_models import (
-    OrderFlow, OrderFlowHistory, OrderDepartment, Client, Supplier, SalesOrder, SalesOrderItem, StockItem
+    OrderFlow, OrderFlowHistory, OrderDepartment, Client, Supplier, SalesOrder, SalesOrderItem, StockItem, CustomerInvoice
 )
 
 STATUS_FLOW = [
@@ -95,7 +96,34 @@ ROLE_TRANSITIONS = {
 }
 
 
-def register_order_erp_routes(app, login_required, get_cdb, get_current_company, get_current_user, get_company_by_id):
+def register_order_erp_routes(app, login_required, get_cdb, get_current_company, get_current_user, get_company_by_id, has_permission=None):
+
+    def core_access(permission, action='view'):
+        modules = app.extensions.get('module_access')
+        role = (get_current_user() or {}).get('role')
+        return bool((not modules or modules('core')) and
+                    (has_permission(permission, action) if has_permission else role in ('owner', 'super_admin')))
+
+    @app.before_request
+    def protect_orderflow_shared_records():
+        # OrderFlow entitlement does not grant access to Core customer/product/order APIs.
+        permissions = {
+            'api_sales_orders': 'sales_orders', 'api_sales_order_detail': 'sales_orders',
+            'api_sales_order_to_production': 'sales_orders',
+            'api_order_to_sales_order': 'sales_orders',
+            'api_order_erp_clients': 'clients',
+            'api_order_erp_client_details': 'clients', 'api_order_erp_products': 'stock',
+        }
+        permission = permissions.get(request.endpoint)
+        if permission and not core_access(permission, 'create' if request.method == 'POST' and request.endpoint in ('api_sales_orders', 'api_order_to_sales_order', 'api_order_erp_clients') else 'view'):
+            abort(403)
+
+    def linked_sales_order(cdb, company_id, order):
+        if order.sales_order_id:
+            return cdb.query(SalesOrder).filter_by(id=order.sales_order_id, company_id=company_id).first()
+        if (order.source or '').startswith('Sales Order '):
+            return cdb.query(SalesOrder).filter_by(company_id=company_id, order_no=order.source[len('Sales Order '):]).first()
+        return None
 
     def is_owner_user():
         user = get_current_user() or {}
@@ -106,10 +134,8 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
     @app.route('/order-erp/dashboard', endpoint='order_erp_dashboard')
     @login_required
     def order_erp_view():
-        company_id = get_current_company()
-        company = get_company_by_id(company_id)
-        user = get_current_user()
-        return render_template('order_erp.html', company=company, user=user, status_flow=STATUS_FLOW)
+        return redirect(url_for('supply_chain_workspace',
+                                **({'order_id': request.args['order_id']} if request.args.get('order_id') else {})))
 
     # ── 2. ORDER ERP STATS ───────────────────────────────────────────────────
     @app.route('/api/order-erp/stats', methods=['GET'])
@@ -144,10 +170,13 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
         total_pending_amount = total_revenue - total_collected
 
         # Sales Orders & Clients metrics
-        so_query = cdb.query(SalesOrder).filter_by(company_id=company_id)
-        total_sales_orders = so_query.count()
-        sales_order_value = sum(so.grand_total or 0.0 for so in so_query.all())
-        total_clients = cdb.query(Client).filter_by(company_id=company_id).count()
+        total_sales_orders = sales_order_value = total_clients = 0
+        if core_access('sales_orders'):
+            so_query = cdb.query(SalesOrder).filter_by(company_id=company_id)
+            total_sales_orders = so_query.count()
+            sales_order_value = sum(so.grand_total or 0.0 for so in so_query.all())
+        if core_access('clients'):
+            total_clients = cdb.query(Client).filter_by(company_id=company_id).count()
 
         # Recent orders
         recent_orders = [o.to_dict() for o in sorted(orders, key=lambda x: x.created_at or datetime.min, reverse=True)[:8]]
@@ -318,9 +347,18 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
         elif role in ROLE_TRANSITIONS and order.status in ROLE_TRANSITIONS[role]:
             available_transitions = ROLE_TRANSITIONS[role][order.status]
 
+        links = []
+        so = linked_sales_order(cdb, company_id, order) if core_access('sales_orders') else None
+        if so:
+            links.append(dict(label='Sales order', href=url_for('sales_order_view', order_id=so.id)))
+            invoice = so.sales_invoice if core_access('customer_invoices') else None
+            if invoice:
+                links.append(dict(label='Sales invoice & recorded balance', href=url_for('customer_invoice_view', cust_inv_id=invoice.id)))
         return jsonify({
             'success': True,
             'order': order.to_dict(),
+            'related_documents': links,
+            'create_sales_order_url': url_for('api_order_to_sales_order', order_id=order.id) if not so and core_access('sales_orders', 'create') else None,
             'history': [h.to_dict() for h in histories],
             'available_transitions': available_transitions,
             'is_owner': is_owner
@@ -532,6 +570,9 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
         client_id = data.get('client_id')
         client_name = (data.get('client_name') or '').strip()
 
+        if client_id and not cdb.query(Client).filter_by(company_id=company_id, id=client_id).first():
+            return jsonify(error='Client does not belong to this company'), 400
+
         if client_id and not client_name:
             c_rec = cdb.query(Client).filter_by(company_id=company_id, id=client_id).first()
             if c_rec:
@@ -580,6 +621,8 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
 
         # Server-side validation and computation of totals
         subtotal = 0.0
+        company = get_company_by_id(company_id)
+        total_tax = 0.0
         cgst_total = 0.0
         sgst_total = 0.0
         igst_total = 0.0
@@ -602,6 +645,10 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
         cdb.flush()
 
         for idx, it in enumerate(items_data):
+            stock_id = it.get('stock_item_id') or it.get('id')
+            if stock_id and not cdb.query(StockItem).filter_by(id=stock_id, company_id=company_id).first():
+                cdb.rollback()
+                return jsonify(error='Product does not belong to this company'), 400
             it_name = (it.get('item_name') or f"Item {idx+1}").strip()
             qty = float(it.get('quantity') or 1.0)
             rate = float(it.get('rate') or it.get('unit_price') or 0.0)
@@ -613,11 +660,11 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
             taxable = raw_amt - disc_amt
             tax_val = taxable * (gst_pct / 100.0)
 
-            # Standard split CGST & SGST
-            cgst = tax_val / 2.0
-            sgst = tax_val / 2.0
-            igst = 0.0
+            # Use the active company tax regime.
+            gst_pct = billing_rate(company, gst_pct)
+            tax_val, cgst, sgst, igst = split_tax(taxable, gst_pct, tax_profile(company)['regime'])
             line_total = taxable + tax_val
+            total_tax += tax_val
 
             subtotal += taxable
             cgst_total += cgst
@@ -625,6 +672,7 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
 
             so_item = SalesOrderItem(
                 sales_order_id=so.id,
+                stock_item_id=stock_id,
                 item_name=it_name,
                 item_code=it.get('item_code', ''),
                 description=it.get('description', ''),
@@ -647,7 +695,7 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
         so.cgst_total = round(cgst_total, 2)
         so.sgst_total = round(sgst_total, 2)
         so.igst_total = round(igst_total, 2)
-        so.tax_amount = round(cgst_total + sgst_total + igst_total, 2)
+        so.tax_amount = round(total_tax, 2)
         so.grand_total = round(subtotal + so.tax_amount, 2)
 
         cdb.commit()
@@ -669,12 +717,13 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
         cdb = get_cdb()
         company_id = get_current_company()
         user = get_current_user() or {}
-        so = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).first()
+        so = cdb.query(SalesOrder).filter_by(id=order_id, company_id=company_id).with_for_update().populate_existing().first()
         if not so:
             return jsonify({'error': 'Sales order not found'}), 404
 
         # Check if an OrderFlow is already created for this SO
-        existing = cdb.query(OrderFlow).filter_by(company_id=company_id, source=f"Sales Order {so.order_no}").first()
+        existing = cdb.query(OrderFlow).filter(OrderFlow.company_id == company_id,
+            or_(OrderFlow.sales_order_id == so.id, OrderFlow.source == f"Sales Order {so.order_no}")).first()
         if existing:
             return jsonify({
                 'success': True,
@@ -682,6 +731,9 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
                 'order_flow_id': existing.id,
                 'message': f"Production Order {existing.id} already exists for {so.order_no}"
             })
+
+        if so.status in ('Cancelled', 'Invoiced', 'Delivered', 'Shipped') or not so.items:
+            return jsonify(error='Only an active sales order with items can be sent to production'), 400
 
         # Items summary
         item_names = [f"{it.item_name} (x{int(it.quantity) if it.quantity.is_integer() else it.quantity})" for it in so.items]
@@ -692,6 +744,7 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
         order_id_code = f"ORD-{uuid.uuid4().hex[:6].upper()}"
 
         order_flow = OrderFlow(
+            sales_order_id=so.id,
             id=order_id_code,
             company_id=company_id,
             client_id=str(so.client_id) if so.client_id else None,
@@ -736,6 +789,40 @@ def register_order_erp_routes(app, login_required, get_cdb, get_current_company,
             'order_flow': order_flow.to_dict(),
             'message': f"Created Production Order {order_id_code} successfully!"
         })
+
+    @app.route('/api/order-erp/orders/<order_id>/sales-order', methods=['POST'])
+    @login_required
+    def api_order_to_sales_order(order_id):
+        cdb = get_cdb()
+        company_id = get_current_company()
+        order = cdb.query(OrderFlow).filter_by(id=order_id, company_id=company_id).with_for_update().populate_existing().first()
+        if not order:
+            abort(404)
+        so = linked_sales_order(cdb, company_id, order)
+        if not so:
+            if order.status == 'Cancelled':
+                return jsonify(error='Cancelled production orders cannot create sales orders'), 400
+            # Production descriptions do not carry itemized tax/product data.
+            # Create a draft for review instead of inventing invoice tax or stock links.
+            client = cdb.query(Client).filter_by(id=order.client_id, company_id=company_id).first() if order.client_id else None
+            number = cdb.query(SalesOrder).count() + 1
+            while cdb.query(SalesOrder).filter_by(order_no=f'SO-{number:04d}').first():
+                number += 1
+            so = SalesOrder(company_id=company_id, order_no=f'SO-{number:04d}',
+                client_id=client.id if client else None, client_name=order.client_name,
+                status='Draft', reference_no=order.id, order_date=date.today(),
+                notes=f'From OrderFlow {order.id}. Review products, quantities, prices and taxes before confirmation.',
+                created_by=(get_current_user() or {}).get('email') or 'OrderFlow')
+            cdb.add(so)
+            cdb.flush()
+            cdb.add(SalesOrderItem(sales_order_id=so.id, item_name=order.item_description,
+                quantity=order.quantity or 1, rate=0, taxable_amount=0, total_amount=0))
+            order.sales_order_id = so.id
+            cdb.add(OrderFlowHistory(order_id=order.id, status=order.status,
+                note=f'Linked draft sales order {so.order_no}; prices and taxes require review.',
+                changed_by=(get_current_user() or {}).get('email') or 'User', changed_at=datetime.utcnow()))
+            cdb.commit()
+        return jsonify(success=True, sales_order_id=so.id, redirect=url_for('sales_order_view', order_id=so.id))
 
     # ── 10. CLIENTS MASTER API ────────────────────────────────────────────────
     @app.route('/api/order-erp/clients', methods=['GET', 'POST'])
