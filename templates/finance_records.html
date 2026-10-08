@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% set record_title = 'Input VAT' if (kind == 'input-tax' and f.is_vat) else ('Output VAT' if (kind == 'output-tax' and f.is_vat) else kind|replace('-',' ')|title) %}
+{% block title %}{{ record_title }} · Finance{% endblock %}
+{% block extra_style %}{% include '_finance_style.html' %}{% endblock %}
+{% from '_finance_macros.html' import amounts %}
+{% block content %}
+<div class="finance-dashboard">
+  <div class="fin-heading"><h2>{{ record_title }}</h2><a href="{{ url_for('finance_workspace', fy=f.fy, from_date=f.start, to_date=f.end) }}">← Finance Dashboard</a></div>
+  <p class="fin-muted">{% if field == 'balance' %}Current open invoice balances · ageing as of {{ f.today }}. Opening balances and advances are excluded.{% else %}{{ f.start }} to {{ f.end }} · {{ 'recorded invoice tax' if field == 'tax' else 'invoice subtotals excluding tax' }}.{% endif %} Only authorised source documents are included.</p>
+  {% include '_finance_guide_records.html' %}
+  <form class="card fin-filters" method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
+    <label>Financial Year
+      <select name="fy" onchange="this.form.submit()">
+        {% for year in f.years %}
+          <option value="{{ year }}" {% if year == f.fy %}selected{% endif %}>{% if f.is_calendar_year %}{{ year }} (Jan–Dec){% else %}{{ year }}–{{ year+1 }} (Apr–Mar){% endif %}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>From Date<input type="date" name="from_date" value="{{ f.start }}"></label>
+    <label>To Date<input type="date" name="to_date" value="{{ f.end }}"></label>
+    {% if field == 'balance' %}
+      <label>Due status<select name="mode"><option value="">All open invoices</option><option value="overdue" {% if request.args.get('mode') == 'overdue' %}selected{% endif %}>Overdue</option><option value="soon" {% if request.args.get('mode') == 'soon' %}selected{% endif %}>Due within 7 days</option></select></label>
+      <label>Ageing bucket<select name="bucket"><option value="">All buckets</option>{% for bucket in buckets %}<option {% if request.args.get('bucket') == bucket %}selected{% endif %}>{{ bucket }}</option>{% endfor %}</select></label>
+    {% endif %}
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button class="btn btn-primary" type="submit" style="padding:8px 16px;border-radius:6px;">Apply</button>
+      <a href="{{ url_for('finance_records', kind=kind) }}" class="btn" style="background:var(--bg-table-alt);border:1px solid var(--border-color);color:var(--text-body);text-decoration:none;padding:8px 12px;border-radius:6px;font-size:11px;">{% if f.is_calendar_year %}This Year{% else %}This FY{% endif %}</a>
+      <a href="{{ url_for('finance_records', kind=kind, from_date='2020-01-01', to_date='2030-12-31') }}" class="btn" style="background:var(--bg-table-alt);border:1px solid var(--border-color);color:var(--text-body);text-decoration:none;padding:8px 12px;border-radius:6px;font-size:11px;">All Dates</a>
+    </div>
+  </form>
+  <section class="card fin-panel">
+    <div class="fin-heading"><h3>{{ count }} source documents</h3><strong>{{ amounts(summary) }}</strong></div>
+    <div class="fin-table-wrap"><table><thead><tr><th>Original document</th><th>Party</th><th>Date</th><th>Due</th>{% if field == 'balance' %}<th>Ageing</th>{% endif %}<th>Currency</th><th class="fin-num">{{ 'Outstanding' if field == 'balance' else 'Tax' if field == 'tax' else 'Subtotal' }}</th></tr></thead><tbody>
+      {% for row in rows %}<tr><td><a href="{{ row.href }}">{{ row.reference }}</a><small class="fin-block fin-muted">{{ 'Repair bill' if row.kind == 'repair' else 'Purchase invoice' if row.kind == 'purchase' else 'Sales invoice' }}</small></td><td>{{ row.party }}</td><td>{{ row.date }}</td><td>{{ row.due or 'Not set' }}</td>{% if field == 'balance' %}<td>{{ row.ageing }}</td>{% endif %}<td>{{ row.currency }}</td><td class="fin-num">{{ '{:,.2f}'.format(row[field]) }}</td></tr>
+      {% else %}<tr><td colspan="{{ 7 if field == 'balance' else 6 }}">No matching records.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="fin-heading" style="margin-top:20px;">{% if prev_url %}<a href="{{ prev_url }}">← Previous</a>{% endif %}<span class="fin-muted">Page {{ page }} · up to 50 records per page</span>{% if next_url %}<a href="{{ next_url }}">Next →</a>{% endif %}</div>
+  </section>
+</div>
+{% endblock %}

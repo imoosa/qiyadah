@@ -1,0 +1,3 @@
+{% extends 'base.html' %}
+{% block title %}Financial period protected{% endblock %}
+{% block content %}<section class="card" style="padding:24px;max-width:720px;margin:24px auto"><h2>Financial period protected</h2><p>{{ message }}</p><p>The current transaction was rolled back. Review the period status with your company owner.</p><a href="{{ url_for('finance_periods') }}">View financial periods</a></section>{% endblock %}

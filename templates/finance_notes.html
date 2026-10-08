@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}{{ kind|title }} Notes · Finance{% endblock %}
+{% block extra_style %}{% include '_finance_style.html' %}{% endblock %}
+{% block content %}
+<div class="finance-dashboard">
+  <div class="fin-heading"><div><h2>{{ kind|title }} Notes</h2><p class="fin-muted">{{ 'Customer credits against sales invoices' if kind == 'credit' else 'Supplier adjustments against purchase invoices' }}</p></div>
+  {% if can_create %}<a class="btn btn-primary" href="{{ url_for('finance_note_new', kind=kind) }}">+ New {{ kind|title }} Note</a>{% endif %}</div>
+  <form method="get" class="card fin-filters"><label>Search<input name="q" value="{{ request.args.get('q', '') }}" placeholder="Note, invoice or party"></label><label>Status<select name="status"><option value="">All statuses</option>{% for status in ['Posted','Void'] %}<option {% if request.args.get('status') == status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select></label><button class="btn btn-primary">Search</button></form>
+  <section class="card fin-panel"><div class="fin-table-wrap"><table><thead><tr><th>Note number</th><th>Date</th><th>{{ 'Customer' if kind == 'credit' else 'Supplier' }}</th><th>Invoice</th><th>Currency</th><th class="fin-num">Amount</th><th>Status</th></tr></thead><tbody>
+  {% for note in notes %}<tr><td><a href="{{ url_for('finance_note_view', kind=kind, note_id=note.id) }}">{{ note.number }}</a></td><td>{{ note.note_date }}</td><td>{{ note.party_name }}</td><td>{{ note.invoice_reference }}</td><td>{{ note.currency }}</td><td class="fin-num">{{ '{:,.2f}'.format(note.total) }}</td><td>{{ note.status }}</td></tr>{% else %}<tr><td colspan="7">No {{ kind }} notes yet.</td></tr>{% endfor %}
+  </tbody></table></div></section>
+</div>
+{% endblock %}

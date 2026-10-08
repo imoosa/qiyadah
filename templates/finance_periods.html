@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Financial Periods · Finance{% endblock %}
+{% block extra_style %}{% include '_finance_style.html' %}
+<style>.period-form{display:grid;gap:16px;max-width:640px;margin-top:20px}.period-form label{font-size:13px;line-height:1.6}.period-form input:not([type=checkbox]),.period-form textarea{display:block;width:100%;box-sizing:border-box;padding:10px;margin-top:5px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-input);color:var(--text-body);font:inherit}.period-form button{justify-self:start}.period-history{margin-top:24px}.period-reason{white-space:pre-wrap;overflow-wrap:anywhere;max-width:440px}</style>
+{% endblock %}
+{% block content %}
+<div class="finance-dashboard">
+  <div class="fin-heading"><h2>Financial Periods</h2><a href="{{ url_for('finance_checks') }}">Review Accounting Checks →</a></div>
+  <p class="fin-muted">Control the last date on which financial records may be changed. Closing protects records; it does not certify balances or create year-end transfer entries.</p>
+  <section class="card fin-panel">
+    <div class="fin-heading"><h3>{{ 'Closed through ' ~ control.closed_through if control.closed_through else 'All periods open' }}</h3><span class="fin-badge">Company-specific control</span></div>
+    <p class="fin-muted">Only an owner can close or reopen periods. Each change records who made it, when, and why.</p>
+    <div class="fin-notice">Closing blocks additions, edits, deletions and reversals dated on or before the selected date. Changes to closed source documents—including recording new payments against those documents—require reopening first. Opening-balance changes, statement closing and bulk financial changes are also restricted while a period is closed.</div>
+    {% if can_manage %}
+    <form method="post" action="{{ url_for('finance_period_change') }}" class="period-form">
+      <input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="version" value="{{ control.version }}">
+      <input type="hidden" name="company_id" value="{{ control.company_id }}">
+      <label>Close through<input type="date" name="cutoff" aria-describedby="period-date-help"><small id="period-date-help" class="fin-muted">Choose a past date. Leave blank when reopening.</small></label>
+      <label>Reason<textarea name="reason" rows="3" maxlength="1000" required placeholder="Explain the review completed or why reopening is needed"></textarea></label>
+      <label><input type="checkbox" name="reviewed" value="yes" required> I have reviewed Accounting Checks and understand the restrictions above.</label>
+      <div><button class="btn btn-primary" name="action" value="close">Close through date</button>
+      {% if control.closed_through %}<button class="btn" name="action" value="reopen">Reopen all closed dates</button>{% endif %}</div>
+    </form>
+    {% else %}<p class="fin-muted">Ask your company owner to change the period status.</p>{% endif %}
+  </section>
+  <section class="card fin-panel period-history"><h3>Close & reopen history</h3><p class="fin-muted">Latest 100 actions. Earlier history remains stored.</p>
+    <div class="fin-table-wrap"><table><thead><tr><th>When (UTC)</th><th>Action</th><th>Previous cutoff</th><th>New cutoff</th><th>By</th><th>Reason</th></tr></thead><tbody>
+    {% for row in history %}<tr><td>{{ row.changed_at }}</td><td>{{ row.action|title }}</td><td>{{ row.previous_date or 'Open' }}</td><td>{{ row.new_date or 'Open' }}</td><td>{{ row.actor }}</td><td class="period-reason">{{ row.reason }}</td></tr>
+    {% else %}<tr><td colspan="6">No period changes recorded.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+</div>
+{% endblock %}

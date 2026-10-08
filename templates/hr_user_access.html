@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% set use_administration_navigation = true %}
+{% block title %}HR Users & Access{% endblock %}
+{% block hub_tag %}COMPANY ADMINISTRATION{% endblock %}
+{% block extra_style %}
+<style>
+.hr-access{max-width:1200px;margin:0 auto;padding:28px 24px;color:var(--text-body)}
+.hr-access h1{font-size:28px;margin:0 0 8px}.hr-access h2{font-size:19px;margin:0 0 8px}
+.hr-access p{line-height:1.6;margin:8px 0 16px;color:var(--text-muted)}
+.hr-access .access-company{font-size:13px;font-weight:600;margin-bottom:24px}
+.hr-access .access-card{padding:24px;margin:24px 0;border:1px solid var(--border-color);border-radius:14px;background:var(--bg-card,#fff);box-shadow:0 3px 12px rgba(0,0,0,.03)}
+.hr-access .access-actions{display:flex;gap:12px;flex-wrap:wrap;margin:18px 0}
+.hr-access .access-button{display:inline-flex;align-items:center;justify-content:center;padding:11px 18px;border-radius:8px;background:var(--primary);color:#102a2a;text-decoration:none;font-size:13px;font-weight:700;border:0;cursor:pointer}
+.hr-access .access-button.secondary{background:var(--bg-hover,#f1f5f9);color:var(--text-body);border:1px solid var(--border-color)}
+.hr-access .access-empty{padding:28px;text-align:center;border:1px dashed var(--border-color);border-radius:10px;margin-top:20px;background:var(--bg-hover,#f8fafc)}
+.hr-access .access-empty strong{display:block;font-size:16px;margin-bottom:8px}.hr-access .access-empty p{max-width:580px;margin:8px auto 18px}
+.hr-access details{background:var(--bg-card,#fff)}.hr-access summary{cursor:pointer;font-weight:600;padding:6px 0}.hr-access details form{margin-top:20px}
+.hr-access table th,.hr-access table td{padding:12px 8px;border-bottom:1px solid var(--border-color);font-size:13px}.hr-access input[type=checkbox]{width:17px;height:17px;accent-color:var(--primary)}
+@media(max-width:640px){.hr-access{padding:20px 12px}.hr-access .access-card{padding:18px}.hr-access .access-empty{padding:20px 12px}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="hr-access">
+  <h1>HR Users &amp; Access</h1>
+  <p class="access-company">{{ company.company_name }}{% if company.branch_name %} — {{ company.branch_name }}{% endif %}</p>
+  {% if hr_enabled %}<p>Choose who can manage HR access and what your HR team can do.</p>{% endif %}
+  {% if is_owner and hr_enabled %}
+  <div class="access-actions"><a class="access-button" href="{{ url_for('company_settings') }}#tab-team">Manage team members</a>
+  <a class="access-button secondary" href="{{ url_for('company_settings') }}#tab-access">Manage user permissions</a></div>
+  {% endif %}
+  {% if not hr_enabled %}<section class="access-card"><h2>HR &amp; Payroll is not available on your plan</h2><p>HR roles and delegation require HR &amp; Payroll access. You can still manage regular company users and their permissions.</p><a class="access-button secondary" href="{{ url_for('company_settings') }}#tab-team">Manage team members</a></section>{% endif %}
+  {% macro matrix(values, limits=none) %}
+  <div style="overflow-x:auto"><table class="table" style="width:100%;margin:12px 0;">
+    <thead><tr><th style="text-align:left">HR feature</th>{% for action in actions %}<th>{{ action|title }}</th>{% endfor %}</tr></thead>
+    <tbody>{% for module in modules %}<tr>
+      <td style="padding:7px">{{ labels.get(module, module.replace('_',' ')|title) }}</td>
+      {% for action in actions %}<td style="text-align:center">
+        {% if limits is none or limits[module][action] %}
+        <input type="checkbox" name="{{ module }}__{{ action }}" aria-label="{{ action|title }} {{ labels.get(module,module) }}" {% if values.get(module,{}).get(action) %}checked{% endif %}>
+        {% else %}<span title="Controlled by the owner">Owner-controlled</span>{% endif %}
+      </td>{% endfor %}
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% endmacro %}
+  {% if is_owner and hr_enabled %}
+  <section class="access-card">
+  <h2>HR administrators</h2>
+  <p>Allow an HR administrator to manage staff permissions. You choose their limits; they can only grant access they also have themselves.</p>
+  {% for member in admins %}{% set grant = grants[member.user_id] %}
+  <details style="border:1px solid var(--border-color);padding:16px;margin:12px 0;border-radius:8px;">
+    <summary>{{ member.full_name }} — {{ member.email }} · {{ 'Delegation enabled' if grant and grant.enabled else 'No delegation' }}{% if not member.is_active %} · Inactive{% endif %}</summary>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="user_id" value="{{ member.user_id }}">
+      <input type="hidden" name="action" value="delegation">
+      <p><label><input type="checkbox" name="enabled" {% if grant and grant.enabled %}checked{% endif %}> Allow this administrator to manage HR staff permissions</label></p>
+      <p>Select the maximum permissions this administrator may grant or remove. These selections do not grant the administrator operational access.</p>
+      {{ matrix(object_json(grant.permissions_json) if grant else {}) }}
+      <button class="access-button" type="submit">Save delegation</button>
+    </form>
+  </details>
+  {% else %}<div class="access-empty"><strong>No HR administrator assigned</strong><p>You currently manage access as the owner. To delegate it, assign someone the HR Administrator role in Team Members, set their user permissions, then return here to enable delegation.</p><a class="access-button secondary" href="{{ url_for('company_settings') }}#tab-team">Assign an HR administrator</a></div>{% endfor %}
+  </section>
+  {% endif %}
+  {% if hr_enabled %}<section class="access-card">
+  <h2>HR staff permissions</h2>
+  <p>Set feature access for HR Staff and Payroll Officer accounts. Employee records in HR do not automatically create login accounts here.</p>
+  {% if hr_enabled %}{% for member in staff %}
+  <details style="border:1px solid var(--border-color);padding:16px;margin:12px 0;border-radius:8px;">
+    <summary>{{ member.full_name }} — {{ member.role.replace('_',' ')|title }} · {{ member.email }}</summary>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="user_id" value="{{ member.user_id }}">
+      <input type="hidden" name="action" value="permissions">
+      {{ matrix(permissions[member.user_id], ceiling) }}
+      <button class="access-button" type="submit">Save HR permissions</button>
+    </form>
+  </details>
+  {% else %}<div class="access-empty"><strong>No HR staff accounts yet</strong><p>{% if is_owner %}Add a team member with the HR Staff or Payroll Officer role. Their access controls will appear here.{% else %}The company owner needs to add HR Staff or Payroll Officer accounts before you can manage their permissions.{% endif %}</p>{% if is_owner %}<a class="access-button secondary" href="{{ url_for('company_settings') }}#tab-team">Add HR staff</a>{% endif %}</div>{% endfor %}{% endif %}
+  </section>{% endif %}
+</div>
+{% endblock %}

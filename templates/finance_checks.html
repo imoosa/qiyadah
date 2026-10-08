@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}Accounting Checks · Finance{% endblock %}
+{% block extra_style %}{% include '_finance_style.html' %}{% include '_finance_checks_style.html' %}{% endblock %}
+{% block content %}
+<div class="finance-dashboard">
+  <div class="fin-heading">
+    <div>
+      <h2>Accounting Checks</h2>
+      <p class="fin-muted" style="margin:0;">Audit operational records vs double-entry General Ledger journals. Checks cover all recorded invoices, receipts, payments, and bank balances.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      {% if report.counts.get('Missing invoice posting', 0) > 0 %}
+      <form method="post" action="{{ url_for('finance_checks_post_all') }}" style="margin:0;">
+        <button class="btn btn-primary" type="submit" style="font-weight:700;">⚡ Post Missing Invoices to Ledger ({{ report.counts['Missing invoice posting'] }})</button>
+      </form>
+      {% endif %}
+      <a href="{{ url_for('finance_workspace') }}" class="btn" style="background:var(--bg-table-alt);border:1px solid var(--border-color);color:var(--text-body);text-decoration:none;padding:8px 14px;border-radius:6px;font-size:12px;">← Finance Dashboard</a>
+    </div>
+  </div>
+  {% include '_finance_guide_checks.html' %}
+
+  {% if report.counts.get('Missing invoice posting', 0) > 0 %}
+  <div class="card" style="background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;margin-bottom:16px;padding:16px;border-radius:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div>
+        <strong style="font-size:14px;">⚠️ {{ report.counts['Missing invoice posting'] }} invoices need General Ledger posting.</strong>
+        <p style="margin:4px 0 0 0;font-size:12px;">These approved sales or purchase invoices are in operations but have not yet generated double-entry journal entries. Click below to synchronize them with your General Ledger.</p>
+      </div>
+      <form method="post" action="{{ url_for('finance_checks_post_all') }}" style="margin:0;">
+        <button class="btn btn-primary" type="submit" style="background:#D97706;border-color:#D97706;font-weight:700;padding:8px 16px;border-radius:6px;color:#fff;">⚡ Post All to Accounts</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="fin-kpis">
+    <div class="card fin-kpi"><span class="fin-kpi-label">Journals checked</span><strong class="fin-kpi-value">{{ report.checked.journals or 0 }}</strong></div>
+    <div class="card fin-kpi"><span class="fin-kpi-label">Invoices checked</span><strong class="fin-kpi-value">{{ report.checked.invoices or 0 }}</strong></div>
+    <div class="card fin-kpi"><span class="fin-kpi-label">Review items</span><strong class="fin-kpi-value">{{ report.issues|length }}</strong><small>Exceptions requiring review</small></div>
+    <div class="card fin-kpi"><span class="fin-kpi-label">Check status</span><strong>{{ 'Review required' if report.issues else 'No exceptions found' }}</strong><small>{{ 'Available checks completed' if report.complete else 'Setup incomplete' }}</small></div>
+  </div>
+
+  <section class="card fin-panel reconciliation-coverage" aria-labelledby="coverage-title">
+    <div class="coverage-heading">
+      <div><h3 id="coverage-title">Reconciliation coverage</h3><p class="fin-muted">Verification across sales invoices, purchase invoices, ledger, and bank accounts.</p></div>
+      <span class="coverage-label">Selected company · All dates</span>
+    </div>
+    <div class="coverage-grid">
+      {% for title, description, metrics in [
+        ('Invoices & Ledger', 'Operational invoices vs double-entry journals.', [('Sales Invoices Checked', 'sales_invoices'), ('Sales Invoices Posted', 'sales_posted'), ('Purchase Invoices Checked', 'purchase_invoices'), ('Purchase Invoices Posted', 'purchase_posted')]),
+        ('Opening balances', 'Opening records and carry-forward history.', [('Ledger account openings', 'opening_accounts'), ('Customer & supplier openings', 'party_openings'), ('Carried openings', 'carried_openings')]),
+        ('Bank balances', 'Cash & bank account records.', [('Bank accounts reviewed', 'bank_accounts'), ('Journals audited', 'journals')])
+      ] %}
+      <div class="coverage-group">
+        <h4>{{ title }}</h4><p class="fin-muted">{{ description }}</p>
+        <dl>{% for label, key in metrics %}<div class="coverage-metric"><dt>{{ label }}</dt><dd>{{ '{:,}'.format(report.checked[key] or 0) }}</dd></div>{% endfor %}</dl>
+        {% if title == 'Bank balances' %}<p class="coverage-footnote">Balances are reconstructed from openings and recorded movements, or flagged for review.</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% set gaps = report.checked.payment_evidence_unverified or report.checked.booking_membership_unverified or report.checked.allocation_targets_unverified or report.checked.invoice_openings_unverified or report.checked.unclassified_bank_movements %}
+    {% if gaps %}
+    <div class="coverage-gaps">
+      <h4>Coverage needs review</h4>
+      <p class="fin-muted">Some records could not be fully checked. Counts below may overlap.</p>
+      <ul>
+        {% for key, label, explanation in [
+          ('payment_evidence_unverified', 'Payment evidence', 'Ambiguous records, restricted access, historical cutoffs or currency conversion prevented comparison.'),
+          ('booking_membership_unverified', 'Booking membership', 'Booking links could not be verified with the available records and access.'),
+          ('allocation_targets_unverified', 'Allocation targets', 'Document access or required tables are unavailable.'),
+          ('unclassified_bank_movements', 'Unclassified bank movements', 'Receipt/payment posting coverage is unverified. These movements remain included in bank balance reconstruction.')
+        ] %}{% if report.checked[key] %}
+        <li><span class="coverage-count">{{ '{:,}'.format(report.checked[key]) }}</span><div><strong>{{ label }}</strong><p>{{ explanation }}</p></div></li>
+        {% endif %}{% endfor %}
+        {% if report.checked.invoice_openings_unverified %}<li><span class="coverage-marker" aria-hidden="true">—</span><div><strong>Invoice-statement openings unavailable</strong><p>Separate customer invoice opening fields are unavailable. Customer booking openings are checked independently.</p></div></li>{% endif %}
+      </ul>
+    </div>
+    {% endif %}
+    <details class="coverage-details">
+      <summary>How these checks work</summary>
+      <p>Account openings are checked for debit/credit balance. Bank balances use openings plus recorded movements, counting recognised opening transactions only once. Receipt/payment journals are compared with source amounts, dates and accounts.</p>
+      <p>Zero means no records were checked in that category; it does not confirm a reconciled balance. Coverage depends on available records and your permissions.</p>
+    </details>
+  </section>
+  <form method="get" class="card fin-filters"><label>Check type<select name="check"><option value="">All checks</option>{% for code, count in report.counts.items() %}<option value="{{ code }}" {% if selected == code %}selected{% endif %}>{{ code }} ({{ count }})</option>{% endfor %}</select></label><button class="btn btn-primary">Apply</button></form>
+  <section class="card fin-panel">
+    <h3>{{ total }} review items</h3>
+    <div class="fin-table-wrap"><table><thead><tr><th>Check</th><th>Document</th><th>Review guidance</th></tr></thead><tbody>
+    {% for row in rows %}<tr><td>{{ row.code }}</td><td>{% if row.href %}<a href="{{ row.href }}">{{ row.reference }}</a>{% else %}{{ row.reference }}{% endif %}</td><td>{{ row.detail }}</td></tr>
+    {% else %}<tr><td colspan="3">No exceptions found within these checks.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <div class="fin-heading" style="margin-top:20px">{% if page > 1 %}<a href="{{ url_for('finance_checks', check=selected, page=page-1) }}">← Previous</a>{% endif %}<span>Page {{ page }} of {{ pages }}</span>{% if page < pages %}<a href="{{ url_for('finance_checks', check=selected, page=page+1) }}">Next →</a>{% endif %}</div>
+  </section>
+  <p class="fin-notice">Payment evidence comparisons cover documents with usable cash/bank allocation links, excluding ambiguous families, restricted sources, pre-cutoff documents and purchases requiring currency conversion. Legacy payments may lack links; a difference is a review item, not proof of missing money. Booking rollups use stored amounts and do not convert currencies. Party openings are compared with their own latest closing archives; matching them to ledger controls requires a common opening date and currency basis. These checks do not certify balances or match external bank statements.</p>
+</div>
+{% endblock %}

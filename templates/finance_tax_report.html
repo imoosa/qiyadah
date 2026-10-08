@@ -1,0 +1,688 @@
+{% extends "base.html" %}
+{% block title %}{% if profile.is_vat %}GCC VAT Return & Tax Dashboard{% else %}GST & Tax Dashboard (CGST, SGST, IGST){% endif %} | Finance{% endblock %}
+{% block page_title %}{% if profile.is_vat %}GCC VAT Return & Tax Dashboard{% else %}GST & Tax Dashboard{% endif %}{% endblock %}
+{% block extra_style %}
+{% include '_finance_style.html' %}
+<style>
+  .tax-dashboard {max-width: 1600px; margin: auto;}
+  .tax-chip {display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; background: var(--bg-table-alt); color: var(--text-body); border: 1px solid var(--border-color);}
+  .tax-chip.primary {background: var(--primary-glow); color: var(--primary-dark); border-color: rgba(7, 56, 58, 0.2);}
+  .tax-chip.highlight {background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE;}
+  .tax-chip.gcc {background: #F0FDF4; color: #166534; border-color: #BBF7D0;}
+  .tax-hero-grid {display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px;}
+  .tax-hero-card {padding: 20px; border-radius: 12px; background: var(--bg-surface); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 8px; position: relative; overflow: hidden;}
+  .tax-hero-card.payable {border-top: 4px solid #DC2626;}
+  .tax-hero-card.credit {border-top: 4px solid #059669;}
+  .tax-hero-card.sales {border-top: 4px solid #2563EB;}
+  .tax-hero-card.purchases {border-top: 4px solid #D97706;}
+  .tax-hero-title {font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;}
+  .tax-hero-val {font-size: 26px; font-weight: 800; line-height: 1.2; color: var(--text-body);}
+  .tax-hero-val.payable {color: #DC2626;}
+  .tax-hero-val.credit {color: #059669;}
+  .tax-hero-sub {font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: auto;}
+  .tax-pill {display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700;}
+  .tax-pill.payable {background: #FEE2E2; color: #991B1B;}
+  .tax-pill.credit {background: #D1FAE5; color: #065F46;}
+  .tax-pill.neutral {background: #F1F5F9; color: #475569;}
+  .tax-breakdown-sub {display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 11px; color: var(--text-muted);}
+  .tax-breakdown-sub span {background: var(--bg-table-alt); padding: 3px 6px; border-radius: 4px; border: 1px solid var(--border-color);}
+  .tax-breakdown-sub span.cgst {color: #1E40AF; font-weight: 600;}
+  .tax-breakdown-sub span.sgst {color: #065F46; font-weight: 600;}
+  .tax-breakdown-sub span.igst {color: #7C3AED; font-weight: 600;}
+  .tax-badge-rate {display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; background: #EEF2F6; color: #1E293B;}
+  .tax-tabs {display: flex; gap: 8px; border-bottom: 2px solid var(--border-color); margin-bottom: 20px; overflow-x: auto;}
+  .tax-tab-btn {padding: 10px 18px; border: none; background: transparent; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all .15s;}
+  .tax-tab-btn:hover {color: var(--text-body);}
+  .tax-tab-btn.active {color: var(--primary-dark); border-bottom-color: var(--primary); font-weight: 700;}
+  .tax-tab-content {display: none;}
+  .tax-tab-content.active {display: block;}
+  .gcc-box-num {display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: #07383A; color: white; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-right: 6px;}
+  @media(max-width: 1100px) {
+    .tax-hero-grid {grid-template-columns: repeat(2, minmax(0, 1fr));}
+  }
+  @media(max-width: 640px) {
+    .tax-hero-grid {grid-template-columns: 1fr;}
+    .tax-hero-val {font-size: 22px;}
+  }
+  @media print {
+    .sidebar, .topbar, .fin-filters, .fin-heading a, .ai-chat-btn, .ai-assistant-widget, .btn, .tax-tabs, button { display: none !important; }
+    .tax-tab-content { display: block !important; margin-bottom: 30px; }
+    .tax-dashboard { max-width: 100% !important; margin: 0 !important; }
+    .card, .tax-hero-card { box-shadow: none !important; border: 1px solid #ccc !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tax-dashboard">
+  <!-- Top Navigation & Header -->
+  <div class="fin-heading" style="margin-bottom:12px;">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+        <h2 style="margin:0;">
+          {% if profile.is_vat %}
+            {% if profile.country == 'United Arab Emirates' %}
+              🇦🇪 UAE VAT Return & Tax Dashboard (FTA)
+            {% elif profile.country == 'Saudi Arabia' %}
+              🇸🇦 Saudi Arabia VAT Return (ZATCA)
+            {% else %}
+              GCC VAT Return & Tax Dashboard
+            {% endif %}
+          {% else %}
+            🇮🇳 GST & Tax Dashboard (CGST, SGST, IGST)
+          {% endif %}
+        </h2>
+        <span class="tax-chip {% if profile.is_vat %}gcc{% else %}primary{% endif %}">
+          Regime: {{ profile.regime }} ({{ profile.country }})
+        </span>
+        {% if company and (company.gst_number or company.tax_registration_number) %}
+          <span class="tax-chip highlight">
+            {{ profile.id_label }}: {{ company.gst_number or company.tax_registration_number }}
+          </span>
+        {% endif %}
+        <span class="tax-chip">Currency: {{ profile.currency }}</span>
+      </div>
+      <p class="fin-muted" style="margin:0;">
+        {% if profile.is_vat %}
+          {% if profile.country == 'United Arab Emirates' %}
+            Federal Tax Authority (FTA) VAT 201 Return summary (5% Standard Rated, Zero-Rated Exports, Exempt, RCM Imports and Recoverable Input VAT).
+          {% elif profile.country == 'Saudi Arabia' %}
+            Zakat, Tax and Customs Authority (ZATCA) 15% VAT Return summary.
+          {% else %}
+            GCC Statutory VAT Return summary (Standard Rated, Zero-Rated, Exempt, RCM Imports and Recoverable Input VAT).
+          {% endif %}
+        {% else %}
+          Unified Indian Goods & Services Tax dashboard with full reconciliation across Intra-State (CGST + SGST), Inter-State (IGST), and General Ledger Central Journal tax accounts.
+        {% endif %}
+      </p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="window.print()" class="btn" style="background:#07383A;color:#fff;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">🖨️ Print Report</button>
+      <a class="btn" style="background:var(--bg-table-alt);color:var(--text-body);border:1px solid var(--border-color);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;text-decoration:none;" href="{{ url_for('finance_workspace') }}">← Finance Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Filter & Regime Switcher Bar -->
+  <form id="tax-filter-form" class="card fin-filters" method="get" action="{{ url_for('finance_tax_report') }}" style="margin-bottom:20px;">
+    <label>Tax framework<input value="{{ profile.country }} · {{ profile.label }} · {{ profile.currency }}" readonly><small>Uses this company's country and tax settings</small></label>
+    <label>From Date
+      <input type="date" name="from_date" id="filter-from" value="{{ from_date.isoformat() }}" required>
+      <small>Start of reporting tax period</small>
+    </label>
+    <label>To Date
+      <input type="date" name="to_date" id="filter-to" value="{{ to_date.isoformat() }}" required>
+      <small>End of reporting tax period</small>
+    </label>
+    <div style="display:flex;gap:6px;align-items:flex-end;margin-top:22px;flex-wrap:wrap;">
+      <button class="btn btn-primary" type="submit" style="padding:9px 16px;border-radius:8px;font-weight:700;">Apply</button>
+      <button type="button" class="btn" style="background:var(--bg-table-alt);border:1px solid var(--border-color);color:var(--text-body);padding:9px 12px;border-radius:8px;font-size:11px;font-weight:600;" onclick="setPreset('fy')">{% if is_calendar_year %}This Year (Jan–Dec){% else %}This FY (Apr–Mar){% endif %}</button>
+      <button type="button" class="btn" style="background:var(--bg-table-alt);border:1px solid var(--border-color);color:var(--text-body);padding:9px 12px;border-radius:8px;font-size:11px;font-weight:600;" onclick="setPreset('month')">This Month</button>
+      <button type="button" class="btn" style="background:var(--bg-table-alt);border:1px solid var(--border-color);color:var(--text-body);padding:9px 12px;border-radius:8px;font-size:11px;font-weight:600;" onclick="setPreset('last_month')">Last Month</button>
+      <button type="button" class="btn" style="background:var(--bg-table-alt);border:1px solid var(--border-color);color:var(--text-body);padding:9px 12px;border-radius:8px;font-size:11px;font-weight:600;" onclick="setPreset('all')">All Time</button>
+      <a href="{{ url_for('finance_tax_report') }}" class="btn" style="background:transparent;color:var(--text-muted);padding:9px 10px;text-decoration:none;font-size:11px;">Reset</a>
+    </div>
+  </form>
+
+  <!-- Top KPI Cards -->
+  <div class="tax-hero-grid">
+    <!-- 1. Net Position -->
+    <div class="tax-hero-card {% if net_tax >= 0 %}payable{% else %}credit{% endif %}">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="tax-hero-title">Net {{ profile.label }} Position</span>
+        <span class="tax-pill {% if net_tax >= 0 %}payable{% else %}credit{% endif %}">
+          {% if profile.is_vat %}
+            {{ 'VAT Payable' if net_tax >= 0 else 'Recoverable VAT' }}
+          {% else %}
+            {{ 'GST Payable' if net_tax >= 0 else 'ITC Available' }}
+          {% endif %}
+        </span>
+      </div>
+      <div class="tax-hero-val {% if net_tax >= 0 %}payable{% else %}credit{% endif %}">
+        {{ profile.currency }} {{ "{:,.2f}".format(net_tax|abs) }}
+      </div>
+      <div class="tax-hero-sub">
+        {% if net_tax >= 0 %}
+          <strong>Payable:</strong> Output {{ profile.label }} exceeds input credits/deductions.
+        {% else %}
+          <strong>Credit Balance:</strong> Input {{ profile.label }} exceeds output liability (carry forward).
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 2. Output Tax (Sales / Supplies) -->
+    <div class="tax-hero-card sales">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="tax-hero-title">
+          {% if profile.is_vat %}Output VAT (Supplies){% else %}Output {{ billing_tax.label if billing_tax is defined else "Tax" }} (Sales){% endif %}
+        </span>
+        <a href="{{ url_for('finance_records', kind='output-tax') }}" class="fin-drill" style="font-size:11px;">View register →</a>
+      </div>
+      <div class="tax-hero-val" style="color:#2563EB;">
+        {{ profile.currency }} {{ "{:,.2f}".format(output_tax) }}
+      </div>
+      <div class="tax-hero-sub">
+        On <strong>{{ sales_count }}</strong> invoices (Taxable: {{ profile.currency }} {{ "{:,.2f}".format(sales_taxable) }})
+        {% if profile.is_vat %}
+          <div class="tax-breakdown-sub">
+            <span>Standard: {{ "{:,.2f}".format(vat_output_standard) }}</span>
+            <span>Zero-Rated: {{ profile.currency }} {{ "{:,.2f}".format(vat_zero_rated_sales) }}</span>
+            {% if vat_exempt_sales > 0 %}<span>Exempt: {{ profile.currency }} {{ "{:,.2f}".format(vat_exempt_sales) }}</span>{% endif %}
+          </div>
+        {% else %}
+          <div class="tax-breakdown-sub">
+            <span class="cgst">CGST: {{ "{:,.2f}".format(output_cgst) }}</span>
+            <span class="sgst">SGST: {{ "{:,.2f}".format(output_sgst) }}</span>
+            <span class="igst">IGST: {{ "{:,.2f}".format(output_igst) }}</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 3. Input Tax Credit (Purchases / Expenses) -->
+    <div class="tax-hero-card purchases">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="tax-hero-title">
+          {% if profile.is_vat %}Recoverable Input VAT{% else %}Input Tax Credit (ITC){% endif %}
+        </span>
+        <a href="{{ url_for('finance_records', kind='input-tax') }}" class="fin-drill" style="font-size:11px;">View register →</a>
+      </div>
+      <div class="tax-hero-val" style="color:#D97706;">
+        {{ profile.currency }} {{ "{:,.2f}".format(input_tax) }}
+      </div>
+      <div class="tax-hero-sub">
+        On <strong>{{ purchases_count }}</strong> purchase bills (Taxable: {{ profile.currency }} {{ "{:,.2f}".format(purchase_taxable) }})
+        {% if profile.is_vat %}
+          <div class="tax-breakdown-sub">
+            <span>Standard: {{ "{:,.2f}".format(vat_input_standard) }}</span>
+            {% if vat_rcm_tax > 0 %}<span>RCM / Imports: {{ "{:,.2f}".format(vat_rcm_tax) }}</span>{% endif %}
+          </div>
+        {% else %}
+          <div class="tax-breakdown-sub">
+            <span class="cgst">CGST: {{ "{:,.2f}".format(input_cgst) }}</span>
+            <span class="sgst">SGST: {{ "{:,.2f}".format(input_sgst) }}</span>
+            <span class="igst">IGST: {{ "{:,.2f}".format(input_igst) }}</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- 4. Turnover & Effective Rate -->
+    <div class="tax-hero-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="tax-hero-title">Taxable Turnover</span>
+        <span class="tax-chip">Effective: {{ "{:.1f}%".format((output_tax / sales_taxable * 100) if sales_taxable > 0 else 0) }}</span>
+      </div>
+      <div class="tax-hero-val">
+        {{ profile.currency }} {{ "{:,.2f}".format(sales_taxable + purchase_taxable) }}
+      </div>
+      <div class="tax-hero-sub">
+        Total taxable transaction volume across {{ sales_count + purchases_count }} verified documents.
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="tax-tabs" role="tablist">
+    <button type="button" class="tax-tab-btn active" onclick="switchTaxTab('overview', this)">
+      {% if profile.is_vat %}📋 GCC VAT Return Summary{% else %}📊 GST Component Breakdown (CGST, SGST, IGST){% endif %}
+    </button>
+    <button type="button" class="tax-tab-btn" onclick="switchTaxTab('rates', this)">🏷️ Rate-wise Analysis</button>
+    <button type="button" class="tax-tab-btn" onclick="switchTaxTab('gl', this)">🏛️ General Ledger Tax Accounts</button>
+    <button type="button" class="tax-tab-btn" onclick="switchTaxTab('monthly', this)">📅 Monthly Filing Trend</button>
+    <button type="button" class="tax-tab-btn" onclick="switchTaxTab('hsn', this)">
+      {% if profile.is_vat %}📦 Item & Service Classification{% else %}📦 HSN / SAC Summary{% endif %}
+    </button>
+  </div>
+
+  <!-- TAB 1: Component Breakdown (Adapts to GCC VAT or India GST) -->
+  <div id="tab-overview" class="tax-tab-content active">
+    {% if profile.is_vat %}
+      <!-- GCC VAT STATUTORY RETURN VIEW (UAE FTA / SAUDI ZATCA / GCC ALIGNED) -->
+      <div class="card fin-panel" style="margin-bottom:24px;">
+        <div class="fin-heading">
+          <div>
+            <h3 style="margin-bottom:4px;">GCC Statutory VAT Return Breakdown</h3>
+            <p class="fin-muted" style="margin:0;">Standard Return Box mapping for UAE (FTA VAT 201), Saudi Arabia (ZATCA), Bahrain and Oman.</p>
+          </div>
+          <span class="fin-badge">{{ from_date.strftime('%d %b %Y') }} to {{ to_date.strftime('%d %b %Y') }}</span>
+        </div>
+        <div class="fin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:50px;">Box</th>
+                <th>VAT Return Component</th>
+                <th class="fin-num">Taxable Amount ({{ profile.currency }})</th>
+                <th class="fin-num">Output VAT ({{ profile.currency }})</th>
+                <th class="fin-num">Recoverable Input VAT ({{ profile.currency }})</th>
+                <th class="fin-num">Net Position</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="gcc-box-num">1</span></td>
+                <td>
+                  <strong>Standard Rated Supplies (Sales)</strong>
+                  <small class="fin-block fin-muted">Standard rate supplies ({{ profile.default_rate }}% in {{ profile.country }})</small>
+                </td>
+                <td class="fin-num">{{ "{:,.2f}".format(vat_standard_sales) }}</td>
+                <td class="fin-num" style="color:#2563EB;font-weight:700;">{{ "{:,.2f}".format(vat_output_standard) }}</td>
+                <td class="fin-num">—</td>
+                <td class="fin-num">{{ "{:,.2f}".format(vat_output_standard) }}</td>
+              </tr>
+              <tr>
+                <td><span class="gcc-box-num">2</span></td>
+                <td>
+                  <strong>Zero-Rated Supplies (Exports & Services)</strong>
+                  <small class="fin-block fin-muted">Export of goods/services, international transport taxed at 0%</small>
+                </td>
+                <td class="fin-num">{{ "{:,.2f}".format(vat_zero_rated_sales) }}</td>
+                <td class="fin-num">0.00</td>
+                <td class="fin-num">—</td>
+                <td class="fin-num">0.00</td>
+              </tr>
+              <tr>
+                <td><span class="gcc-box-num">3</span></td>
+                <td>
+                  <strong>Exempt Supplies</strong>
+                  <small class="fin-block fin-muted">Local passenger transport, residential properties, financial services</small>
+                </td>
+                <td class="fin-num">{{ "{:,.2f}".format(vat_exempt_sales) }}</td>
+                <td class="fin-num">—</td>
+                <td class="fin-num">—</td>
+                <td class="fin-num">—</td>
+              </tr>
+              <tr>
+                <td><span class="gcc-box-num">4</span></td>
+                <td>
+                  <strong>Supplies Subject to Reverse Charge (RCM) & Imports</strong>
+                  <small class="fin-block fin-muted">Imported goods/services where recipient accounts for VAT</small>
+                </td>
+                <td class="fin-num">{{ "{:,.2f}".format(vat_rcm_purchases) }}</td>
+                <td class="fin-num">{{ "{:,.2f}".format(vat_rcm_tax) }}</td>
+                <td class="fin-num">{{ "{:,.2f}".format(vat_rcm_tax) }}</td>
+                <td class="fin-num">0.00</td>
+              </tr>
+              <tr>
+                <td><span class="gcc-box-num">5</span></td>
+                <td>
+                  <strong>Standard Rated Purchases & Business Expenses</strong>
+                  <small class="fin-block fin-muted">Tax paid to suppliers eligible for input VAT deduction</small>
+                </td>
+                <td class="fin-num">{{ "{:,.2f}".format(vat_standard_purchases) }}</td>
+                <td class="fin-num">—</td>
+                <td class="fin-num" style="color:#D97706;font-weight:700;">{{ "{:,.2f}".format(vat_input_standard) }}</td>
+                <td class="fin-num">({{ "{:,.2f}".format(vat_input_standard) }})</td>
+              </tr>
+              <tr style="border-top:2px solid var(--border-color);background:var(--bg-table-alt);font-size:13px;">
+                <td><span class="gcc-box-num">6</span></td>
+                <td><strong>Net VAT Due for Tax Period</strong><small class="fin-block fin-muted">Total Output VAT minus Total Recoverable Input VAT</small></td>
+                <td class="fin-num"><strong>{{ "{:,.2f}".format(sales_taxable) }}</strong></td>
+                <td class="fin-num"><strong>{{ "{:,.2f}".format(output_tax) }}</strong></td>
+                <td class="fin-num"><strong>{{ "{:,.2f}".format(input_tax) }}</strong></td>
+                <td class="fin-num">
+                  <strong class="{% if net_tax >= 0 %}fin-danger{% else %}credit{% endif %}">
+                    {{ profile.currency }} {{ "{:,.2f}".format(net_tax|abs) }}
+                    <span class="tax-pill {% if net_tax >= 0 %}payable{% else %}credit{% endif %}">
+                      {{ 'Payable' if net_tax >= 0 else 'Recoverable' }}
+                    </span>
+                  </strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% else %}
+      <!-- INDIA GST COMPONENT BREAKDOWN (CGST, SGST, IGST ALL EXPLICITLY SHOWN) -->
+      <div class="card fin-panel" style="margin-bottom:24px;">
+        <div class="fin-heading">
+          <div>
+            <h3 style="margin-bottom:4px;">GST Component Reconciliation</h3>
+            <p class="fin-muted" style="margin:0;">Explicit breakdown across Intra-State (CGST + SGST) and Inter-State (IGST) components.</p>
+          </div>
+          <span class="fin-badge">{{ from_date.strftime('%d %b %Y') }} to {{ to_date.strftime('%d %b %Y') }}</span>
+        </div>
+        <div class="fin-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>GST Component</th>
+                <th>Jurisdiction & Transaction Scope</th>
+                <th class="fin-num">Output {{ billing_tax.label if billing_tax is defined else "Tax" }} (Sales)</th>
+                <th class="fin-num">Input Tax Credit (ITC)</th>
+                <th class="fin-num">Net {{ billing_tax.label if billing_tax is defined else "Tax" }} Position</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong style="color:#1E40AF;">Central GST (CGST)</strong></td>
+                <td>Intra-State Supplies (Central Government Share)</td>
+                <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(output_cgst) }}</td>
+                <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(input_cgst) }}</td>
+                <td class="fin-num"><strong>{{ profile.currency }} {{ "{:,.2f}".format(net_cgst|abs) }}</strong></td>
+                <td><span class="tax-pill {% if net_cgst >= 0 %}payable{% else %}credit{% endif %}">{{ 'Payable' if net_cgst >= 0 else 'ITC' }}</span></td>
+              </tr>
+              <tr>
+                <td><strong style="color:#065F46;">State / UT GST (SGST / UTGST)</strong></td>
+                <td>Intra-State Supplies (State / Union Territory Share)</td>
+                <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(output_sgst) }}</td>
+                <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(input_sgst) }}</td>
+                <td class="fin-num"><strong>{{ profile.currency }} {{ "{:,.2f}".format(net_sgst|abs) }}</strong></td>
+                <td><span class="tax-pill {% if net_sgst >= 0 %}payable{% else %}credit{% endif %}">{{ 'Payable' if net_sgst >= 0 else 'ITC' }}</span></td>
+              </tr>
+              <tr>
+                <td><strong style="color:#7C3AED;">Integrated GST (IGST)</strong></td>
+                <td>Inter-State Supplies & International Imports</td>
+                <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(output_igst) }}</td>
+                <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(input_igst) }}</td>
+                <td class="fin-num"><strong>{{ profile.currency }} {{ "{:,.2f}".format(net_igst|abs) }}</strong></td>
+                <td><span class="tax-pill {% if net_igst >= 0 %}payable{% else %}credit{% endif %}">{{ 'Payable' if net_igst >= 0 else 'ITC' }}</span></td>
+              </tr>
+              <tr style="border-top:2px solid var(--border-color);background:var(--bg-table-alt);font-size:13px;">
+                <td colspan="2"><strong>Total {{ billing_tax.label if billing_tax is defined else "Tax" }} Position</strong></td>
+                <td class="fin-num"><strong>{{ profile.currency }} {{ "{:,.2f}".format(output_tax) }}</strong></td>
+                <td class="fin-num"><strong>{{ profile.currency }} {{ "{:,.2f}".format(input_tax) }}</strong></td>
+                <td class="fin-num">
+                  <strong class="{% if net_tax >= 0 %}fin-danger{% else %}credit{% endif %}">
+                    {{ profile.currency }} {{ "{:,.2f}".format(net_tax|abs) }}
+                  </strong>
+                </td>
+                <td><span class="tax-pill {% if net_tax >= 0 %}payable{% else %}credit{% endif %}">{{ 'Total Payable' if net_tax >= 0 else 'Total ITC' }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% endif %}
+
+    <div style="display:flex;gap:16px;margin-top:16px;flex-wrap:wrap;">
+      <a href="{{ url_for('finance_records', kind='output-tax') }}" class="fin-drill">View Output Tax Register (Sales Invoices) →</a>
+      <a href="{{ url_for('finance_records', kind='input-tax') }}" class="fin-drill">View Input Tax Register (Purchase Invoices) →</a>
+      <a href="{{ url_for('finance_checks') }}" class="fin-drill">Review Accounting Checks →</a>
+    </div>
+  </div>
+
+  <!-- TAB 2: Rate-wise Analysis -->
+  <div id="tab-rates" class="tax-tab-content">
+    <div class="card fin-panel" style="margin-bottom:24px;">
+      <div class="fin-heading">
+        <div>
+          <h3 style="margin-bottom:4px;">Rate-wise Tax Distribution</h3>
+          <p class="fin-muted" style="margin:0;">Analysis of taxable turnover and tax yields across all applied tax slabs.</p>
+        </div>
+        <span class="fin-badge">Applied Tax Slabs</span>
+      </div>
+      <div class="fin-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Rate Slab</th>
+              <th class="fin-num">Taxable Sales</th>
+              <th class="fin-num">Output {{ profile.label }}</th>
+              <th class="fin-num">Taxable Purchases</th>
+              <th class="fin-num">Input {{ profile.label }}</th>
+              <th class="fin-num">Net Position</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rate_summary %}
+            <tr>
+              <td><span class="tax-badge-rate">{{ r.rate }}%</span></td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(r.sales_taxable) }}</td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(r.output_tax) }}</td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(r.purchase_taxable) }}</td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(r.input_tax) }}</td>
+              <td class="fin-num"><strong>{{ profile.currency }} {{ "{:,.2f}".format(r.net_tax) }}</strong></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="fin-muted">No tax-rated line items found for the selected period.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: General Ledger Tax Control Accounts -->
+  <div id="tab-gl" class="tax-tab-content">
+    <div class="card fin-panel" style="margin-bottom:24px;">
+      <div class="fin-heading">
+        <div>
+          <h3 style="margin-bottom:4px;">General Ledger Tax Control Accounts</h3>
+          <p class="fin-muted" style="margin:0;">Posted central journal balances (Accounts 1500–1503 Input Tax and 2200–2203 Output Tax).</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <a href="{{ url_for('ledger') }}" class="fin-drill">Open General Ledger →</a>
+        </div>
+      </div>
+      <div class="fin-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Account Code</th>
+              <th>Account Name</th>
+              <th>Type</th>
+              <th class="fin-num">Debit</th>
+              <th class="fin-num">Credit</th>
+              <th class="fin-num">GL Net Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in gl_rows %}
+            <tr>
+              <td><code>{{ r.code }}</code></td>
+              <td><strong>{{ r.name }}</strong></td>
+              <td><span class="tax-pill {% if r.side == 'Input' %}credit{% else %}payable{% endif %}">{{ r.side }}</span></td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(r.debit) }}</td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(r.credit) }}</td>
+              <td class="fin-num"><strong>{{ profile.currency }} {{ "{:,.2f}".format(r.amount) }}</strong></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="fin-muted">No posted tax journal activity found for this period. Invoices may be awaiting journal posting.</td></tr>
+            {% endfor %}
+          </tbody>
+          {% if gl_rows %}
+          <tfoot>
+            <tr style="border-top:2px solid var(--border-color);background:var(--bg-table-alt);">
+              <th colspan="2">GL Tax Totals</th>
+              <th>Output: {{ profile.currency }} {{ "{:,.2f}".format(gl_output_tax) }}</th>
+              <th class="fin-num" colspan="2">Input: {{ profile.currency }} {{ "{:,.2f}".format(gl_input_tax) }}</th>
+              <th class="fin-num">Net: {{ profile.currency }} {{ "{:,.2f}".format(gl_net_tax) }}</th>
+            </tr>
+          </tfoot>
+          {% endif %}
+        </table>
+      </div>
+      <div class="fin-notice" style="margin-top:16px;">
+        <strong>Accounting Reconciliation Notice</strong>
+        <p>This section reports formal double-entry General Ledger postings. If your GL tax figures differ from your billing registers above, verify that all draft journals have been posted via <a href="{{ url_for('finance_checks') }}">Accounting Checks</a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: Monthly Filing Trend -->
+  <div id="tab-monthly" class="tax-tab-content">
+    <div class="card fin-panel" style="margin-bottom:24px;">
+      <div class="fin-heading">
+        <h3>Monthly Tax Filing Summary</h3>
+        <span class="fin-badge">Month-on-Month Trends</span>
+      </div>
+      <div class="fin-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th class="fin-num">Taxable Sales</th>
+              <th class="fin-num">Taxable Purchases</th>
+              <th class="fin-num">Output {{ profile.label }}</th>
+              <th class="fin-num">Input {{ profile.label }}</th>
+              <th class="fin-num">Net {{ profile.label }} Position</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in monthly_summary %}
+            <tr>
+              <td><strong>{{ m.month }}</strong></td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(m.sales_taxable) }}</td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(m.purchase_taxable) }}</td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(m.output_tax) }}</td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(m.input_tax) }}</td>
+              <td class="fin-num">
+                <strong class="{% if m.net_tax >= 0 %}fin-danger{% else %}credit{% endif %}">
+                  {{ profile.currency }} {{ "{:,.2f}".format(m.net_tax|abs) }}
+                  <small style="font-weight:400;color:var(--text-muted);">{{ '(Payable)' if m.net_tax >= 0 else '(Credit)' }}</small>
+                </strong>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="fin-muted">No monthly transaction data found for this range.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: HSN / SAC / Commodity Summary -->
+  <div id="tab-hsn" class="tax-tab-content">
+    <div class="card fin-panel" style="margin-bottom:24px;">
+      <div class="fin-heading">
+        <div>
+          <h3 style="margin-bottom:4px;">
+            {% if profile.is_vat %}Item & Service Classification Summary{% else %}HSN / SAC Code Summary (GSTR-1 Ready){% endif %}
+          </h3>
+          <p class="fin-muted" style="margin:0;">Classification of goods & services required for statutory reporting.</p>
+        </div>
+        <span class="fin-badge">{{ hsn_summary|length }} Classification codes</span>
+      </div>
+      <div class="fin-table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>{% if profile.is_vat %}Commodity / SKU Code{% else %}HSN / SAC Code{% endif %}</th>
+              <th>Description</th>
+              <th class="fin-num">Total Qty</th>
+              <th class="fin-num">Rate</th>
+              <th class="fin-num">Taxable Value</th>
+              {% if not profile.is_vat %}
+                <th class="fin-num">CGST</th>
+                <th class="fin-num">SGST</th>
+                <th class="fin-num">IGST</th>
+              {% endif %}
+              <th class="fin-num">Total Tax</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in hsn_summary %}
+            <tr>
+              <td><code>{{ item.hsn }}</code></td>
+              <td>{{ item.description or '—' }}</td>
+              <td class="fin-num">{{ '{:,.0f}'.format(item.quantity) }}</td>
+              <td class="fin-num"><span class="tax-badge-rate">{{ item.rate }}%</span></td>
+              <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(item.value) }}</td>
+              {% if not profile.is_vat %}
+                <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(item.cgst) }}</td>
+                <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(item.sgst) }}</td>
+                <td class="fin-num">{{ profile.currency }} {{ "{:,.2f}".format(item.igst) }}</td>
+              {% endif %}
+              <td class="fin-num"><strong>{{ profile.currency }} {{ "{:,.2f}".format(item.total) }}</strong></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="{{ 6 if profile.is_vat else 9 }}" class="fin-muted">No classification code items recorded in this period.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Guide Collapsible -->
+  <details class="card fin-panel" style="margin-top:20px;" open>
+    <summary style="cursor:pointer;font-weight:700;">
+      📘 User Guide — How to Use the {% if profile.is_vat %}GCC VAT{% else %}GST{% endif %} Dashboard
+    </summary>
+    <div class="fin-muted" style="margin-top:12px;line-height:1.7;">
+      {% if profile.is_vat %}
+        <p><strong>GCC VAT Principles (UAE FTA / Saudi ZATCA):</strong></p>
+        <ul style="padding-left:18px;">
+          <li><strong>Standard Rated Supplies:</strong> Supplies of goods and services subject to standard VAT (5% in UAE & Oman, 15% in Saudi Arabia, 10% in Bahrain).</li>
+          <li><strong>Zero-Rated Supplies (0%):</strong> Exports of goods/services outside the GCC, international transport, and designated healthcare/education. Full input VAT is recoverable on zero-rated supplies.</li>
+          <li><strong>Exempt Supplies:</strong> Financial services, local passenger transport, residential property leases. No output VAT is charged, and input VAT incurred on exempt supplies is non-recoverable.</li>
+          <li><strong>Reverse Charge Mechanism (RCM):</strong> On imported goods or services from outside the country, the recipient accounts for both output VAT and recoverable input VAT in the same return period.</li>
+          <li><strong>Net VAT Due:</strong> Box 6 represents your final liability to the tax authority (Federal Tax Authority in UAE, ZATCA in Saudi Arabia).</li>
+        </ul>
+      {% else %}
+        <p><strong>India GST Principles (CGST, SGST, IGST):</strong></p>
+        <ul style="padding-left:18px;">
+          <li><strong>Intra-State Supplies:</strong> When supplier and place of supply are in the same State, <strong>CGST (Central Tax)</strong> and <strong>SGST (State Tax)</strong> are charged equally (e.g. 9% + 9% = 18%).</li>
+          <li><strong>Inter-State Supplies:</strong> When supplier and place of supply are in different States, or on imports into India, <strong>IGST (Integrated Tax)</strong> is charged in full (18%).</li>
+          <li><strong>Input Tax Credit (ITC) Utilization Order:</strong> IGST credit is utilized first against IGST liability, then CGST, then SGST. CGST credit cannot be set off against SGST liability, and vice versa.</li>
+          <li><strong>HSN / SAC Reporting:</strong> Required for GSTR-1 and GSTR-3B filings, summarizing item sales by Harmonized System of Nomenclature code.</li>
+        </ul>
+      {% endif %}
+    </div>
+  </details>
+</div>
+
+<script>
+function switchTaxTab(tabId, btn) {
+  document.querySelectorAll('.tax-tab-content').forEach(function(el) {
+    el.classList.remove('active');
+  });
+  document.querySelectorAll('.tax-tab-btn').forEach(function(b) {
+    b.classList.remove('active');
+  });
+  var target = document.getElementById('tab-' + tabId);
+  if (target) {
+    target.classList.add('active');
+  }
+  if (btn) {
+    btn.classList.add('active');
+  }
+}
+
+function formatDateLocal(d) {
+  var year = d.getFullYear();
+  var month = String(d.getMonth() + 1).padStart(2, '0');
+  var day = String(d.getDate()).padStart(2, '0');
+  return year + '-' + month + '-' + day;
+}
+
+function setPreset(preset) {
+  var now = new Date();
+  var start, end;
+  if (preset === 'month') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  } else if (preset === 'last_month') {
+    start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    end = new Date(now.getFullYear(), now.getMonth(), 0);
+  } else if (preset === 'quarter') {
+    var qMonth = Math.floor(now.getMonth() / 3) * 3;
+    start = new Date(now.getFullYear(), qMonth, 1);
+    end = new Date(now.getFullYear(), qMonth + 3, 0);
+  } else if (preset === 'fy') {
+    var isCal = {{ 'true' if is_calendar_year else 'false' }};
+    if (isCal) {
+      start = new Date(now.getFullYear(), 0, 1);
+      end = now;
+    } else {
+      var fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+      start = new Date(fyStartYear, 3, 1);
+      end = now;
+    }
+  } else if (preset === 'all') {
+    start = new Date(2020, 0, 1);
+    end = new Date(now.getFullYear() + 2, 11, 31);
+  }
+  if (start && end) {
+    document.getElementById('filter-from').value = formatDateLocal(start);
+    document.getElementById('filter-to').value = formatDateLocal(end);
+    var form = document.getElementById('tax-filter-form');
+    if (form) { form.submit(); }
+  }
+}
+</script>
+{% endblock %}

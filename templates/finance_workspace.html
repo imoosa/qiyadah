@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Core Finance{% endblock %}
+{% block extra_style %}{% include '_finance_style.html' %}{% endblock %}
+{% from '_finance_macros.html' import amounts %}
+{% block content %}
+<div class="finance-dashboard">
+  <!-- Hero Header matching GST E-Invoice design -->
+  <div class="fin-hero-card">
+    <div class="fin-hero-top">
+      <div class="fin-hero-title-box">
+        <h1>
+          <span>⚡</span>
+          <span>Core Finance</span>
+        </h1>
+        <p>Enterprise ledger balances, receivables, payables, tax obligations and operational liquidity.</p>
+        <div class="fin-hero-badges">
+          <span class="fin-hero-badge highlight">Finance Dashboard <span aria-hidden="true">/</span> {{ f.today.strftime('%d %b %Y') }}</span>
+          <span class="fin-hero-badge">Double-Entry Standard</span>
+          <span class="fin-hero-badge">Multi-Currency Isolation</span>
+        </div>
+      </div>
+      <div class="fin-hero-actions">
+        <a href="{{ url_for('reports_dashboard') }}" class="fin-hero-btn">
+          <span>📊</span>
+          <span>Finance Reports</span>
+        </a>
+        <a href="{{ url_for('finance_tax_report') }}" class="fin-hero-btn highlight">
+          <span>🏛️</span>
+          <span>{{ f.tax_label }} Dashboard</span>
+        </a>
+      </div>
+    </div>
+  </div>
+  <form class="card fin-filters" method="get" action="{{ url_for('finance_workspace') }}">
+    <label>Company<select name="company"><option value="{{ f.company_id }}">{{ finance_company.company_name if finance_company else f.company_id }}</option></select><a class="fin-sub-link" href="{{ url_for('select_company') }}">Switch company</a></label>
+    <label>Branch<select disabled><option>{{ finance_company.branch_name if finance_company and finance_company.branch_name else 'Not specified' }}</option></select><small>Selected company records only</small></label>
+    <label>Financial Year<select name="fy" id="finance-year">{% for year in f.years %}<option value="{{ year }}" {% if year == f.fy %}selected{% endif %}>{% if f.is_calendar_year %}{{ year }} (Jan–Dec){% else %}{{ year }}–{{ year+1 }} (Apr–Mar){% endif %}</option>{% endfor %}</select><small>Reporting preset</small></label>
+    <label>From<input type="date" name="from_date" id="finance-from" value="{{ f.start }}" required></label>
+    <label>To<input type="date" name="to_date" id="finance-to" value="{{ f.end }}" required></label>
+    <button class="btn btn-primary" type="submit">Apply</button>
+  </form>
+  <p class="fin-muted fin-scope">Date range applies to sales, purchases, expenses and invoice tax. Cash, bank and open invoices show <strong>current recorded balances</strong>, not historical balances. Currency totals are kept separate.</p>
+  <div class="fin-kpis">
+    {% for kpi in kpis %}
+    {% set kpi_icons = {
+      'Cash in Hand': ('💵', '#059669'),
+      'Cash at Bank': ('🏦', '#0d9488'),
+      'Accounts Receivable': ('📥', '#2563eb'),
+      'Accounts Payable': ('📤', '#dc2626'),
+      'Overdue Receivables': ('⚠️', '#ef4444'),
+      'Overdue Payables': ('⏱️', '#b91c1c'),
+      'Sales': ('📈', '#10b981'),
+      'Purchases': ('🧾', '#d97706'),
+      'Expenses': ('💸', '#f43f5e'),
+      'Gross Profit': ('💰', '#047857'),
+      'Net Profit': ('💎', '#065f46')
+    } %}
+    {% set spec = kpi_icons.get(kpi.label, ('🏛️', '#f59e0b')) %}
+    {% if kpi.href %}<a class="card fin-kpi" href="{{ kpi.href }}" style="border-top-color: {{ spec[1] }};">{% else %}<div class="card fin-kpi" style="border-top-color: {{ spec[1] }};">{% endif %}
+      <div class="fin-kpi-top">
+        <span class="fin-kpi-label">{{ kpi.label }}</span>
+        <div class="fin-kpi-icon-box">{{ spec[0] }}</div>
+      </div>
+      {% if kpi.pending %}<strong class="fin-pending">{{ kpi.pending }}</strong>{% else %}<div class="fin-kpi-value">{{ amounts(kpi['values']) }}</div>{% endif %}
+      <small>{{ kpi.note }}</small>{% if kpi.href %}<span class="fin-drill">{% if kpi.pending %}View basis{% else %}View records{% endif %} →</span>{% endif %}
+    {% if kpi.href %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+  </div>
+  <div class="fin-panels">
+    {% for key, title, party_label, enabled in [('receivables','Receivables','Top debtors',sales_access),('payables','Payables','Top creditors',purchase_access)] %}
+    {% set part = data[key] %}
+    <section class="card fin-panel" id="{{ key }}">
+      <div class="fin-heading"><h3>{{ title }}</h3>{% if enabled %}<a href="{{ drill(key) }}">View open invoices →</a>{% endif %}</div>
+      {% if enabled %}
+      <div class="fin-pair"><div><span class="fin-muted">Total open invoices</span><strong>{{ amounts(part.total) }}</strong></div><div><span class="fin-muted">Overdue</span><strong class="fin-danger">{{ amounts(part.overdue) }}</strong></div></div>
+      <h4>Ageing by due date</h4>
+      <div class="fin-ageing">{% for bucket, values in part.buckets.items() %}<a href="{{ drill(key,bucket=bucket) }}"><span>{{ bucket }}</span><strong>{{ amounts(values) }}</strong></a>{% endfor %}</div>
+      <h4>{{ party_label }} <small class="fin-muted">· top 5 per currency</small></h4>
+      <div class="fin-table-wrap"><table><thead><tr><th>Party</th><th>Currency</th><th class="fin-num">Outstanding</th></tr></thead><tbody>{% for party in part.top %}<tr><td>{{ party.name }}</td><td>{{ party.currency }}</td><td class="fin-num">{{ '{:,.2f}'.format(party.amount) }}</td></tr>{% else %}<tr><td colspan="3" class="fin-muted">No open invoices.</td></tr>{% endfor %}</tbody></table></div>
+      <div class="fin-heading"><h4>{{ 'Invoices' if key == 'receivables' else 'Payments' }} due within 7 days</h4><a href="{{ drill(key,mode='soon') }}">All {{ part.soon_count }} →</a></div>
+      <div class="fin-table-wrap"><table><thead><tr><th>Invoice / party</th><th>Due</th><th class="fin-num">Balance</th></tr></thead><tbody>{% for row in part.soon %}<tr><td><a href="{{ row.href }}">{{ row.reference }}</a><small class="fin-muted fin-block">{{ row.party }}</small></td><td>{{ row.due.strftime('%d %b') }}</td><td class="fin-num">{{ row.currency }} {{ '{:,.2f}'.format(row.balance) }}</td></tr>{% else %}<tr><td colspan="3" class="fin-muted">Nothing due in the next 7 days.</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<p class="fin-muted">Invoice access is not enabled for your role.</p>{% endif %}
+    </section>
+    {% endfor %}
+    <section class="card fin-panel" id="cash-bank">
+      <div class="fin-heading"><h3>Cash & Bank</h3><span class="fin-badge">Current records · {{ data.base_currency }}</span></div>
+      <div class="fin-table-wrap"><table><thead><tr><th>Account</th><th class="fin-num">Recorded balance</th></tr></thead><tbody>
+      {% if can('bank','view') %}{% for bank in data.banks %}<tr><td><a href="{{ url_for('bank_transactions',account_id=bank.id) }}">{{ bank.name }}</a><small class="fin-block fin-muted">{{ bank.account }}</small></td><td class="fin-num">{{ '{:,.2f}'.format(bank.balance) }}</td></tr>{% else %}<tr><td colspan="2" class="fin-muted">No active bank accounts.</td></tr>{% endfor %}{% endif %}
+      {% if can('cash','view') %}<tr><td><a href="{{ url_for('cash_in_hand') }}">Cash in hand</a></td><td class="fin-num">{{ '{:,.2f}'.format(data.cash) }}</td></tr>{% endif %}
+      {% if data.liquidity is not none %}<tr><th>Total recorded liquidity</th><th class="fin-num">{{ '{:,.2f}'.format(data.liquidity) }}</th></tr>{% endif %}
+      </tbody></table></div>
+      <p class="fin-muted">Uses the existing cashbook and active bank balances in company currency. These are recorded balances, not statement-verified balances.</p>
+      <div class="fin-notice"><strong>Unreconciled transactions — not available</strong><p>Bank statement matching and reconciliation status have not been implemented.</p></div>
+    </section>
+    <section class="card fin-panel" id="profitability">
+      <div class="fin-heading"><h3>Profitability</h3><span class="fin-badge">{{ data.base_currency }} only</span></div>
+      <h4>Revenue vs Expenses</h4>
+      <p class="fin-muted">Invoice revenue excluding tax vs the expense register, by month. Other currencies are excluded from this chart. This is an activity comparison, not a P&L.</p>
+      {% if sales_access and can('expenses','view') %}
+      <div class="fin-legend"><span><i class="fin-revenue"></i> Invoice revenue</span><span><i class="fin-cost"></i> Expenses</span></div>
+      <div class="fin-chart" role="img" aria-label="Monthly invoice revenue and recorded expenses in {{ data.base_currency }}; exact values shown for each month">
+      {% for month in data.months %}<div class="fin-chart-row"><span>{{ month.label }}</span><div class="fin-bars"><div class="fin-revenue" style="width:{{ month.revenue_width }}%"></div><div class="fin-cost" style="width:{{ month.expense_width }}%"></div></div><span class="fin-chart-values">{{ '{:,.2f}'.format(month.revenue) }} / {{ '{:,.2f}'.format(month.expenses) }}</span></div>{% endfor %}
+      </div>
+      {% else %}<p class="fin-muted">Revenue and expense permissions are required for this comparison.</p>{% endif %}
+      <div class="fin-notice"><strong>Gross profit · Net profit · Monthly P&L trend</strong><p>Available after the accounting engine supports cost of sales, inventory valuation, accruals and adjustments. Purchases are not treated as cost of sales.</p></div>
+    </section>
+    <section class="card fin-panel" id="tax">
+      <div class="fin-heading"><h3>{{ f.tax_label }} Overview</h3><a href="{{ url_for('finance_tax_report') }}">Open {{ f.tax_label }} Dashboard & Reports →</a></div>
+      <div class="fin-pair">
+        <div><span class="fin-muted">Input {{ f.tax_label }} recorded</span>{% if purchase_access %}<a href="{{ drill('input-tax') }}"><strong>{{ amounts(data.input_tax) }}</strong></a>{% else %}<p>No access</p>{% endif %}</div>
+        <div><span class="fin-muted">Output {{ f.tax_label }} recorded</span>{% if sales_access %}<a href="{{ drill('output-tax') }}"><strong>{{ amounts(data.output_tax) }}</strong></a>{% else %}<p>No access</p>{% endif %}</div>
+      </div>
+      {% if purchase_access and can('invoices','view') and can('customer_invoices','view') %}<h4>Invoice {{ f.tax_label }} difference</h4>{{ amounts(data.tax_difference) }}<p class="fin-muted">Positive = recorded output exceeds input; negative = recorded input exceeds output.</p>{% endif %}
+      <div class="fin-notice"><strong>Net {{ f.tax_label }} payable / receivable requires reconciliation</strong><p>Invoice {{ f.tax_label }} totals are not a tax return. Input eligibility, reverse charge, credit/debit notes and adjustments are not verified.</p></div>
+    </section>
+    <section class="card fin-panel" id="attention">
+      <div class="fin-heading"><h3>Attention Required</h3><span class="fin-badge">Today</span></div>
+      <ul class="fin-attention">
+        {% if sales_access %}<li><a href="{{ drill('receivables',mode='overdue') }}"><strong>{{ data.receivables.overdue_count }}</strong> overdue customer invoices <span>→</span></a></li>{% endif %}
+        {% if purchase_access %}<li><a href="{{ drill('payables',mode='overdue') }}"><strong>{{ data.payables.overdue_count }}</strong> overdue supplier invoices <span>→</span></a></li><li><a href="{{ drill('payables',mode='soon') }}"><strong>{{ data.payables.soon_count }}</strong> supplier invoices due within 7 days <span>→</span></a></li>{% endif %}
+        <li><a href="{{ url_for('finance_tax_report') }}">Review invoice {{ f.tax_label.lower() }} and adjustments <span>→</span></a><small>Open unified {{ f.tax_label }} & Tax Dashboard.</small></li>
+        <li><strong>Bank reconciliation</strong><small>Pending statement-matching workflow; no unreconciled count available.</small></li>
+        <li><strong>Unposted transactions</strong><small>Posting status is not tracked until the journal engine is available.</small></li>
+      </ul>
+    </section>
+  </div>
+  <p class="fin-muted fin-scope">Figures include only records your role can view. Open invoice balances exclude opening balances, unapplied advances and standalone bookings. Existing customer/supplier statements remain available in the sidebar. No operational records are copied.</p>
+</div>
+<script>
+ document.getElementById('finance-year').addEventListener('change', function () {
+   const year = Number(this.value);
+   const isCal = {{ 'true' if f.is_calendar_year else 'false' }};
+   if (isCal) {
+     document.getElementById('finance-from').value = year + '-01-01';
+     const yearEnd = year + '-12-31';
+     const today = {{ f.today.isoformat()|tojson }};
+     document.getElementById('finance-to').value = today >= year + '-01-01' && today < yearEnd ? today : yearEnd;
+   } else {
+     document.getElementById('finance-from').value = year + '-04-01';
+     const yearEnd = (year + 1) + '-03-31';
+     const today = {{ f.today.isoformat()|tojson }};
+     document.getElementById('finance-to').value = today >= year + '-04-01' && today < yearEnd ? today : yearEnd;
+   }
+ });
+</script>
+{% endblock %}

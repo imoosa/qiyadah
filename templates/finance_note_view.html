@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}{{ note.number }} · {{ kind|title }} Note{% endblock %}
+{% block extra_style %}{% include '_finance_style.html' %}<style>@media print{.note-actions,.sidebar,.topbar,.bottom-nav{display:none!important}.main{margin:0!important}.finance-dashboard{max-width:none!important}}</style>{% endblock %}
+{% block content %}<div class="finance-dashboard">
+<div class="fin-heading note-actions"><a href="{{ url_for('finance_note_list', kind=kind) }}">← {{ kind|title }} Notes</a><button class="btn btn-secondary" onclick="window.print()">Print</button></div>
+<section class="card fin-panel"><div class="fin-heading"><div><h2>{{ kind|title }} Note</h2><strong>{{ note.number }}</strong></div><span>{{ note.status }}</span></div>
+<p><strong>Date:</strong> {{ note.note_date }} · <strong>{{ 'Customer' if kind == 'credit' else 'Supplier' }}:</strong> {{ note.party_name }}</p>
+<p><strong>Original invoice:</strong> {% if invoice_url %}<a href="{{ invoice_url }}">{{ note.invoice_reference }}</a>{% else %}{{ note.invoice_reference }}{% endif %}</p>
+<div class="fin-table-wrap"><table><thead><tr><th>Description</th><th>Currency</th><th class="fin-num">Taxable amount</th><th class="fin-num">Tax</th><th class="fin-num">Total</th></tr></thead><tbody><tr><td style="white-space:pre-wrap">{{ note.reason }}</td><td>{{ note.currency }}</td><td class="fin-num">{{ '{:,.2f}'.format(note.subtotal) }}</td><td class="fin-num">{{ '{:,.2f}'.format(note.tax_amount) }}</td><td class="fin-num"><strong>{{ '{:,.2f}'.format(note.total) }}</strong></td></tr></tbody></table></div>
+<p class="fin-muted">Created by {{ note.created_by }} · {{ note.created_at.strftime('%d %b %Y %H:%M') }}</p>
+{% if invoice %}<p>Current invoice outstanding: <strong>{{ invoice.currency }} {{ '{:,.2f}'.format(invoice.balance) }}</strong></p>{% endif %}
+{% if note.status == 'Void' %}<p>Cancelled by {{ note.voided_by }} · {{ note.voided_at }}<br>Reason: {{ note.void_reason }}</p>{% elif can_void %}<details class="note-actions"><summary>Cancel this note</summary><form method="post" action="{{ url_for('finance_note_void', kind=kind, note_id=note.id) }}"><p>Cancelling reverses the accounting adjustment and restores the invoice balance.</p><label>Cancellation reason <input name="reason" required maxlength="2000"></label> <button class="btn btn-secondary" type="submit">Cancel note</button></form></details>{% endif %}
+</section></div>{% endblock %}

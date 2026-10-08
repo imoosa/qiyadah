@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}New {{ kind|title }} Note{% endblock %}
+{% block extra_style %}{% include '_finance_style.html' %}<style>.note-form{max-width:760px}.note-form label{display:block;margin:16px 0;font-weight:600}.note-form input,.note-form select,.note-form textarea{display:block;width:100%;margin-top:6px;padding:10px;border:1px solid var(--border-color);border-radius:6px;background:var(--bg-card);color:var(--text-body)}.note-columns{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:600px){.note-columns{grid-template-columns:1fr}}</style>{% endblock %}
+{% block content %}<div class="finance-dashboard note-form">
+<div class="fin-heading"><h2>New {{ kind|title }} Note</h2><a href="{{ url_for('finance_note_list', kind=kind) }}">Back to notes</a></div>
+<p class="fin-muted">{{ 'Reduces the customer amount due' if kind == 'credit' else 'Reduces the supplier amount payable' }} and posts an accounting adjustment. Amounts use the linked invoice currency. Notes are limited to the remaining unpaid amount; refunds and stock returns are handled separately.</p>
+<form method="post" class="card fin-panel" onsubmit="this.querySelector('button[type=submit]').disabled=true">
+<input type="hidden" name="request_token" value="{{ token }}">
+<label>{{ 'Sales invoice' if kind == 'credit' else 'Purchase invoice' }}<select name="invoice_id" required><option value="">Select an invoice</option>{% for invoice in invoices %}<option value="{{ invoice.id }}" {% if request.values.get('invoice_id') == invoice.id|string %}selected{% endif %}>{{ invoice.invoice_number or invoice.invoice_id }} · {{ invoice.client_name if kind == 'credit' else invoice.supplier_name }} · {{ invoice.currency }} {{ '{:,.2f}'.format(invoice.grand_total - invoice.paid_amount - invoice.note_adjustment) }} outstanding</option>{% endfor %}</select></label>
+{% if not invoices %}<p>No eligible unpaid invoices. Create or confirm an invoice first.</p>{% endif %}
+<label>Note date<input type="date" name="note_date" required max="{{ today }}" value="{{ request.form.get('note_date', today) }}"></label>
+<div class="note-columns"><label>Taxable amount<input type="number" name="subtotal" min="0" step="0.01" required value="{{ request.form.get('subtotal', '') }}"></label><label>Tax adjustment<input type="number" name="tax_amount" min="0" step="0.01" required value="{{ request.form.get('tax_amount', '0.00') }}"></label></div>
+<label>Reason / description<textarea name="reason" rows="4" maxlength="2000" required placeholder="For example: returned goods, damaged items or price adjustment">{{ request.form.get('reason', '') }}</textarea></label>
+<button type="submit" class="btn btn-primary" {% if not invoices %}disabled{% endif %}>Post {{ kind|title }} Note</button>
+</form></div>{% endblock %}
