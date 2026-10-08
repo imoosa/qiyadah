@@ -1,0 +1,27 @@
+<div class="nav-section">
+  <div class="nav-section-title">COMPANY ADMINISTRATION</div>
+  {% if user.role in ['owner', 'super_admin'] %}
+  {% for tab, label, icon in [('general','Company Profile','🏢'), ('team','Team Members','👥'), ('access','User Permissions','🔑'), ('billing','Billing & Terms','📋'), ('subscription','Subscription','💎')] %}
+  <a href="{{ url_for('company_settings') }}#tab-{{ tab }}" class="nav-item" data-settings-tab="{{ tab }}"><span class="nav-icon">{{ icon }}</span><span>{{ label }}</span></a>
+  {% endfor %}
+  <a href="{{ url_for('company_settings') }}#tab-danger" class="nav-item" data-settings-tab="danger"><span class="nav-icon">⚠️</span><span>Clear Data</span></a>
+  {% endif %}
+  {% if can_manage_hr_access is defined and can_manage_hr_access() %}
+  <a href="{{ url_for('hr_user_access') }}" class="nav-item {% if request.endpoint == 'hr_user_access' %}active{% endif %}"><span class="nav-icon">🔐</span><span>HR Users &amp; Access</span></a>
+  {% endif %}
+</div>
+<div class="nav-section">
+  <a href="{{ url_for('apps_hub') }}" class="nav-item"><span class="nav-icon">🏠</span><span>All Workspaces</span></a>
+</div>
+<script>
+  // Settings links also work when navigating between tabs on the same page.
+  function syncAdministrationTab() {
+    const tab = location.hash.startsWith('#tab-') ? location.hash.slice(5) : 'general';
+    if (document.getElementById('tab-' + tab) && typeof switchTab === 'function') switchTab(tab);
+    document.querySelectorAll('[data-settings-tab]').forEach(link => {
+      link.classList.toggle('active', !!document.getElementById('tab-' + tab) && link.dataset.settingsTab === tab);
+    });
+  }
+  window.addEventListener('hashchange', syncAdministrationTab);
+  document.addEventListener('DOMContentLoaded', syncAdministrationTab);
+</script>

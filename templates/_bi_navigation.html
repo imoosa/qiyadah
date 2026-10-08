@@ -1,0 +1,51 @@
+{% set premium_bi = bi_unified_access is defined and bi_unified_access() %}
+<div class="nav-section">
+  <div class="nav-section-title">BI Intelligence</div>
+  <a href="{{ url_for('bi_intelligence') }}" class="nav-item {% if active == 'bi_intelligence' %}active{% endif %}">
+    <span class="nav-icon">🧠</span><span>BI Intelligence Home</span>
+  </a>
+  <a href="{{ url_for('bi_dashboard') }}" class="nav-item {% if active == 'bi_dashboard' %}active{% endif %}">
+    <span class="nav-icon">📊</span><span>All-Module Dashboard</span>
+  </a>
+  <a href="{{ url_for('bi_finance_dashboard') }}" class="nav-item {% if request.endpoint == 'bi_finance_dashboard' %}active{% endif %}"><span class="nav-icon">▥</span><span>Detailed Financial Reports</span></a>
+  <a href="{{ url_for('reports_dashboard') }}" class="nav-item {% if active == 'reports_dashboard' and not request.args.get('tab') %}active{% endif %}">
+    <span class="nav-icon">📈</span><span>Report Dashboard</span>
+  </a>
+</div>
+
+<div class="nav-section">
+  <div class="nav-section-title">Business Modules</div>
+  {% for key,label in [('core','Finance & Accounting'),('crm','CRM & Pipeline'),('orderflow','Supply Chain & Production'),('repair','Workshop & Repair'),('hr','HR & Payroll')] %}
+  {% if premium_bi and module_access(key) and user.role in ['owner','super_admin'] %}<a href="{{ url_for('bi_dashboard', module=key) }}" class="nav-item"><span class="nav-icon">·</span><span>{{ label }}</span></a>{% elif not premium_bi %}<span class="nav-item" aria-disabled="true"><span class="nav-icon">🔒</span><span>{{ label }} · Unified</span></span>{% endif %}
+  {% endfor %}
+</div>
+<div class="nav-section">
+  <div class="nav-section-title">Intelligence Reports</div>
+  <a href="{{ url_for('reports_dashboard', tab='sales') }}" class="nav-item"><span class="nav-icon">📈</span><span>Sales Intelligence</span></a>
+  <a href="{{ url_for('reports_dashboard', tab='purchase') }}" class="nav-item"><span class="nav-icon">🛒</span><span>Purchase Intelligence</span></a>
+  <a href="{{ url_for('reports_dashboard', tab='stock') }}" class="nav-item"><span class="nav-icon">📦</span><span>Stock Intelligence</span></a>
+  <a href="{{ url_for('reports_dashboard', tab='tax') }}" class="nav-item"><span class="nav-icon">🧾</span><span>Tax Intelligence</span></a>
+  <a href="{{ url_for('reports_dashboard', tab='financial') }}" class="nav-item"><span class="nav-icon">💰</span><span>Financial Intelligence</span></a>
+</div>
+
+
+{% set has_builder = ('bi_builder' in url_for.__globals__['current_app'].view_functions) if (url_for.__globals__ is defined and 'current_app' in url_for.__globals__ and url_for.__globals__['current_app'].view_functions is defined) else true %}
+{% set has_explore = ('bi_explore' in url_for.__globals__['current_app'].view_functions) if (url_for.__globals__ is defined and 'current_app' in url_for.__globals__ and url_for.__globals__['current_app'].view_functions is defined) else true %}
+{% if (user.role in ['owner', 'super_admin', 'bi_developer'] or (can is defined and can('analytics', 'view'))) and has_builder %}
+<div class="nav-section">
+  <div class="nav-section-title">BI Development</div>
+  <a href="{{ url_for('bi_builder') }}" class="nav-item {% if request.endpoint == 'bi_builder' or active == 'bi_builder' %}active{% endif %}">
+    <span class="nav-icon">⚙️</span><span>BI Developer Studio</span>
+  </a>
+  {% if (user.role in ['owner', 'super_admin', 'bi_developer']) and has_explore %}
+  <a href="{{ url_for('bi_explore') }}" class="nav-item {% if request.endpoint == 'bi_explore' %}active{% endif %}">
+    <span class="nav-icon">⌕</span><span>BI Explorer &amp; Auditor</span>
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="nav-section">
+  <div class="nav-section-title">Workspace</div>
+  <a href="{{ url_for('apps_hub') }}" class="nav-item"><span class="nav-icon">▦</span><span>All Workspaces</span></a>
+</div>

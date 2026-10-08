@@ -1,0 +1,28 @@
+<!-- CRM additions reuse existing card, input, button and modal styles. -->
+<div class="view-pane" id="pane-contacts">
+  <div class="table-container">
+    <div class="table-header-bar"><h3>Contacts</h3><div><a class="btn btn-ghost" href="/api/crm/workspace/export/contacts">Export</a> <button class="btn btn-primary" onclick="openWorkspaceForm('contact')">+ New Contact</button></div></div>
+    <div style="padding:16px;"><input class="input" id="contactSearch" type="search" placeholder="Search contacts..." aria-label="Search contacts" oninput="renderWorkspaceContacts()"></div>
+    <div style="overflow:auto;"><table class="data-table"><thead><tr><th>Name</th><th>Account</th><th>Designation</th><th>Phone</th><th>Email</th><th>Primary</th></tr></thead><tbody id="workspaceContacts"></tbody></table></div>
+  </div>
+</div>
+<div class="view-pane" id="pane-projects">
+  <div class="table-container"><div class="table-header-bar"><h3>Projects</h3><button class="btn btn-primary" onclick="openWorkspaceForm('project')">+ New Project</button></div>
+    <div style="overflow:auto;"><table class="data-table"><thead><tr><th>Project</th><th>Account</th><th>Owner</th><th>Due</th><th>Status</th><th>Actions</th></tr></thead><tbody id="workspaceProjects"></tbody></table></div>
+  </div>
+</div>
+<div class="view-pane" id="pane-reports"><div class="table-header-bar"><h3>CRM Reports</h3><a class="btn btn-ghost" href="/api/crm/workspace/export/leads">Export Leads</a></div><div id="workspaceReports" aria-live="polite"></div></div>
+<div class="view-pane" id="pane-setup">
+  <div class="table-header-bar"><h3>CRM Setup</h3><input class="input" type="search" placeholder="Search setup..." aria-label="Search setup" oninput="filterCrmSetup(this.value)"></div>
+  <p style="color:var(--text-muted);margin:12px 0;">Manage CRM options and company settings. Integration options show their connection requirements.</p>
+  <div id="crmSetupGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;"></div>
+  <div class="table-container" id="crmSetupDetail" hidden style="margin-top:20px;padding:20px;"></div>
+</div>
+<div class="modal-overlay" id="workspaceFormModal">
+  <div class="modal-box"><div class="modal-head"><h3 id="workspaceFormTitle"></h3><button class="close-modal-btn" aria-label="Close" onclick="closeModal('workspaceFormModal')">&times;</button></div>
+    <form id="workspaceForm" onsubmit="saveWorkspaceForm(event)"><div class="form-grid" id="workspaceFormFields"></div>
+      <p id="workspaceFormError" role="alert" style="color:var(--danger);margin-top:12px;"></p>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;"><button type="button" class="btn btn-ghost" onclick="closeModal('workspaceFormModal')">Cancel</button><button class="btn btn-primary" type="submit">Save</button></div>
+    </form>
+  </div>
+</div>

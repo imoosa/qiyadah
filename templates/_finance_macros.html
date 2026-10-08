@@ -1,0 +1,5 @@
+{% macro amounts(values) -%}
+  {% for currency, value in values.items() %}
+    {% if value is not none %}<span class="fin-money">{{ currency }} {{ '{:,.2f}'.format(value) }}</span>{% endif %}
+  {% else %}<span class="fin-money">0.00 <small class="fin-muted">No matching records</small></span>{% endfor %}
+{%- endmacro %}
