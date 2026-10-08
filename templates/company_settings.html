@@ -1,0 +1,1323 @@
+{% extends "base.html" %}
+{% set use_administration_navigation = true %}
+{% block hub_tag %}COMPANY ADMINISTRATION{% endblock %}
+{% block title %}Company Settings{% endblock %}
+{% block page_title %}Company Settings{% endblock %}
+{% set active = 'settings' %}
+
+{% block extra_style %}
+<style>
+  /* ── Dark Theme Overrides ── */
+  body.dark-theme .settings-page { --card-bg: #1A1A1A; --border-color: #2A2A2A; --text-muted: #8A8A8A; --bg-hover: #252525; --bg-input: #1A1A1A; --shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  .settings-page { --card-bg: #ffffff; --border-color: #E5E7EB; --text-muted: #6B7280; --bg-hover: #F9FAFB; --bg-input: #ffffff; --shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+  .settings-page { font-family: 'Plus Jakarta Sans', sans-serif; }
+  
+  /* ── Header ── */
+  .settings-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+  .settings-header h1 { font-size: 24px; font-weight: 700; margin: 0; color: var(--text-body); }
+  .settings-header p { font-size: 14px; color: var(--text-muted); margin: 4px 0 0; }
+  .settings-header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* ── Tabs ── */
+  .settings-tabs { display: flex; gap: 4px; margin-bottom: 28px; border-bottom: 2px solid var(--border-color); flex-wrap: wrap; }
+  .settings-tab { padding: 10px 20px; font-size: 13px; font-weight: 600; color: var(--text-muted); background: none; border: none; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.2s; border-radius: 8px 8px 0 0; }
+  .settings-tab:hover { color: var(--text-body); background: var(--bg-hover); }
+  .settings-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: transparent; }
+  body.dark-theme .settings-tab.active { color: #FBBF24; border-bottom-color: #FBBF24; }
+  .settings-tab .badge { margin-left: 6px; font-size: 10px; padding: 2px 8px; }
+
+  /* ── Cards ── */
+  .settings-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 24px; margin-bottom: 24px; transition: all 0.2s; box-shadow: var(--shadow); }
+  .settings-card-title { font-size: 16px; font-weight: 700; margin: 0 0 4px; color: var(--text-body); display: flex; align-items: center; gap: 8px; }
+  .settings-card-subtitle { font-size: 13px; color: var(--text-muted); margin: 0 0 20px; }
+
+  /* ── Form Elements ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width: 640px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media(max-width: 768px) { .form-grid-3 { grid-template-columns: 1fr 1fr; } }
+  @media(max-width: 480px) { .form-grid-3 { grid-template-columns: 1fr; } }
+
+  .form-group { margin-bottom: 6px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-body); margin-bottom: 4px; }
+  .form-group .hint { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: block; }
+  .form-control { width: 100%; padding: 9px 13px; border: 1.5px solid var(--border-color); border-radius: 8px; font-size: 13px; font-family: inherit; background: var(--bg-input); color: var(--text-body); transition: border 0.15s; }
+  .form-control:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
+  .form-control[readonly] { background: var(--bg-input-disabled); cursor: default; }
+  textarea.form-control { resize: vertical; min-height: 70px; }
+  select.form-control { appearance: auto; }
+
+  /* ── Toggle Switch ── */
+  .toggle-group { display: flex; flex-wrap: wrap; gap: 16px; margin: 4px 0 8px; }
+  .toggle-item { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; cursor: pointer; padding: 6px 12px; border-radius: 8px; background: var(--bg-hover); border: 1.5px solid transparent; transition: all 0.15s; }
+  .toggle-item:hover { border-color: var(--border-color); }
+  .toggle-item input[type="radio"] { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+  .toggle-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+  .toggle-item.active { border-color: var(--primary); background: rgba(245,158,11,0.08); }
+  body.dark-theme .toggle-item.active { background: rgba(245,158,11,0.12); }
+
+  /* ── Checkbox Grid ── */
+  .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+  .checkbox-item { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; cursor: pointer; padding: 6px 10px; border-radius: 6px; background: var(--bg-hover); transition: background 0.15s; }
+  .checkbox-item:hover { background: var(--border-color); }
+  .checkbox-item input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
+
+  /* ── Logo Upload ── */
+  .logo-upload { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .logo-preview { width: 72px; height: 72px; border-radius: 12px; border: 2px solid var(--border-color); object-fit: contain; background: var(--bg-hover); flex-shrink: 0; }
+  .logo-placeholder { width: 72px; height: 72px; border-radius: 12px; border: 2px dashed var(--border-color); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+  /* ── Plan Cards ── */
+  .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .plan-card { border: 2px solid var(--border-color); border-radius: 14px; padding: 20px; transition: all 0.2s; background: var(--card-bg); }
+  .plan-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+  .plan-card.active { border-color: var(--primary); background: rgba(245,158,11,0.05); box-shadow: 0 4px 16px rgba(245,158,11,0.1); }
+  body.dark-theme .plan-card.active { background: rgba(245,158,11,0.08); }
+  .plan-card .plan-name { font-size: 18px; font-weight: 700; }
+  .plan-card .plan-price { font-size: 22px; font-weight: 800; margin: 4px 0 8px; color: var(--primary); }
+  .plan-card .plan-features { list-style: none; padding: 0; margin: 12px 0 16px; font-size: 13px; color: var(--text-muted); }
+  .plan-card .plan-features li { padding: 3px 0; display: flex; align-items: center; gap: 6px; }
+  .plan-card .plan-features li::before { content: "✓"; color: var(--primary); font-weight: 700; }
+  .plan-card .btn { width: 100%; justify-content: center; }
+
+  /* ── Plan Summary ── */
+  .plan-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; padding: 16px 20px; background: var(--bg-hover); border-radius: 10px; margin-bottom: 16px; }
+  .plan-summary-item .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+  .plan-summary-item .value { font-size: 16px; font-weight: 700; color: var(--text-body); }
+
+  /* ── Team Table ── */
+  .team-table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border-color); }
+  .team-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .team-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); background: var(--bg-hover); border-bottom: 2px solid var(--border-color); }
+  .team-table td { padding: 10px 14px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+  .team-table tr:last-child td { border-bottom: none; }
+  .team-table .role-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .role-badge.owner { background: #FEF3C7; color: #92400E; }
+  .role-badge.manager { background: #DBEAFE; color: #1E40AF; }
+  .role-badge.employee { background: #D1FAE5; color: #065F46; }
+  .role-badge.accountant { background: #FCE7F3; color: #9D174D; }
+  body.dark-theme .role-badge.owner { background: #78350F; color: #FDE68A; }
+  body.dark-theme .role-badge.manager { background: #1E3A5F; color: #93C5FD; }
+  body.dark-theme .role-badge.employee { background: #064E3B; color: #6EE7B7; }
+  body.dark-theme .role-badge.accountant { background: #4C1D3D; color: #F9A8D4; }
+
+  /* ── ACCESS PERMISSIONS ── */
+  .access-container { display: flex; flex-direction: column; gap: 16px; }
+
+  .access-hint { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-muted); background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; margin-bottom: 4px; }
+
+  /* Employee Access Card - Single Card */
+  .employee-access-card { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; background: var(--card-bg); }
+  .employee-access-card-header { padding: 14px 20px; background: var(--bg-hover); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
+  .employee-access-card-header .card-title { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .employee-access-card-header .card-title .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+  .employee-access-card-body { padding: 20px; }
+
+  /* Permission matrix table */
+  .perm-matrix { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; }
+  .perm-matrix th { text-align: left; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); background: var(--bg-hover); padding: 9px 12px; }
+  .perm-matrix th.perm-col { text-align: center; width: 76px; }
+  .perm-matrix td { padding: 9px 12px; border-top: 1px solid var(--border-color); vertical-align: middle; }
+  .perm-matrix tr:first-child td { border-top: none; }
+  .perm-matrix td.perm-col { text-align: center; }
+  .perm-matrix .module-label { font-weight: 500; }
+  .perm-toggle { -webkit-appearance: none; appearance: none; width: 17px; height: 17px; border-radius: 5px; border: 1.5px solid var(--border-color); background: var(--bg-input); cursor: pointer; position: relative; display: inline-block; vertical-align: middle; transition: all 0.12s; }
+  .perm-toggle:checked { background: var(--primary); border-color: var(--primary); }
+  .perm-toggle:checked::after { content: ''; position: absolute; left: 5px; top: 1px; width: 4px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+  .perm-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  @media(max-width: 640px) { .perm-matrix { font-size: 12px; } .perm-matrix th.perm-col, .perm-matrix td.perm-col { width: auto; } }
+
+  /* Role selector for changing employee's role */
+  .role-selector { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 16px; flex-wrap: wrap; }
+  .role-selector label { font-weight: 600; font-size: 13px; margin: 0; }
+  .role-selector select { padding: 6px 12px; border-radius: 6px; border: 1.5px solid var(--border-color); background: var(--bg-input); color: var(--text-body); font-size: 13px; font-family: inherit; cursor: pointer; }
+  .role-selector .role-info { font-size: 12px; color: var(--text-muted); }
+  .role-selector .role-info strong { color: var(--text-body); }
+
+  /* Booking Invoice field permissions */
+  .field-perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); }
+  .field-perm-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: var(--bg-hover); font-size: 12.5px; border: 1px solid transparent; }
+  .field-perm-item label { font-weight: 500; margin: 0; flex: 1; }
+  .field-perm-item select { padding: 3px 8px; border-radius: 6px; border: 1.5px solid var(--border-color); background: var(--bg-input); color: var(--text-body); font-size: 11.5px; font-family: inherit; cursor: pointer; }
+  .field-perm-item select:focus { border-color: var(--primary); outline: none; }
+  .field-perm-item .locked { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+
+  /* ── User overrides ── */
+  .user-override { border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+  .empaccess-subtabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .empaccess-subtab { padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--border-color); background: var(--bg-input); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 6px; }
+  .empaccess-subtab .badge { background: var(--bg-hover); color: var(--text-muted); font-weight: 600; }
+  .empaccess-subtab.active { background: var(--accent-color, #2563EB); border-color: var(--accent-color, #2563EB); color: #fff; }
+  .empaccess-subtab.active .badge { background: rgba(255,255,255,0.25); color: #fff; }
+  .user-override-header { padding: 10px 16px; background: var(--bg-hover); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.15s; }
+  .user-override-header:hover { background: var(--border-color); }
+  .user-override-header .user-name { font-weight: 600; font-size: 14px; }
+  .user-override-header .user-role { font-size: 12px; color: var(--text-muted); font-weight: 400; }
+  .user-override-body { padding: 16px; display: none; }
+  .user-override-body.open { display: block; }
+
+  /* ── Danger Zone ── */
+  .danger-zone { border: 2px solid #DC2626; border-radius: 14px; padding: 20px; background: rgba(220,38,38,0.04); }
+  body.dark-theme .danger-zone { background: rgba(220,38,38,0.06); }
+  .danger-zone .settings-card-title { color: #DC2626; }
+  .danger-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin: 12px 0; }
+  .danger-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: rgba(220,38,38,0.06); border: 1px solid rgba(220,38,38,0.15); cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+  .danger-item:hover { background: rgba(220,38,38,0.1); }
+  .danger-item input[type="checkbox"] { width: 15px; height: 15px; accent-color: #DC2626; cursor: pointer; }
+
+  /* ── API Keys ── */
+  .api-key-display { display: flex; gap: 8px; align-items: center; }
+  .api-key-display .form-control { font-family: monospace; font-size: 12px; }
+  .api-key-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .api-key-table th { padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid var(--border-color); }
+  .api-key-table td { padding: 8px 12px; border-bottom: 1px solid var(--border-color); }
+  .api-key-table tr:last-child td { border-bottom: none; }
+
+  /* ── Modals ── */
+  .settings-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  .settings-modal-overlay.open { display: flex; }
+  .settings-modal { background: var(--card-bg); border-radius: 16px; width: 520px; max-width: 92%; padding: 28px; max-height: 85vh; overflow-y: auto; border: 1px solid var(--border-color); animation: modalIn 0.25s ease; }
+  @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(12px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .settings-modal-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
+  .settings-modal-sub { font-size: 13px; color: var(--text-muted); margin: 0 0 16px; }
+  .settings-modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* ── Misc ── */
+  .flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .gap-8 { gap: 8px; }
+  .mt-12 { margin-top: 12px; }
+  .mt-16 { margin-top: 16px; }
+  .mb-8 { margin-bottom: 8px; }
+  .hidden { display: none; }
+  .inline-flex { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* ── Code block ── */
+  .code-block { background: var(--bg-hover); padding: 12px 16px; border-radius: 8px; font-family: monospace; font-size: 12px; overflow-x: auto; border: 1px solid var(--border-color); color: var(--text-body); }
+  .lang-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 8px 0 12px; }
+  .lang-tab { padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--text-muted); background: none; border: 1.5px solid var(--border-color); border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+  .lang-tab:hover { border-color: var(--primary); color: var(--text-body); }
+  .lang-tab.active { border-color: var(--primary); color: var(--primary); background: rgba(245,158,11,0.06); }
+  body.dark-theme .lang-tab.active { background: rgba(245,158,11,0.08); }
+
+  /* ── Responsive ── */
+  @media(max-width: 480px) { .settings-tab { font-size: 12px; padding: 8px 12px; } .settings-card { padding: 16px; } .plan-grid { grid-template-columns: 1fr; } .perm-row { grid-template-columns: 1fr 1fr; } .field-perm-grid { grid-template-columns: 1fr; } }
+
+  /* ── Save button sticky ── */
+  .sticky-save { position: sticky; bottom: 0; background: var(--card-bg); padding: 12px 20px; border-top: 1px solid var(--border-color); margin: 0 -24px -24px; border-radius: 0 0 14px 14px; display: flex; justify-content: flex-end; gap: 12px; z-index: 10; }
+  body.dark-theme .sticky-save { background: var(--card-bg); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+
+  <!-- ═══ HEADER ═══ -->
+  <div class="settings-header">
+    <div>
+      <h1>⚙️ Company Settings</h1>
+      <p>Manage your company profile, security, subscription, team, and access.</p>
+    </div>
+    <div class="settings-header-actions">
+      <button class="btn btn-primary" onclick="document.getElementById('saveAllBtn').click()">💾 Save All</button>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: GENERAL ═══ -->
+  <div class="settings-tab-content" id="tab-general">
+    <form method="POST" action="/company/update-info#tab-general" enctype="multipart/form-data">
+      <div class="settings-card">
+        <div class="settings-card-title">🏢 Company Information</div>
+        <div class="settings-card-subtitle">Basic details that appear on invoices and communications.</div>
+
+        <div class="logo-upload mb-8">
+          {% if company_logo_url %}
+          <img src="{{ company_logo_url }}" alt="Company logo" class="logo-preview">
+          {% else %}
+          <div class="logo-placeholder">No logo</div>
+          {% endif %}
+          <div>
+            <input type="file" name="logo" accept=".png,.jpg,.jpeg,.webp" class="form-control" style="max-width:300px;">
+            <span class="hint">PNG, JPG, or WEBP. Appears on invoices and sidebar.</span>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group"><label>Company Name *</label><input type="text" name="company_name" value="{{ company.company_name }}" class="form-control" required></div>
+          <div class="form-group"><label for="branch_name">Branch Name (optional)</label><input type="text" id="branch_name" name="branch_name" value="{{ company.branch_name or '' }}" maxlength="100" placeholder="e.g. Dubai or Sharjah" class="form-control"><small>Shown below the company name.</small></div>
+          <div class="form-group"><label>Slogan / Tagline</label><input type="text" name="slogan" value="{{ company.slogan or '' }}" class="form-control" placeholder="e.g. Courier &amp; Travels"></div>
+        </div>
+
+        <div class="form-group"><label>Address</label><textarea name="address" rows="3" class="form-control">{{ company.address or '' }}</textarea></div>
+
+        <div class="form-grid">
+          <div class="form-group"><label>Phone</label><input type="text" name="phone" value="{{ company.phone or '' }}" class="form-control"></div>
+          <div class="form-group"><label>Mobile</label><input type="text" name="mobile" value="{{ company.mobile or '' }}" class="form-control"></div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group"><label>Email</label><input type="email" name="email" value="{{ company.email or '' }}" class="form-control"></div>
+          <div class="form-group"><label>Website</label><input type="text" name="website" value="{{ company.website or '' }}" class="form-control" placeholder="e.g. www.example.com"></div>
+        </div>
+
+        <div class="form-group"><label>Additional Info</label><input type="text" name="extra_info" value="{{ company.extra_info or '' }}" class="form-control" placeholder="Extra line printed on invoices"><span class="hint">Prints as an extra line under contact details on invoices.</span></div>
+
+        <div class="form-group">
+          <label>{{ 'VAT / Tax Registration' if billing_tax.is_vat else 'GST Registration' }}</label>
+          <div class="toggle-group">
+            <label class="toggle-item {% if company.is_gst_registered %}active{% endif %}">
+              <input type="radio" name="is_gst_registered" value="1" {% if company.is_gst_registered %}checked{% endif %} onchange="toggleGstField(true)"> {{ 'VAT Registered' if billing_tax.is_vat else 'GST Registered' }}
+            </label>
+            <label class="toggle-item {% if not company.is_gst_registered %}active{% endif %}">
+              <input type="radio" name="is_gst_registered" value="0" {% if not company.is_gst_registered %}checked{% endif %} onchange="toggleGstField(false)"> {{ 'Not VAT Registered' if billing_tax.is_vat else 'Not GST Registered' }}
+            </label>
+          </div>
+          <div id="gstNumberField" style="{% if not company.is_gst_registered %}display:none;{% endif %} margin-top:8px;">
+            <label>{{ tax_id_label or ('TRN (Tax Registration Number)' if billing_tax.is_vat else 'GST Number') }}</label>
+            <input type="text" name="gst_number" value="{{ company.gst_number or '' }}" class="form-control" placeholder="{{ 'e.g. 100XXXXXXXXX003' if billing_tax.is_vat else 'e.g. 27AAABC1234F1Z5' }}" style="max-width:400px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Currency & Regional Tax Settings -->
+      <div class="settings-card">
+        <div class="settings-card-title">🌍 Currency &amp; Regional Compliance</div>
+        <div class="settings-card-subtitle">Configure base operating currency, exchange rate conventions, and localized tax compliance rules.</div>
+
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label>Base Operating Currency *</label>
+            <select name="currency" class="form-control" id="baseCurrencySelect" onchange="updateCurrencyFields()">
+              {% for c in supported_currencies %}
+              <option value="{{ c.code }}" {% if (company.currency or 'INR') == c.code %}selected{% endif %}>
+                {{ c.flag }} {{ c.code }} ({{ c.symbol }}) - {{ c.name }}
+              </option>
+              {% endfor %}
+            </select>
+            <span class="hint">All ledger accounts &amp; stock valuation are kept in this base currency.</span>
+          </div>
+
+          <div class="form-group">
+            <label>Currency Symbol</label>
+            <input type="text" name="currency_symbol" id="currencySymbolInput" value="{{ company.currency_symbol or '₹' }}" class="form-control" style="max-width:120px;">
+            <span class="hint">e.g. $, €, AED, KD, ₹</span>
+          </div>
+
+          <div class="form-group">
+            <label>Operating Country</label>
+            <select name="country" class="form-control" id="companyCountrySelect" onchange="handleCountryChange()">
+              <option value="India" {% if (company.country or 'India') == 'India' %}selected{% endif %}>🇮🇳 India</option>
+              <option value="United Arab Emirates" {% if company.country == 'United Arab Emirates' %}selected{% endif %}>🇦🇪 United Arab Emirates</option>
+              <option value="Saudi Arabia" {% if company.country == 'Saudi Arabia' %}selected{% endif %}>🇸🇦 Saudi Arabia</option>
+              <option value="Kuwait" {% if company.country == 'Kuwait' %}selected{% endif %}>🇰🇼 Kuwait</option>
+              <option value="Bahrain" {% if company.country == 'Bahrain' %}selected{% endif %}>🇧🇭 Bahrain</option>
+              <option value="Oman" {% if company.country == 'Oman' %}selected{% endif %}>🇴🇲 Oman</option>
+              <option value="Qatar" {% if company.country == 'Qatar' %}selected{% endif %}>🇶🇦 Qatar</option>
+              <option value="United States" {% if company.country == 'United States' %}selected{% endif %}>🇺🇸 United States</option>
+              <option value="United Kingdom" {% if company.country == 'United Kingdom' %}selected{% endif %}>🇬🇧 United Kingdom</option>
+              <option value="European Union" {% if company.country == 'European Union' %}selected{% endif %}>🇪🇺 European Union</option>
+              <option value="Other" {% if company.country == 'Other' %}selected{% endif %}>🌐 Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid mt-12">
+          <div class="form-group">
+            <label>Tax System / Regime</label>
+            <select name="tax_regime" class="form-control" id="taxRegimeSelect" onchange="handleTaxRegimeChange()">
+              <option value="GST" {% if (company.tax_regime or 'GST') == 'GST' %}selected{% endif %}>India GST (CGST, SGST, IGST, HSN/SAC)</option>
+              <option value="GCC_VAT" {% if company.tax_regime == 'GCC_VAT' %}selected{% endif %}>GCC VAT (UAE 5%, KSA 15%, TRN, Standard VAT)</option>
+              <option value="VAT" {% if company.tax_regime == 'VAT' %}selected{% endif %}>Standard VAT (UK / Europe / Flat VAT)</option>
+              <option value="SALES_TAX" {% if company.tax_regime == 'SALES_TAX' %}selected{% endif %}>Sales Tax (US State / Flat Sales Tax)</option>
+              <option value="NONE" {% if company.tax_regime == 'NONE' %}selected{% endif %}>No Tax / Tax Exempt</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label id="taxIdLabelText">Tax Registration Label &amp; Number</label>
+            <div style="display:flex; gap:8px;">
+              <input type="text" name="tax_id_label" id="taxIdLabelInput" value="{{ company.tax_id_label or 'GSTIN' }}" class="form-control" style="width:110px;" placeholder="Label">
+              <input type="text" name="gst_number" id="taxIdValueInput" value="{{ company.gst_number or '' }}" class="form-control" placeholder="e.g. 27AAABC1234F1Z5 / 100XXXXXXXXX">
+            </div>
+            <span class="hint">Tax identification number printed on invoices (e.g. GSTIN in India, TRN in UAE).</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visibility Controls -->
+      <div class="settings-card">
+        <div class="settings-card-title">📍 Address Visibility</div>
+        <div class="settings-card-subtitle">Control where your company address appears on each print format.</div>
+        <div class="checkbox-grid">
+          <label class="checkbox-item"><input type="checkbox" name="show_address_customer_invoice" value="1" {% if company.show_address_customer_invoice %}checked{% endif %}> Customer Invoice</label>
+          <label class="checkbox-item"><input type="checkbox" name="show_address_performa_invoice" value="1" {% if company.show_address_performa_invoice %}checked{% endif %}> Performa Invoice</label>
+        </div>
+        <span class="hint">Uncheck to hide your company address/phone on each format.</span>
+      </div>
+
+      <!-- Invoice Template & Credit Limit -->
+      <div class="settings-card">
+        <div class="settings-card-title">🧾 Invoice Template</div>
+        <div class="form-group" style="max-width:400px;">
+          <label>PDF layout for customer invoices</label>
+          <select name="invoice_template" class="form-control">
+            <option value="classic" {% if (company.invoice_template or 'classic') == 'classic' %}selected{% endif %}>Classic — navy</option>
+            <option value="modern" {% if company.invoice_template == 'modern' %}selected{% endif %}>Modern — teal &amp; amber</option>
+            <option value="minimal" {% if company.invoice_template == 'minimal' %}selected{% endif %}>Minimal — monochrome</option>
+            <option value="tally_style" {% if company.invoice_template == 'tally_style' %}selected{% endif %}>Tally Style — bordered, GST format</option>
+          </select>
+        </div>
+
+        <div class="form-group mt-12" style="max-width:400px;">
+          <label>💳 Credit Limit Action</label>
+          <select name="credit_limit_action" class="form-control">
+            <option value="warn" {% if (company.credit_limit_action or 'warn') == 'warn' %}selected{% endif %}>Warn — still allow invoice</option>
+            <option value="block" {% if company.credit_limit_action == 'block' %}selected{% endif %}>Block — don't allow saving</option>
+          </select>
+          <span class="hint">Applies when a customer's outstanding balance + this bill exceeds their credit limit.</span>
+        </div>
+
+
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="saveAllBtn">💾 Save All Changes</button>
+    </form>
+  </div>
+
+  <!-- ═══ TAB: BILLING & TERMS ═══ -->
+  <div class="settings-tab-content" id="tab-billing" style="display:none;">
+    <form method="POST" action="/company/update-terms#tab-billing">
+      <div class="settings-card">
+        <div class="settings-card-title">📜 Invoice Terms &amp; Conditions</div>
+        <div class="settings-card-subtitle">Terms printed on invoices and annexure pages.</div>
+
+        <div class="form-group"><label>Footer Terms (prints on every invoice, page 1)</label><textarea name="terms_footer" rows="4" class="form-control" placeholder="e.g. Payment due within 15 days. Goods once sold will not be taken back.">{{ company.terms_footer or '' }}</textarea><span class="hint">Keep this short — it prints in the footer of every invoice copy.</span></div>
+
+        <div class="form-group"><label>Annexure Terms (separate page — only if filled)</label><textarea name="terms_annexure" rows="8" class="form-control" placeholder="Detailed terms, liability clauses, jurisdiction, etc.">{{ company.terms_annexure or '' }}</textarea><span class="hint">Leave blank to skip page 2 entirely.</span></div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-card-title">📋 Terms Visibility</div>
+        <div class="settings-card-subtitle">Control where your terms appear on each print format.</div>
+        <div class="checkbox-grid">
+          <label class="checkbox-item"><input type="checkbox" name="show_terms_customer_invoice" value="1" {% if company.show_terms_customer_invoice %}checked{% endif %}> Customer Invoice</label>
+          <label class="checkbox-item"><input type="checkbox" name="show_terms_performa_invoice" value="1" {% if company.show_terms_performa_invoice %}checked{% endif %}> Performa Invoice</label>
+        </div>
+        <span class="hint">Uncheck to hide the terms line on each format.</span>
+      </div>
+
+      <button type="submit" class="btn btn-primary">💾 Save Terms</button>
+    </form>
+  </div>
+
+  <!-- ═══ TAB: SUBSCRIPTION ═══ -->
+  <div class="settings-tab-content" id="tab-subscription" style="display:none;">
+    <div class="settings-card">
+      <div class="settings-card-title">💎 Current Plan & Status</div>
+      <div class="plan-summary">
+        <div class="plan-summary-item">
+          <div class="label">Plan</div>
+          <div class="value">
+            {{ current_plan.name if current_plan else 'No Plan' }}
+            {% if company.subscription_plan == 'trial' %}
+              <span class="badge badge-warning" style="margin-left:6px; background:#FEF3C7; color:#92400E; padding:3px 8px; border-radius:12px; font-size:11px;">🎁 14-Day Free Trial</span>
+            {% else %}
+              <span class="badge badge-success" style="margin-left:6px; background:#ECFDF5; color:#065F46; padding:3px 8px; border-radius:12px; font-size:11px;">✓ Active License</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="plan-summary-item"><div class="label">Max Companies</div><div class="value">{{ company.max_companies_allowed }}</div></div>
+        <div class="plan-summary-item"><div class="label">Max Users (owner-wide)</div><div class="value">{{ owner_max_users }}</div></div>
+        <div class="plan-summary-item">
+          <div class="label">Valid Until</div>
+          <div class="value" style="font-weight:700; color:var(--primary);">
+            {{ company.subscription_end.strftime('%d %b %Y') if company.subscription_end else 'Unlimited' }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px;">
+        <div>
+          <div class="settings-card-title" style="margin:0;">Available Plans & Instant Upgrades</div>
+          <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">All plans include 100% of ERP features. Pay securely with Razorpay.</div>
+        </div>
+        <!-- Duration switcher -->
+        <div style="display:inline-flex; background:var(--bg-hover); border:1px solid var(--border-color); padding:4px; border-radius:30px; gap:4px;">
+          <button type="button" class="btn-dur-setting active" id="dur-btn-1yr" onclick="setSettingDuration('1_year')" style="border:none; background:var(--primary); color:#fff; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;">1 Year</button>
+          <button type="button" class="btn-dur-setting" id="dur-btn-3yr" onclick="setSettingDuration('3_years')" style="border:none; background:transparent; color:var(--text-muted); padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;">3 Years <span style="background:#DC2626; color:#fff; font-size:9px; padding:1px 5px; border-radius:8px;">Save ~25%</span></button>
+          <button type="button" class="btn-dur-setting" id="dur-btn-lifetime" onclick="setSettingDuration('lifetime')" style="border:none; background:transparent; color:var(--text-muted); padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;">Lifetime ⭐ <span style="background:#059669; color:#fff; font-size:9px; padding:1px 5px; border-radius:8px;">₹2,500/yr service</span></button>
+        </div>
+      </div>
+
+      <div class="plan-grid">
+        {% for plan_id, plan in plans.items() %}
+        {% if plan_id != 'trial' %}
+        <div class="plan-card {% if current_plan and (current_plan.id == plan_id or current_plan.name == plan.name) and company.subscription_plan != 'trial' %}active{% endif %}" id="card-plan-{{ plan_id }}">
+          <div class="plan-name">{{ plan.name }}</div>
+          <div class="plan-price" id="plan-price-val-{{ plan_id }}">₹{{ plan.price_1yr or plan.price }}<small style="font-size:12px; color:var(--text-muted); font-weight:normal;">/yr</small></div>
+          <ul class="plan-features">
+            <li>🏢 Max Companies: {{ plan.max_companies }}</li>
+            <li>👥 Max Users: {{ plan.max_users_per_company or plan.max_users }}</li>
+            {% if plan.features %}
+              {% for feature in plan.features[:3] %}
+              <li>{{ feature }}</li>
+              {% endfor %}
+            {% endif %}
+          </ul>
+          {% if current_plan and (current_plan.id == plan_id or current_plan.name == plan.name) and company.subscription_plan != 'trial' %}
+          <button class="btn btn-ghost" disabled style="width:100%;">✓ Current Active Plan</button>
+          {% else %}
+          <button class="btn btn-primary" style="width:100%;" onclick="openPlanCheckoutModal('{{ plan_id }}', '{{ plan.name }}')">
+            {% if company.subscription_plan == 'trial' %}Upgrade from Trial{% else %}Upgrade / Renew{% endif %}
+          </button>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: TEAM ═══ -->
+  <div class="settings-tab-content" id="tab-team" style="display:none;">
+    <div class="settings-card">
+      <div class="flex-between">
+        <div><div class="settings-card-title">👥 Team Members</div><div class="settings-card-subtitle">{{ owner_user_count }}/{{ owner_max_users }} seats used across all your companies</div></div>
+        <button class="btn btn-primary" onclick="openAddUserModal()">+ Add User</button>
+      </div>
+
+      <div class="team-table-wrap">
+        <table class="team-table">
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th>{% for c in owner_companies %}<th>{{ c.company_name }}{% if c.branch_name %}<small style="display:block;">{{ c.branch_name }}</small>{% endif %}</th>{% endfor %}<th>Actions</th></tr></thead>
+          <tbody>
+            {% for email, info in user_access_map.items() %}
+            {% set is_owner_row = info.companies | selectattr('role', 'equalto', 'owner') | list %}
+            {% set first_company = info.companies | first %}
+            <tr>
+              <td><strong>{{ info.full_name }}</strong></td>
+              <td>{{ email }}</td>
+              <td>
+                {% if is_owner_row %}
+                  <span class="role-badge owner">Owner</span>
+                {% else %}
+                  <span class="role-badge {{ first_company.role if first_company else 'employee' }}">{{ (first_company.role if first_company else 'employee')|title }}</span>
+                {% endif %}
+              </td>
+              {% for c in owner_companies %}
+                {% set access = info.companies | selectattr('company_id', 'equalto', c.company_id) | list %}
+                <td>
+                  {% if access %}
+                    <span class="role-badge {{ access[0].role }}">{{ access[0].role|title }}</span>
+                    {% if access[0].role != 'owner' %}
+                    <a href="{{ url_for('revoke_company_user', email=email, company_id=c.company_id) }}" onclick="return confirm('Revoke access to {{ c.company_name }}?')" style="color:#DC2626;font-size:12px;text-decoration:none;">✕</a>
+                    {% endif %}
+                  {% else %}
+                    <span style="color:var(--text-muted);font-size:12px;">—</span>
+                  {% endif %}
+                </td>
+              {% endfor %}
+              <td>
+                {% if not is_owner_row %}
+                  <button class="btn btn-ghost btn-sm" onclick="openEditUser('{{ loop.index }}')">Edit</button>
+                  <a href="{{ url_for('delete_company_user', email=email) }}" onclick="return confirm('Remove {{ info.full_name }} from ALL your companies?')" style="color:#DC2626;font-size:12px;margin-left:6px;">Delete</a>
+                {% else %}
+                  <span style="color:var(--text-muted);font-size:12px;">Owner</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% if not is_owner_row %}
+            <!-- Edit User Modal -->
+            <div class="settings-modal-overlay" id="editUserModal-{{ loop.index }}">
+              <div class="settings-modal">
+                <div class="settings-modal-title">Edit Access — {{ info.full_name }}</div>
+                <form method="POST" action="{{ url_for('edit_user_access', email=email) }}#tab-team">
+                  <div class="form-group">
+                    <label>Company Access</label>
+                    {% for c in owner_companies %}
+                    {% set access = info.companies | selectattr('company_id', 'equalto', c.company_id) | list %}
+                    <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--border-color);">
+                      <label class="checkbox-item" style="flex:1;background:none;padding:4px 0;">
+                        <input type="checkbox" name="company_ids" value="{{ c.company_id }}" {% if access %}checked{% endif %}> {{ c.company_name }}{% if c.branch_name %}<small style="display:block;">{{ c.branch_name }}</small>{% endif %}
+                      </label>
+                      <select name="role_{{ c.company_id }}" class="form-control" style="width:auto;padding:4px 10px;">
+                        <option value="manager" {% if access and access[0].role == 'manager' %}selected{% endif %}>Manager</option>
+                        <option value="employee" {% if not access or access[0].role == 'employee' %}selected{% endif %}>Employee (Sales)</option>
+                        <option value="accountant" {% if access and access[0].role == 'accountant' %}selected{% endif %}>Accountant</option>
+                        <option value="bi_developer" {% if access and access[0].role == 'bi_developer' %}selected{% endif %}>BI Developer</option>
+                        {% if company_hr_access.get(c.company_id) %}{% for role, label in all_hr_roles.items() %}<option value="{{ role }}" {% if access and access[0].role == role %}selected{% endif %}>{{ label }}</option>{% endfor %}{% elif access and access[0].role in all_hr_roles %}<option value="" selected disabled>HR role unavailable — choose another role</option>{% endif %}
+                      </select>
+                    </div>
+                    {% endfor %}
+                  </div>
+                  <div class="settings-modal-actions">
+                    <button type="button" class="btn btn-ghost" onclick="closeEditUser('{{ loop.index }}')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Access</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: ACCESS - SINGLE EMPLOYEE CARD ═══ -->
+  <div class="settings-tab-content" id="tab-access" style="display:none;">
+    <div class="settings-card">
+      <div class="settings-card-title">🔑 Employee Access Permissions</div>
+      <div class="settings-card-subtitle">Control what each employee type can view, create, and edit in {{ company.company_name if company else "this company" }}.</div>
+
+      <!-- Employee Access (per-person, editable) — ABOVE, this is what owners actually use -->
+      <div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">👤 Employee Access</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">This is where access is actually granted or changed — per employee, not per role. Each employee starts with their role's default (see "Default Access by Role" below) until you change something for them here.</div>
+
+        <!-- Sub-tabs: filter the list below by role. This is grouping only —
+             each person underneath is still edited individually. -->
+        <div class="empaccess-subtabs">
+          <button type="button" class="empaccess-subtab" data-role="bi_developer" onclick="switchEmployeeAccessTab('bi_developer')">BI Developer <span class="badge badge-primary" id="empCount-bi_developer">0</span></button>
+          <button type="button" class="empaccess-subtab active" data-role="employee" onclick="switchEmployeeAccessTab('employee')">Employee (Sales) <span class="badge badge-primary" id="empCount-employee">0</span></button>
+          <button type="button" class="empaccess-subtab" data-role="accountant" onclick="switchEmployeeAccessTab('accountant')">Accountant <span class="badge badge-primary" id="empCount-accountant">0</span></button>
+          <button type="button" class="empaccess-subtab" data-role="manager" onclick="switchEmployeeAccessTab('manager')">Manager <span class="badge badge-primary" id="empCount-manager">0</span></button>
+          {% for role, label in hr_roles.items() %}<button type="button" class="empaccess-subtab" data-role="{{ role }}" onclick="switchEmployeeAccessTab('{{ role }}')">{{ label }} <span class="badge badge-primary" id="empCount-{{ role }}">0</span></button>{% endfor %}
+        </div>
+
+        <div class="empaccess-empty" id="empaccess-empty" style="display:none;font-size:13px;color:var(--text-muted);padding:16px 0;">No one with this role yet. Add one from the Team tab.</div>
+
+        {% for u in users %}
+        {% if u.role not in ["owner", "super_admin"] %}
+        <div class="user-override" data-role="{{ u.role }}">
+          <div class="user-override-header" onclick="toggleUserOverride(this)">
+            <span><span class="user-name">{{ u.full_name }}</span> <span class="user-role">({{ u.role|title }})</span></span>
+            <span class="role-toggle">▼</span>
+          </div>
+          <div class="user-override-body">
+            <form method="POST" action="{{ url_for('save_user_permissions', user_id=u.user_id) }}#tab-access">
+              <div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text-muted);">Module Access for {{ u.full_name }}</div>
+              <table class="perm-matrix">
+                <thead>
+                  <tr>
+                    <th>Module</th>
+                    <th class="perm-col">View</th>
+                    <th class="perm-col">Create</th>
+                    <th class="perm-col">Edit</th>
+                    <th class="perm-col">Delete</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for module in perm_modules if module != 'analytics' or u.role == 'bi_developer' %}
+                  <tr>
+                    <td class="module-label">{{ perm_labels[module] }}</td>
+                    <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__view" {% if user_permissions[u.user_id][module]['view'] %}checked{% endif %}></td>
+                    <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__create" {% if user_permissions[u.user_id][module]['create'] %}checked{% endif %}></td>
+                    <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__edit" {% if user_permissions[u.user_id][module]['edit'] %}checked{% endif %}></td>
+                    <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__delete" {% if user_permissions[u.user_id][module]['delete'] %}checked{% endif %}></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Delete is off by default — only check it here if this specific person should have it.</div>
+              <button type="submit" class="btn btn-secondary btn-sm mt-12">💾 Save Access for {{ u.full_name }}</button>
+            </form>
+
+            <!-- Per-employee Booking Invoice Field Access -->
+            <form method="POST" action="{{ url_for('save_user_field_permissions', user_id=u.user_id) }}#tab-access">
+              <div style="font-weight:600;font-size:12px;margin:14px 0 6px;color:var(--text-muted);">Booking Invoice Field Access for {{ u.full_name }}</div>
+              <div class="field-perm-grid">
+                {% for fkey, fmeta in invoice_fields.items() %}
+                <div class="field-perm-item">
+                  <label>{{ fmeta.label }}</label>
+                  {% if fmeta.restricted and u.role == 'employee' %}
+                    <span class="locked">🔒 Locked</span>
+                    <input type="hidden" name="field__{{ fkey }}__view" value="1">
+                    <input type="hidden" name="field__{{ fkey }}__edit" value="1">
+                  {% else %}
+                    {# This employee's actual effective field permissions (role default + any override already saved for them) #}
+                    {% set perms = user_field_permissions[u.user_id][fkey] if u.user_id in user_field_permissions and fkey in user_field_permissions[u.user_id] else {'view': True, 'edit': True} %}
+                    {% set view_val = perms.view if perms.view is defined else True %}
+                    {% set edit_val = perms.edit if perms.edit is defined else True %}
+                    {% set selected = 2 if view_val and edit_val else (1 if view_val else 0) %}
+                    <select name="field__{{ fkey }}__edit">
+                      <option value="0" {% if selected == 0 %}selected{% endif %}>No Access</option>
+                      <option value="1" {% if selected == 1 %}selected{% endif %}>View Only</option>
+                      <option value="2" {% if selected == 2 %}selected{% endif %}>View + Edit</option>
+                    </select>
+                    <input type="hidden" name="field__{{ fkey }}__view" value="1">
+                  {% endif %}
+                </div>
+                {% endfor %}
+              </div>
+              <button type="submit" class="btn btn-secondary btn-sm mt-12">💾 Save Field Access for {{ u.full_name }}</button>
+            </form>
+          </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+
+      <!-- Default Access by Role — BELOW, reference only, not editable -->
+      <div style="margin-top:24px;border-top:2px solid var(--border-color);padding-top:20px;">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">📋 Default Access by Role</div>
+        <div class="access-hint">ℹ️ These are the built-in starting-point permissions for each employee type — reference only, not editable here. Assigning a role to an employee (Team tab) starts them off with this access. To actually change what someone can do, edit that specific employee above.</div>
+
+        <!-- Default-role tabs (read-only preview) -->
+        <div class="empaccess-subtabs" id="defaultRoleTabs">
+          <button type="button" class="empaccess-subtab" data-role="bi_developer" onclick="switchAccessRole('bi_developer')">BI Developer Default</button>
+          <button type="button" class="empaccess-subtab active" data-role="employee" onclick="switchAccessRole('employee')">Employee (Sales) Default</button>
+          <button type="button" class="empaccess-subtab" data-role="accountant" onclick="switchAccessRole('accountant')">Accountant Default</button>
+          <button type="button" class="empaccess-subtab" data-role="manager" onclick="switchAccessRole('manager')">Manager Default</button>
+          {% for role, label in hr_roles.items() %}<button type="button" class="empaccess-subtab" data-role="{{ role }}" onclick="switchAccessRole('{{ role }}')">{{ label }} Default</button>{% endfor %}
+        </div>
+
+        <!-- Employee Access Card - Dynamic, READ-ONLY -->
+        <div class="employee-access-card" id="accessCard">
+          <div class="employee-access-card-header">
+            <span class="card-title"><span class="dot"></span> <span id="cardRoleTitle">Employee (Sales)</span> Access (default, read-only)</span>
+          </div>
+          <div class="employee-access-card-body">
+            <div id="accessForm">
+              <table class="perm-matrix">
+                <thead>
+                  <tr>
+                    <th>Module</th>
+                    <th class="perm-col">View</th>
+                    <th class="perm-col">Create</th>
+                    <th class="perm-col">Edit</th>
+                    <th class="perm-col">Delete</th>
+                  </tr>
+                </thead>
+                <tbody id="permMatrixBody">
+                  <!-- Filled by JavaScript -->
+                </tbody>
+              </table>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Delete is never on by default for any role, including Manager. An owner can grant it to a specific employee above.</div>
+
+              <!-- Booking Invoice Field Permissions -->
+              <div style="font-weight:600;font-size:13px;margin:16px 0 4px;">📄 Booking Invoice Field Access</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:0;">What invoice fields this role can view and edit, by default.</div>
+              <div class="field-perm-grid" id="fieldPermGrid">
+                <!-- Filled by JavaScript -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TAB: DANGER ═══ -->
+  {% if user.role in ['owner', 'super_admin'] %}
+  <div class="settings-tab-content" id="tab-danger" style="display:none;">
+    <div class="danger-zone">
+      <div class="settings-card-title">⚠️ Clear Company Data</div>
+      <div class="settings-card-subtitle">Permanently delete data so this account can start fresh. This cannot be undone.</div>
+
+      <div class="danger-grid">
+        <label class="danger-item"><input type="checkbox" class="cd-cat" value="bookings"> Legacy Source Transactions</label>
+        <label class="danger-item"><input type="checkbox" class="cd-cat" value="proforma"> Proforma Invoices</label>
+        <label class="danger-item"><input type="checkbox" class="cd-cat" value="purchases"> Purchase Invoices</label>
+        <label class="danger-item"><input type="checkbox" class="cd-cat" value="stock"> Stock</label>
+        <label class="danger-item"><input type="checkbox" class="cd-cat" value="parties"> Clients &amp; Suppliers</label>
+        <label class="danger-item"><input type="checkbox" class="cd-cat" value="finance"> Cash / Bank / Loans / Expenses</label>
+        <label class="danger-item"><input type="checkbox" class="cd-cat" value="whatsapp"> WhatsApp Logs</label>
+      </div>
+
+      <div style="margin:12px 0;"><label class="checkbox-item" style="background:var(--bg-hover);padding:8px 14px;border-radius:8px;"><input type="checkbox" id="cdSelectAll" onchange="toggleAllDanger(this)"> Select All / Everything</label></div>
+
+      <button type="button" class="btn btn-danger" onclick="openClearDataModal()">🗑️ Clear Selected Data</button>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ═══ MODALS ═══ -->
+
+  <!-- Upgrade Modal with Razorpay -->
+  <div class="settings-modal-overlay" id="upgradeModal">
+    <div class="settings-modal" style="max-width:480px;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:48px;">💎</div>
+        <div class="settings-modal-title">Upgrade to <span id="upgradePlanName"></span></div>
+        <div class="settings-modal-sub" id="upgradeDurationSubtitle">Instant activation with secure online payment via Razorpay.</div>
+      </div>
+
+      <div style="background:var(--bg-hover); border:1px solid var(--border-color); border-radius:12px; padding:18px; margin-bottom:20px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:14px;">
+          <span style="color:var(--text-muted);">Selected Duration:</span>
+          <strong id="modalDurationDisplay">1 Year</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:14px;">
+          <span style="color:var(--text-muted);">Features Included:</span>
+          <strong style="color:var(--primary);">100% Full ERP Suite</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding-top:10px; border-top:1px dashed var(--border-color); font-size:16px;">
+          <strong>Total Amount:</strong>
+          <strong style="color:var(--primary); font-size:22px;" id="modalPriceDisplay">₹0</strong>
+        </div>
+      </div>
+
+      <div class="settings-modal-actions" style="display:flex; gap:10px;">
+        <button type="button" class="btn btn-ghost" onclick="closeUpgradeModal()" style="flex:1;">Cancel</button>
+        <button type="button" class="btn btn-primary" id="modalPayBtn" onclick="executeRazorpayUpgrade()" style="flex:2; background:linear-gradient(135deg, #0C2340 0%, #17549A 100%); color:#fff; display:inline-flex; align-items:center; justify-content:center; gap:8px;">
+          <span>💳 Pay with Razorpay</span>
+          <div class="spinner" id="modalPaySpinner" style="display:none; width:16px; height:16px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite;"></div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add User Modal with Role Dropdown -->
+  <div class="settings-modal-overlay" id="addUserModal">
+    <div class="settings-modal">
+      <div class="settings-modal-title">➕ Add / Grant Access</div>
+      <div class="settings-modal-sub">Add a new user or grant access to an existing one.</div>
+      <form method="POST" action="/company/add-user#tab-team">
+        <div class="form-group"><label>Full Name *</label><input type="text" name="full_name" class="form-control" required></div>
+        <div class="form-group"><label>Email *</label><input type="email" name="email" class="form-control" required></div>
+        <div class="form-group"><label>Password</label><input type="password" name="password" class="form-control" minlength="8"><span class="hint">Required only for a brand-new person. Leave blank if this email already has access to one of your other companies.</span></div>
+        <div class="form-grid">
+          <div class="form-group"><label>Department</label><input type="text" name="department" class="form-control" placeholder="e.g., Sales"></div>
+          <div class="form-group"><label>Phone</label><input type="text" name="phone" class="form-control"></div>
+        </div>
+        <div class="form-group">
+          <label>Grant Access To *</label>
+          {% for c in owner_companies %}
+          <div style="display:flex;align-items:center;gap:10px;padding:4px 0;border-bottom:1px solid var(--border-color);">
+            <label class="checkbox-item" style="flex:1;background:none;padding:4px 0;">
+              <input type="checkbox" name="company_ids" value="{{ c.company_id }}" {% if c.company_id == company.company_id %}checked{% endif %}> {{ c.company_name }}{% if c.branch_name %}<small style="display:block;">{{ c.branch_name }}</small>{% endif %}
+            </label>
+            <select name="role_{{ c.company_id }}" class="form-control" style="width:auto;padding:4px 10px;">
+              <option value="manager">Manager</option>
+              <option value="employee" selected>Employee (Sales)</option>
+              <option value="accountant">Accountant</option>
+              <option value="bi_developer">BI Developer</option>
+              {% if company_hr_access.get(c.company_id) %}{% for role, label in all_hr_roles.items() %}<option value="{{ role }}">{{ label }}</option>{% endfor %}{% endif %}
+            </select>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="settings-modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeAddUserModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Access</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Clear Data Modal -->
+  <div class="settings-modal-overlay" id="clearDataModal">
+    <div class="settings-modal">
+      <div class="settings-modal-title" style="color:#DC2626;">⚠️ Confirm Permanent Deletion</div>
+      <div class="settings-modal-sub">You're about to permanently delete: <strong id="clearDataSummary"></strong>. This cannot be undone.</div>
+      <form method="POST" action="/company/clear-data#tab-danger" id="clearDataForm">
+        <div id="clearDataHiddenCats"></div>
+        <div class="form-group"><label>Type DELETE to confirm</label><input type="text" name="confirm_text" class="form-control" required autocomplete="off"></div>
+        <div class="form-group"><label>Your Password</label><input type="password" name="password" class="form-control" required autocomplete="current-password"></div>
+        <div class="settings-modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeClearDataModal()">Cancel</button>
+          <button type="submit" class="btn btn-danger">Permanently Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+// ── Subscription Plans & Durations ──
+const SETTING_PLANS = {
+  {% for plan_id, plan in plans.items() %}
+  "{{ plan_id }}": {
+    name: {{ plan.name | tojson }},
+    price: {{ plan.price | tojson }},
+    price1yr: {{ (plan.price_1yr or plan.price) | tojson }},
+    price3yr: {{ (plan.price_3yr or '') | tojson }},
+    priceLifetime: {{ (plan.price_lifetime or '') | tojson }},
+    maxCompanies: {{ plan.max_companies | tojson }},
+    maxUsers: {{ (plan.max_users_per_company or plan.max_users) | tojson }},
+  },
+  {% endfor %}
+};
+
+let currentSettingDuration = '1_year';
+let activeUpgradePlanId = '';
+let activeUpgradePlanName = '';
+
+function setSettingDuration(duration) {
+  currentSettingDuration = duration;
+  document.getElementById('dur-btn-1yr').style.background = duration === '1_year' ? 'var(--primary)' : 'transparent';
+  document.getElementById('dur-btn-1yr').style.color = duration === '1_year' ? '#fff' : 'var(--text-muted)';
+  document.getElementById('dur-btn-3yr').style.background = duration === '3_years' ? 'var(--primary)' : 'transparent';
+  document.getElementById('dur-btn-3yr').style.color = duration === '3_years' ? '#fff' : 'var(--text-muted)';
+  document.getElementById('dur-btn-lifetime').style.background = duration === 'lifetime' ? 'var(--primary)' : 'transparent';
+  document.getElementById('dur-btn-lifetime').style.color = duration === 'lifetime' ? '#fff' : 'var(--text-muted)';
+
+  // Update plan price displays
+  for (const [key, plan] of Object.entries(SETTING_PLANS)) {
+    if (key === 'trial') continue;
+    const priceEl = document.getElementById('plan-price-val-' + key);
+    if (!priceEl) continue;
+
+    if (duration === '1_year') {
+      priceEl.innerHTML = '₹' + plan.price1yr + '<small style="font-size:12px; color:var(--text-muted); font-weight:normal;">/yr</small>';
+    } else if (duration === '3_years') {
+      priceEl.innerHTML = '₹' + (plan.price3yr || plan.price1yr) + '<small style="font-size:12px; color:var(--text-muted); font-weight:normal;">/3 yrs</small>';
+    } else if (duration === 'lifetime') {
+      if (plan.priceLifetime === 'Custom' || plan.priceLifetime === 'Contact Sales') {
+        priceEl.innerHTML = '<span style="font-size:16px;">Contact Sales</span>';
+      } else {
+        priceEl.innerHTML = '₹' + (plan.priceLifetime || plan.price1yr) + '<small style="font-size:12px; color:var(--text-muted); font-weight:normal;"> one-time (+ ₹2,500/yr service)</small>';
+      }
+    }
+  }
+}
+
+function openPlanCheckoutModal(planId, planName) {
+  activeUpgradePlanId = planId;
+  activeUpgradePlanName = planName;
+  const plan = SETTING_PLANS[planId];
+  if (!plan) return;
+
+  document.getElementById('upgradePlanName').textContent = planName;
+  
+  let durLabel = currentSettingDuration === '1_year' ? '1 Year License' : (currentSettingDuration === '3_years' ? '3 Years License (Save 25%)' : 'Lifetime License ⭐ (₹2,500/yr annual service & cloud maintenance applies after Year 1)');
+  document.getElementById('modalDurationDisplay').textContent = durLabel;
+
+  let amount = 0;
+  if (currentSettingDuration === '1_year') amount = parseInt(plan.price1yr) || 0;
+  else if (currentSettingDuration === '3_years') amount = parseInt(plan.price3yr) || 0;
+  else if (currentSettingDuration === 'lifetime') amount = parseInt(plan.priceLifetime) || 0;
+
+  if (amount > 0) {
+    document.getElementById('modalPriceDisplay').textContent = '₹' + amount.toLocaleString('en-IN');
+    document.getElementById('modalPayBtn').style.display = 'inline-flex';
+  } else {
+    document.getElementById('modalPriceDisplay').textContent = 'Custom / Contact Sales';
+    document.getElementById('modalPayBtn').style.display = 'none';
+  }
+
+  document.getElementById('upgradeModal').classList.add('open');
+}
+
+function closeUpgradeModal() {
+  document.getElementById('upgradeModal').classList.remove('open');
+}
+
+async function executeRazorpayUpgrade() {
+  const plan = SETTING_PLANS[activeUpgradePlanId];
+  if (!plan) return;
+
+  const payBtn = document.getElementById('modalPayBtn');
+  const spinner = document.getElementById('modalPaySpinner');
+  payBtn.disabled = true;
+  spinner.style.display = 'block';
+
+  try {
+    const res = await fetch('/api/payment/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        plan_id: activeUpgradePlanId,
+        duration: currentSettingDuration,
+        email: "{{ user.email if user else '' }}",
+        company_id: "{{ company.company_id }}"
+      })
+    });
+
+    const orderData = await res.json();
+    if (orderData.status !== 'success') {
+      alert(orderData.message || 'Error initiating order.');
+      payBtn.disabled = false;
+      spinner.style.display = 'none';
+      return;
+    }
+
+    const options = {
+      key: orderData.key_id,
+      amount: orderData.amount_paise,
+      currency: orderData.currency || 'INR',
+      name: 'Qiyadah ERP',
+      description: `${plan.name} (${currentSettingDuration})`,
+      order_id: orderData.order_id,
+      prefill: {
+        name: "{{ user.full_name if user else '' }}",
+        email: "{{ user.email if user else '' }}",
+        contact: "{{ company.phone or (user.phone if user else '') }}"
+      },
+      theme: { color: '#2563EB' },
+      handler: async function (response) {
+        try {
+          const verifyRes = await fetch('/api/payment/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              transaction_id: orderData.transaction_id,
+              plan_id: activeUpgradePlanId,
+              duration: currentSettingDuration,
+              email: "{{ user.email if user else '' }}",
+              company_id: "{{ company.company_id }}"
+            })
+          });
+
+          const verifyData = await verifyRes.json();
+          if (verifyData.status === 'success') {
+            alert('🎉 Congratulations! Your plan has been successfully upgraded to ' + plan.name + '!');
+            window.location.reload();
+          } else {
+            alert(verifyData.message || 'Payment verification failed.');
+            payBtn.disabled = false;
+            spinner.style.display = 'none';
+          }
+        } catch (err) {
+          alert('Error verifying payment: ' + err.message);
+          payBtn.disabled = false;
+          spinner.style.display = 'none';
+        }
+      },
+      modal: {
+        ondismiss: function () {
+          payBtn.disabled = false;
+          spinner.style.display = 'none';
+        }
+      }
+    };
+
+    const rzp = new Razorpay(options);
+    rzp.open();
+
+  } catch (err) {
+    alert('Error connecting to payment gateway: ' + err.message);
+    payBtn.disabled = false;
+    spinner.style.display = 'none';
+  }
+}
+
+// ── Tab Switching ──
+function switchTab(name) {
+  document.querySelectorAll('.settings-tab-content').forEach(el => el.style.display = 'none');
+  document.getElementById('tab-' + name).style.display = 'block';
+  document.querySelectorAll('.settings-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === name);
+  });
+  history.replaceState(null, '', '#tab-' + name);
+  document.querySelectorAll('[data-settings-tab]').forEach(link => {
+    link.classList.toggle('active', link.dataset.settingsTab === name);
+  });
+}
+
+// Restore tab from URL hash
+(function() {
+  const hash = window.location.hash;
+  if (hash.startsWith('#tab-')) {
+    const tab = hash.replace('#tab-', '');
+    if (document.getElementById('tab-' + tab)) switchTab(tab);
+  }
+})();
+
+// ── GST Toggle ──
+function toggleGstField(isRegistered) {
+  document.getElementById('gstNumberField').style.display = isRegistered ? 'block' : 'none';
+}
+
+// ── User Override Toggle ──
+function toggleUserOverride(header) {
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+  const toggle = header.querySelector('.role-toggle');
+  toggle.textContent = body.classList.contains('open') ? '▲' : '▼';
+}
+
+// ── Employee Access: filter the per-employee list by role ──
+// Purely a display filter — every card underneath still saves to that one
+// employee (save_user_permissions / save_user_field_permissions). This does
+// not edit or save anything at the role level.
+function switchEmployeeAccessTab(role) {
+  document.querySelectorAll('.empaccess-subtab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.role === role);
+  });
+
+  let visibleCount = 0;
+  document.querySelectorAll('.user-override').forEach(card => {
+    const match = card.dataset.role === role;
+    card.style.display = match ? '' : 'none';
+    if (match) visibleCount++;
+  });
+
+  const empty = document.getElementById('empaccess-empty');
+  if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
+}
+
+function updateEmployeeAccessCounts() {
+  {{ allowed_roles | tojson }}.forEach(role => {
+    const count = document.querySelectorAll(`.user-override[data-role="${role}"]`).length;
+    const el = document.getElementById('empCount-' + role);
+    if (el) el.textContent = count;
+  });
+}
+
+
+
+// ── Add User Modal ──
+function openAddUserModal() {
+  document.getElementById('addUserModal').classList.add('open');
+}
+function closeAddUserModal() {
+  document.getElementById('addUserModal').classList.remove('open');
+}
+
+// ── Edit User Modal ──
+function openEditUser(idx) {
+  document.getElementById('editUserModal-' + idx).classList.add('open');
+}
+function closeEditUser(idx) {
+  document.getElementById('editUserModal-' + idx).classList.remove('open');
+}
+
+// ── Danger Zone ──
+const CD_LABELS = {
+  bookings: "Legacy Source Transactions", proforma: "Proforma Invoices", purchases: "Purchase Invoices",
+  stock: "Stock", parties: "Clients & Suppliers",
+  finance: "Cash / Bank / Loans / Expenses", price_lists: "Price Lists", whatsapp: "WhatsApp Logs",
+};
+
+function toggleAllDanger(box) {
+  document.querySelectorAll('.cd-cat').forEach(c => c.checked = box.checked);
+}
+
+function openClearDataModal() {
+  const selectAll = document.getElementById('cdSelectAll').checked;
+  const checked = Array.from(document.querySelectorAll('.cd-cat:checked')).map(c => c.value);
+  if (!selectAll && checked.length === 0) {
+    alert('Select at least one category to clear.');
+    return;
+  }
+  const hidden = document.getElementById('clearDataHiddenCats');
+  hidden.innerHTML = '';
+  const cats = selectAll ? ['everything'] : checked;
+  cats.forEach(cat => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'categories';
+    inp.value = cat;
+    hidden.appendChild(inp);
+  });
+  document.getElementById('clearDataSummary').textContent =
+    selectAll ? 'everything (all operational data)' : checked.map(c => CD_LABELS[c] || c).join(', ');
+  document.getElementById('clearDataModal').classList.add('open');
+}
+function closeClearDataModal() {
+  document.getElementById('clearDataModal').classList.remove('open');
+}
+
+// ── Close modals on ESC ──
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.settings-modal-overlay.open').forEach(el => el.classList.remove('open'));
+  }
+});
+
+// ── Close modals on backdrop click ──
+document.querySelectorAll('.settings-modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// ── ACCESS TAB: Dynamic Role Switching ──
+// ════════════════════════════════════════════════════════════════════════════
+
+// Data from server (passed as JSON)
+const rolePermissions = {{ role_permissions | tojson | safe }};
+const roleFieldPermissions = {{ role_field_permissions | tojson | safe }};
+const invoiceFields = {{ invoice_fields | tojson | safe }};
+const permModules = {{ perm_modules | tojson | safe }};
+const permLabels = {{ perm_labels | tojson | safe }};
+
+// Role display names
+const roleLabels = {
+  bi_developer: 'BI Developer',
+  employee: 'Employee (Sales)',
+  accountant: 'Accountant',
+  manager: 'Manager',
+  ...{{ hr_roles | tojson }}
+};
+
+// This role card is a READ-ONLY preview of the built-in defaults — it does
+// not submit anywhere. Actual access changes happen per employee above,
+// via the "Employee Access" forms (save_user_permissions /
+// save_user_field_permissions).
+function switchAccessRole(role) {
+  const label = roleLabels[role] || role;
+  document.getElementById('cardRoleTitle').textContent = label;
+
+  const tabs = document.getElementById('defaultRoleTabs');
+  if (tabs) {
+    tabs.querySelectorAll('.empaccess-subtab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.role === role);
+    });
+  }
+
+  renderPermissions(role);
+}
+
+function renderPermissions(role) {
+  const perms = rolePermissions[role] || {};
+  const fieldPerms = roleFieldPermissions[role] || {};
+  
+  // Render module permissions (disabled — reference only)
+  const tbody = document.getElementById('permMatrixBody');
+  tbody.innerHTML = '';
+  
+  for (const module of permModules) {
+    const modPerms = perms[module] || { view: false, create: false, edit: false, delete: false };
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="module-label">${permLabels[module] || module}</td>
+      <td class="perm-col"><input class="perm-toggle" type="checkbox" disabled ${modPerms.view ? 'checked' : ''}></td>
+      <td class="perm-col"><input class="perm-toggle" type="checkbox" disabled ${modPerms.create ? 'checked' : ''}></td>
+      <td class="perm-col"><input class="perm-toggle" type="checkbox" disabled ${modPerms.edit ? 'checked' : ''}></td>
+      <td class="perm-col"><input class="perm-toggle" type="checkbox" disabled ${modPerms.delete ? 'checked' : ''}></td>
+    `;
+    tbody.appendChild(tr);
+  }
+  
+  // Render field permissions (disabled — reference only)
+  const grid = document.getElementById('fieldPermGrid');
+  grid.innerHTML = '';
+
+  for (const [key, meta] of Object.entries(invoiceFields)) {
+    const fPerms = fieldPerms[key] || { view: true, edit: false };
+    const isRestricted = meta.restricted && role === 'employee';
+
+    const div = document.createElement('div');
+    div.className = 'field-perm-item';
+
+    let html = `<label>${meta.label}</label>`;
+
+    if (isRestricted) {
+      html += `<span class="locked">🔒 Locked</span>`;
+    } else {
+      const viewVal = fPerms.view ? true : false;
+      const editVal = fPerms.edit ? true : false;
+      let selectedLabel = 'No Access';
+      if (viewVal && editVal) selectedLabel = 'View + Edit';
+      else if (viewVal) selectedLabel = 'View Only';
+
+      html += `<select disabled><option selected>${selectedLabel}</option></select>`;
+    }
+
+    div.innerHTML = html;
+    grid.appendChild(div);
+  }
+}
+
+
+function updateCurrencyFields() {
+  const sel = document.getElementById('baseCurrencySelect');
+  if (!sel) return;
+  const symInput = document.getElementById('currencySymbolInput');
+  const code = sel.value;
+  const symMap = { 'INR': '₹', 'USD': '$', 'EUR': '€', 'AED': 'AED', 'SAR': 'SAR', 'KWD': 'KD', 'BHD': 'BD', 'OMR': 'OMR', 'QAR': 'QR', 'GBP': '£', 'CAD': 'C$', 'AUD': 'A$', 'SGD': 'S$', 'JPY': '¥', 'CNY': '¥' };
+  if (symMap[code] && symInput) {
+    symInput.value = symMap[code];
+  }
+}
+
+function handleTaxRegimeChange() {
+  const regimeEl = document.getElementById('taxRegimeSelect');
+  if (!regimeEl) return;
+  const regime = regimeEl.value;
+  const labelInput = document.getElementById('taxIdLabelInput');
+  const labelText = document.getElementById('taxIdLabelText');
+  if (!labelInput || !labelText) return;
+
+  if (regime === 'GST') {
+    labelInput.value = 'GSTIN';
+    labelText.innerText = 'GST Identification Number (GSTIN)';
+  } else if (regime === 'GCC_VAT') {
+    labelInput.value = 'TRN';
+    labelText.innerText = 'Tax Registration Number (TRN)';
+  } else if (regime === 'VAT') {
+    labelInput.value = 'VAT ID';
+    labelText.innerText = 'VAT Registration Number';
+  } else if (regime === 'SALES_TAX') {
+    labelInput.value = 'Tax ID';
+    labelText.innerText = 'Tax ID / EIN';
+  } else {
+    labelInput.value = 'Tax ID';
+    labelText.innerText = 'Tax Registration Label & Number';
+  }
+}
+
+function handleCountryChange() {
+  const countryEl = document.getElementById('companyCountrySelect');
+  if (!countryEl) return;
+  const country = countryEl.value;
+  const regimeSelect = document.getElementById('taxRegimeSelect');
+  const currSelect = document.getElementById('baseCurrencySelect');
+  
+  if (country === 'India') {
+    if (regimeSelect) regimeSelect.value = 'GST';
+    if (currSelect) currSelect.value = 'INR';
+  } else if (country === 'United Arab Emirates') {
+    if (regimeSelect) regimeSelect.value = 'GCC_VAT';
+    if (currSelect) currSelect.value = 'AED';
+  } else if (country === 'Saudi Arabia') {
+    if (regimeSelect) regimeSelect.value = 'GCC_VAT';
+    if (currSelect) currSelect.value = 'SAR';
+  } else if (country === 'Kuwait') {
+    if (regimeSelect) regimeSelect.value = 'GCC_VAT';
+    if (currSelect) currSelect.value = 'KWD';
+  } else if (country === 'Bahrain') {
+    if (regimeSelect) regimeSelect.value = 'GCC_VAT';
+    if (currSelect) currSelect.value = 'BHD';
+  } else if (country === 'Oman') {
+    if (regimeSelect) regimeSelect.value = 'GCC_VAT';
+    if (currSelect) currSelect.value = 'OMR';
+  } else if (country === 'Qatar') {
+    if (regimeSelect) regimeSelect.value = 'GCC_VAT';
+    if (currSelect) currSelect.value = 'QAR';
+  } else if (country === 'United States') {
+    if (regimeSelect) regimeSelect.value = 'SALES_TAX';
+    if (currSelect) currSelect.value = 'USD';
+  } else if (country === 'United Kingdom') {
+    if (regimeSelect) regimeSelect.value = 'VAT';
+    if (currSelect) currSelect.value = 'GBP';
+  } else if (country === 'European Union') {
+    if (regimeSelect) regimeSelect.value = 'VAT';
+    if (currSelect) currSelect.value = 'EUR';
+  }
+  updateCurrencyFields();
+  handleTaxRegimeChange();
+}
+
+// Initialize with employee on page load
+document.addEventListener('DOMContentLoaded', function() {
+  updateEmployeeAccessCounts();
+  switchEmployeeAccessTab('employee');
+
+  // Open first VISIBLE user override by default
+  const firstOverride = document.querySelector('.user-override[data-role="employee"] .user-override-body');
+  if (firstOverride) {
+    firstOverride.classList.add('open');
+    const header = firstOverride.previousElementSibling;
+    if (header) header.querySelector('.role-toggle').textContent = '▲';
+  }
+  
+  // Initialize access tab with employee
+  switchAccessRole('employee');
+});
+
+  const crmRequestedSettingsTab = new URLSearchParams(window.location.search).get('tab');
+  if (['general', 'team', 'access', 'api'].includes(crmRequestedSettingsTab)) switchTab(crmRequestedSettingsTab);
+</script>
+{% endblock %}

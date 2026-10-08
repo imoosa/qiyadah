@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block title %}Quotations & Estimates{% endblock %}
+{% block page_title %}Quotations & Estimates{% endblock %}
+{% set active = 'estimates' %}
+
+{% block extra_style %}
+<style>
+  .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .badge-draft { background:#F3F4F6; color:#4B5563; }
+  .badge-sent { background:#EEF2FF; color:#4338CA; }
+  .badge-accepted { background:#DCFCE7; color:#16A34A; }
+  .badge-declined { background:#FEE2E2; color:#DC2626; }
+  .badge-converted { background:#D1FAE5; color:#065F46; }
+
+  body.dark-theme .badge-draft { background:rgba(75,85,99,0.25); color:#9CA3AF; }
+  body.dark-theme .badge-sent { background:rgba(67,56,202,0.2); color:#818CF8; }
+  body.dark-theme .badge-accepted { background:rgba(5,150,105,0.2); color:#34D399; }
+  body.dark-theme .badge-declined { background:rgba(220,38,38,0.2); color:#F87171; }
+  body.dark-theme .badge-converted { background:rgba(5,150,105,0.2); color:#34D399; }
+
+  .summary-strip {
+    display:flex; gap:24px; flex-wrap:wrap;
+    padding:16px 20px; background: var(--bg-card, #fff);
+    border-radius:12px; margin-bottom:20px;
+    border:1px solid var(--border-color);
+  }
+  .s-label { font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color: var(--text-muted); font-weight:700; }
+  .s-val   { font-size:20px; font-weight:800; color: var(--text-body); margin-top:2px; }
+
+  .table-wrap { overflow:auto; border-radius:10px; border:1px solid var(--border-color); background:var(--bg-card, #fff); }
+  table { width:100%; border-collapse:collapse; min-width:850px; }
+  thead th {
+    padding:12px 14px; font-size:11px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.7px;
+    color:#F59E0B; background:#012926;
+    border-bottom:1.5px solid var(--border-color); text-align:left; white-space:nowrap;
+  }
+  tbody td { padding:12px 14px; border-bottom:1px solid var(--border-color); font-size:13.5px; vertical-align:middle; color: var(--text-body); }
+  tbody tr:hover { background: var(--bg-table-alt, #f8fafc); }
+  tbody tr:last-child td { border-bottom:none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+  <div>
+    <h2 style="margin:0; font-size:24px;">📋 Quotations & Estimates</h2>
+    <p style="margin:4px 0 0; font-size:13px; color:var(--text-muted);">Manage standard business quotations, product estimates & order conversions</p>
+  </div>
+  <a href="{{ url_for('estimate_new') }}" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:6px; font-weight:700;">
+    + New Quotation
+  </a>
+</div>
+
+<!-- Summary Stats Strip -->
+<div class="summary-strip">
+  <div>
+    <div class="s-label">Total Quotations</div>
+    <div class="s-val">{{ estimates|length }}</div>
+  </div>
+  <div>
+    <div class="s-label">Total Quoted Value</div>
+    <div class="s-val" style="color:#0D9488;">
+      {{ currency_symbol or '₹' }} {{ "{:,.2f}".format(estimates|sum(attribute='grand_total') if estimates else 0) }}
+    </div>
+  </div>
+  <div>
+    <div class="s-label">Converted Quotes</div>
+    <div class="s-val" style="color:#16A34A;">
+      {{ estimates|selectattr('status', 'equalto', 'Converted')|list|length }}
+    </div>
+  </div>
+  <div>
+    <div class="s-label">Draft / Pending</div>
+    <div class="s-val" style="color:#D97706;">
+      {{ estimates|rejectattr('status', 'equalto', 'Converted')|list|length }}
+    </div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="width:140px;">Quotation #</th>
+        <th style="width:110px;">Date</th>
+        <th>Customer / Client</th>
+        <th style="width:90px; text-align:center;">Items</th>
+        <th style="width:130px; text-align:right;">Subtotal</th>
+        <th style="width:120px; text-align:right;">Tax</th>
+        <th style="width:140px; text-align:right;">Grand Total</th>
+        <th style="width:110px; text-align:center;">Status</th>
+        <th style="width:150px; text-align:center;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for est in estimates %}
+      <tr>
+        <td style="font-family:monospace; font-weight:700;">
+          <a href="{{ url_for('estimate_view', estimate_id=est.estimate_id) }}" style="color:#0D9488; text-decoration:none;">
+            {{ est.estimate_id }}
+          </a>
+        </td>
+        <td style="white-space:nowrap; color:var(--text-muted);">
+          {{ est.date.strftime('%d-%m-%Y') if est.date else '—' }}
+        </td>
+        <td>
+          <strong style="color:var(--text-body);">{{ est.client_name or (est.client_obj.name if est.client_obj else '—') }}</strong>
+          {% if est.client_state %}<span style="color:var(--text-muted); font-size:11px;"> · {{ est.client_state }}</span>{% endif %}
+        </td>
+        <td style="text-align:center; font-weight:700;">
+          {{ est.items|length if est.items else 0 }}
+        </td>
+        <td style="text-align:right; font-family:monospace;">
+          {{ currency_symbol or '₹' }} {{ "{:,.2f}".format(est.subtotal or 0) }}
+        </td>
+        <td style="text-align:right; font-family:monospace; color:var(--text-muted);">
+          {{ currency_symbol or '₹' }} {{ "{:,.2f}".format(est.tax_amount or 0) }}
+        </td>
+        <td style="text-align:right; font-family:monospace; font-weight:800; color:var(--text-body);">
+          {{ currency_symbol or '₹' }} {{ "{:,.2f}".format(est.grand_total or 0) }}
+        </td>
+        <td style="text-align:center;">
+          {% set s = est.status or 'Draft' %}
+          <span class="badge badge-{{ s|lower }}">
+            {{ s }}
+          </span>
+        </td>
+        <td style="text-align:center;">
+          <div style="display:inline-flex; gap:6px;">
+            <a href="{{ url_for('estimate_view', estimate_id=est.estimate_id) }}" class="btn btn-sm btn-secondary" title="View Quotation" style="padding:4px 8px; font-size:12px;">
+              👁️ View
+            </a>
+            <a href="{{ url_for('estimate_edit', estimate_id=est.estimate_id) }}" class="btn btn-sm btn-secondary" title="Edit Quotation" style="padding:4px 8px; font-size:12px;">
+              ✏️ Edit
+            </a>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="9" style="text-align:center; padding:36px 20px; color:var(--text-muted);">
+          <div style="font-size:32px; margin-bottom:8px;">📋</div>
+          <p style="margin:0; font-size:15px; font-weight:600;">No quotations created yet</p>
+          <p style="margin:4px 0 16px; font-size:13px;">Create product quotations and convert them to Sales Orders or Invoices in one click.</p>
+          <a href="{{ url_for('estimate_new') }}" class="btn btn-primary">+ Create First Quotation</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

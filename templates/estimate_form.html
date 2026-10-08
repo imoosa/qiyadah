@@ -1,0 +1,580 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Quotation / Estimate' if is_edit else 'New Quotation / Estimate' }}{% endblock %}
+{% set active = 'estimates' %}
+
+{% block extra_style %}
+<style>
+  .section-title {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--text-muted);
+    margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);
+  }
+  .items-table { width: 100%; border-collapse: collapse; min-width: 950px; }
+  .items-table th {
+    background: #012926; color: #F59E0B;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    padding: 10px 8px; border: 1px solid rgba(255,255,255,0.1); text-align: left;
+  }
+  .items-table td {
+    padding: 8px; border: 1px solid var(--border-color); vertical-align: middle;
+  }
+  .items-table input, .items-table select {
+    width: 100%; padding: 6px 8px; border: 1.5px solid var(--border-color);
+    border-radius: 6px; font-size: 13px; background: var(--bg-input, #fff);
+  }
+  .items-table input:focus, .items-table select:focus {
+    border-color: #0D9488; outline: none; box-shadow: 0 0 0 2px rgba(13,148,136,.15);
+  }
+  .btn-remove-row {
+    background: #FEE2E2; color: #DC2626; border: none; border-radius: 6px;
+    width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 16px;
+  }
+  .btn-remove-row:hover { background: #DC2626; color: #fff; }
+  
+  .cust-search-wrap { position: relative; }
+  .cust-search-input { width: 100%; padding: 8px 12px; border: 1.5px solid #0D9488; border-radius: 6px; font-size: 13.5px; }
+  .cust-search-list {
+    display: none; position: absolute; z-index: 50; top: calc(100% + 4px); left: 0; right: 0;
+    max-height: 240px; overflow-y: auto; background: var(--bg-card, #fff);
+    border: 1.5px solid #0D9488; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,.15);
+  }
+  .cust-search-list.open { display: block; }
+  .cust-search-item { padding: 9px 12px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+  .cust-search-item:hover, .cust-search-item.hi { background: #EEF2FF; color: #4338CA; }
+
+  .summary-box {
+    background: var(--bg-table-alt, #f8fafc); border: 1.5px solid var(--border-color);
+    border-radius: 12px; padding: 20px; max-width: 440px; margin-left: auto;
+  }
+  .summary-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13.5px; color: var(--text-body); }
+  .summary-row.grand {
+    font-size: 18px; font-weight: 800; border-top: 2px solid var(--border-color);
+    margin-top: 8px; padding-top: 12px; color: var(--text-body);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+  <div>
+    <h2 style="margin:0; font-size:24px;">{{ '✏️ Edit Quotation / Estimate' if is_edit else '📋 New Quotation / Estimate' }}</h2>
+    <p style="margin:4px 0 0; font-size:13px; color:var(--text-muted);">Standard ERP Product Quotation with GST tax breakdown & fast conversion to Sales Orders or Invoices</p>
+  </div>
+  <a href="{{ url_for('estimate_list') }}" class="btn btn-secondary">← Back to Quotations</a>
+</div>
+
+<form method="POST" action="{{ url_for('estimate_new') if not is_edit else url_for('estimate_edit', estimate_id=estimate.estimate_id) }}" id="estForm">
+  {% if is_edit %}
+  <input type="hidden" name="is_edit" value="1">
+  {% endif %}
+  
+  <!-- Top Document Information Card -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-body" style="padding:24px;">
+      <div class="section-title">Quotation & Client Particulars</div>
+      
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:18px;">
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Quotation / Estimate No *</label>
+          <input type="text" name="estimate_id" value="{{ estimate.estimate_id if is_edit else default_estimate_no }}" required style="font-weight:700; font-family:monospace; font-size:14px; border:1.5px solid #0D9488; border-radius:6px; padding:7px 10px; width:100%;">
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Quotation Date *</label>
+          <input type="date" name="estimate_date" value="{{ estimate.date.strftime('%Y-%m-%d') if is_edit and estimate.date else today_date }}" required style="border:1.5px solid var(--border-color); border-radius:6px; padding:7px 10px; width:100%;">
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Valid Until Date</label>
+          <input type="date" name="valid_until" value="{{ estimate.valid_until.strftime('%Y-%m-%d') if is_edit and estimate.valid_until else '' }}" style="border:1.5px solid var(--border-color); border-radius:6px; padding:7px 10px; width:100%;">
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Payment Terms</label>
+          <input type="text" name="payment_terms" value="{{ estimate.payment_terms if is_edit else 'Immediate / Net 30' }}" placeholder="e.g. 50% Advance, Net 30" style="border:1.5px solid var(--border-color); border-radius:6px; padding:7px 10px; width:100%;">
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Delivery Terms</label>
+          <input type="text" name="delivery_terms" value="{{ estimate.delivery_terms if is_edit else 'Ex-Works / Within 7 Days' }}" placeholder="e.g. Ex-Works, Door Delivery" style="border:1.5px solid var(--border-color); border-radius:6px; padding:7px 10px; width:100%;">
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Status</label>
+          <select name="status" style="border:1.5px solid var(--border-color); border-radius:6px; padding:7px 10px; width:100%;">
+            <option value="Draft" {% if is_edit and estimate.status == 'Draft' %}selected{% endif %}>Draft</option>
+            <option value="Sent" {% if is_edit and estimate.status == 'Sent' %}selected{% endif %}>Sent</option>
+            <option value="Accepted" {% if is_edit and estimate.status == 'Accepted' %}selected{% endif %}>Accepted</option>
+            <option value="Declined" {% if is_edit and estimate.status == 'Declined' %}selected{% endif %}>Declined</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Customer Details Row -->
+      <div style="display:grid; grid-template-columns: 1.5fr 1fr 1fr; gap:16px;">
+        <div class="form-group cust-search-wrap">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Customer / Client *</label>
+          <input type="hidden" name="client_id" id="client_id" value="{{ estimate.client_id if is_edit else '' }}">
+          <input type="text" class="cust-search-input" id="client_name" name="client_name" value="{{ estimate.client_name if is_edit else '' }}" placeholder="Type customer name or select..." autocomplete="off" required>
+          <div class="cust-search-list" id="client_list">
+            {% for c in clients %}
+            <div class="cust-search-item" data-id="{{ c.id }}" data-name="{{ c.name }}" data-address="{{ c.address or '' }}" data-city="{{ c.city or '' }}" data-state="{{ c.state or '' }}" data-gstin="{{ c.gst_number or c.gstin or '' }}" data-phone="{{ c.phone or '' }}" data-email="{{ c.email or '' }}" data-contact="{{ c.contact_person or '' }}">
+              <strong>{{ c.name }}</strong>
+              {% if c.city %}<span style="color:var(--text-muted); font-size:11px;"> · {{ c.city }}, {{ c.state }}</span>{% endif %}
+              {% if c.gst_number %}<span style="color:#0D9488; font-size:11px; font-family:monospace;"> · {{ 'TRN' if billing_tax.is_vat else 'GST' }}: {{ c.gst_number }}</span>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">{{ 'Customer ' + (tax_id_label or 'TRN') if billing_tax.is_vat else 'Customer GSTIN' }}</label>
+          <input type="text" name="client_gstin" id="client_gstin" value="{{ estimate.client_gstin if is_edit else '' }}" placeholder="{{ '100XXXXXXXXX003' if billing_tax.is_vat else '27AAAAA0000A1Z5' }}" style="border:1.5px solid var(--border-color); border-radius:6px; padding:7px 10px; width:100%;">
+        </div>
+
+        {% set c_country = (billing_tax.country or (company.country if company else 'India'))|trim %}
+        {% if c_country in ['United Arab Emirates', 'UAE'] %}
+          {% set state_lbl = 'Emirate / Place of Supply *' %}
+          {% set state_ph = 'e.g. Dubai, Abu Dhabi, Sharjah' %}
+        {% elif c_country in ['Saudi Arabia', 'KSA'] %}
+          {% set state_lbl = 'Province / Place of Supply *' %}
+          {% set state_ph = 'e.g. Riyadh, Jeddah, Dammam' %}
+        {% elif c_country == 'Kuwait' %}
+          {% set state_lbl = 'Governorate / Place of Supply *' %}
+          {% set state_ph = 'e.g. Al Asimah, Hawalli, Farwaniya' %}
+        {% elif c_country == 'Qatar' %}
+          {% set state_lbl = 'Municipality / Place of Supply *' %}
+          {% set state_ph = 'e.g. Doha, Al Rayyan, Al Wakrah' %}
+        {% elif c_country == 'Oman' %}
+          {% set state_lbl = 'Governorate / Place of Supply *' %}
+          {% set state_ph = 'e.g. Muscat, Dhofar, Sohar' %}
+        {% elif c_country == 'Bahrain' %}
+          {% set state_lbl = 'Governorate / Place of Supply *' %}
+          {% set state_ph = 'e.g. Capital, Muharraq, Northern' %}
+        {% elif c_country == 'United States' %}
+          {% set state_lbl = 'State / Place of Supply *' %}
+          {% set state_ph = 'e.g. California, New York, Texas' %}
+        {% elif c_country == 'United Kingdom' %}
+          {% set state_lbl = 'Region / Place of Supply *' %}
+          {% set state_ph = 'e.g. England, Scotland, Wales' %}
+        {% elif c_country == 'India' %}
+          {% set state_lbl = 'Place of Supply / State *' %}
+          {% set state_ph = 'e.g. Maharashtra, Delhi, Karnataka' %}
+        {% elif billing_tax.is_vat %}
+          {% set state_lbl = 'Emirate / Province / Place of Supply *' %}
+          {% set state_ph = 'e.g. Dubai, Abu Dhabi' %}
+        {% else %}
+          {% set state_lbl = 'Place of Supply / Region *' %}
+          {% set state_ph = 'e.g. State / Province / Region' %}
+        {% endif %}
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">{{ state_lbl }}</label>
+          <input type="text" name="client_state" id="client_state" value="{{ estimate.client_state if is_edit else '' }}" placeholder="{{ state_ph }}" required onchange="calcAllTotals()" style="border:1.5px solid var(--border-color); border-radius:6px; padding:7px 10px; width:100%;">
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 2fr 1fr 1fr; gap:16px; margin-top:14px;">
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Client Address</label>
+          <textarea name="client_address" id="client_address" rows="2" style="width:100%; border:1.5px solid var(--border-color); border-radius:6px; padding:8px; font-size:13px;" placeholder="Full client address">{{ estimate.client_address if is_edit else '' }}</textarea>
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Contact Person</label>
+          <input type="text" name="contact_person" id="contact_person" value="{{ estimate.contact_person if is_edit else '' }}" placeholder="Name" style="border:1.5px solid var(--border-color); border-radius:6px; padding:7px 10px; width:100%;">
+          <div style="margin-top:6px;">
+            <input type="text" name="phone" id="phone" value="{{ estimate.phone if is_edit else '' }}" placeholder="Phone / Mobile" style="border:1.5px solid var(--border-color); border-radius:6px; padding:7px 10px; width:100%;">
+          </div>
+        </div>
+        <div class="form-group">
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Email</label>
+          <input type="email" name="email" id="email" value="{{ estimate.email if is_edit else '' }}" placeholder="client@example.com" style="border:1.5px solid var(--border-color); border-radius:6px; padding:7px 10px; width:100%;">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Line Items Table -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-body" style="padding:24px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div class="section-title" style="margin-bottom:0; border-bottom:none; padding-bottom:0;">Product Particulars & Quotation Pricing</div>
+        <button type="button" class="btn btn-sm btn-primary" onclick="addRow()" style="display:inline-flex; align-items:center; gap:6px;">+ Add Product Line</button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table class="items-table" id="itemsTable">
+          <thead>
+            <tr>
+              <th style="width:45px; text-align:center;">S.No</th>
+              <th style="width:130px;">Product Code</th>
+              <th style="min-width:220px;">Particulars / Description *</th>
+              <th style="width:100px;">HSN Code</th>
+              <th style="width:85px;">Qty *</th>
+              <th style="width:80px;">Unit</th>
+              <th style="width:110px;">Rate / Unit *</th>
+              <th style="width:85px;">Disc %</th>
+              <th style="width:95px;">Tax % ({{ billing_tax.label or ('VAT' if billing_tax.is_vat else 'GST') }})</th>
+              <th style="width:120px; text-align:right;">Total Amount</th>
+              <th style="width:45px; text-align:center;"></th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody">
+            {% if is_edit and estimate.items %}
+              {% for itm in estimate.items %}
+              <tr class="item-row">
+                <td style="text-align:center; font-weight:700;" class="sno">{{ loop.index }}</td>
+                <td>
+                  <input type="hidden" name="stock_item_id[]" value="{{ itm.stock_item_id or '' }}" class="row-stock-id">
+                  <input type="text" name="item_code[]" value="{{ itm.item_code or itm.code or '' }}" class="row-code" placeholder="Code">
+                </td>
+                <td><input type="text" name="item_name[]" value="{{ itm.item_name or itm.description or '' }}" class="row-name" placeholder="Item description" required></td>
+                <td><input type="text" name="hsn[]" value="{{ itm.hsn or '' }}" class="row-hsn" placeholder="HSN"></td>
+                <td><input type="number" step="any" name="quantity[]" value="{{ itm.qty or 1.0 }}" class="row-qty" required oninput="calcRow(this)"></td>
+                <td>
+                  <select name="unit[]" class="row-unit">
+                    <option value="pcs" {% if itm.unit == 'pcs' %}selected{% endif %}>pcs</option>
+                    <option value="kg" {% if itm.unit == 'kg' %}selected{% endif %}>kg</option>
+                    <option value="box" {% if itm.unit == 'box' %}selected{% endif %}>box</option>
+                    <option value="mtr" {% if itm.unit == 'mtr' %}selected{% endif %}>mtr</option>
+                    <option value="ltr" {% if itm.unit == 'ltr' %}selected{% endif %}>ltr</option>
+                    <option value="nos" {% if itm.unit == 'nos' %}selected{% endif %}>nos</option>
+                    <option value="set" {% if itm.unit == 'set' %}selected{% endif %}>set</option>
+                  </select>
+                </td>
+                <td><input type="number" step="0.01" name="rate[]" value="{{ itm.rate or 0.0 }}" class="row-rate" required oninput="calcRow(this)"></td>
+                <td><input type="number" step="0.01" name="discount_percent[]" value="{{ itm.discount_percent or itm.discount or 0.0 }}" class="row-disc" oninput="calcRow(this)"></td>
+                <td>
+                  <select name="gst_percent[]" class="row-gst" onchange="calcRow(this)">
+                    {% if billing_tax.is_vat %}
+                      <option value="5" {% if itm.gst_percent == 5 or not itm.gst_percent %}selected{% endif %}>5% (Standard)</option>
+                      <option value="0" {% if itm.gst_percent == 0 %}selected{% endif %}>0% (Zero-rated)</option>
+                    {% else %}
+                      <option value="0" {% if itm.gst_percent == 0 %}selected{% endif %}>0%</option>
+                      <option value="5" {% if itm.gst_percent == 5 %}selected{% endif %}>5%</option>
+                      <option value="12" {% if itm.gst_percent == 12 %}selected{% endif %}>12%</option>
+                      <option value="18" {% if itm.gst_percent == 18 or not itm.gst_percent %}selected{% endif %}>18%</option>
+                      <option value="28" {% if itm.gst_percent == 28 %}selected{% endif %}>28%</option>
+                    {% endif %}
+                  </select>
+                </td>
+                <td style="text-align:right; font-weight:700;">
+                  <span class="row-total-display">{{ currency_symbol or '₹' }} {{ "{:,.2f}".format(itm.total_amount or 0.0) }}</span>
+                </td>
+                <td style="text-align:center;">
+                  <button type="button" class="btn-remove-row" onclick="removeRow(this)">×</button>
+                </td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr class="item-row">
+                <td style="text-align:center; font-weight:700;" class="sno">1</td>
+                <td>
+                  <input type="hidden" name="stock_item_id[]" class="row-stock-id">
+                  <input type="text" name="item_code[]" class="row-code" placeholder="Code">
+                </td>
+                <td><input type="text" name="item_name[]" class="row-name" placeholder="Item description" required></td>
+                <td><input type="text" name="hsn[]" class="row-hsn" placeholder="HSN"></td>
+                <td><input type="number" step="any" name="quantity[]" value="1" class="row-qty" required oninput="calcRow(this)"></td>
+                <td>
+                  <select name="unit[]" class="row-unit">
+                    <option value="pcs" selected>pcs</option>
+                    <option value="kg">kg</option>
+                    <option value="box">box</option>
+                    <option value="mtr">mtr</option>
+                    <option value="ltr">ltr</option>
+                    <option value="nos">nos</option>
+                    <option value="set">set</option>
+                  </select>
+                </td>
+                <td><input type="number" step="0.01" name="rate[]" value="0.00" class="row-rate" required oninput="calcRow(this)"></td>
+                <td><input type="number" step="0.01" name="discount_percent[]" value="0" class="row-disc" oninput="calcRow(this)"></td>
+                <td>
+                  <select name="gst_percent[]" class="row-gst" onchange="calcRow(this)">
+                    {% if billing_tax.is_vat %}
+                      <option value="5" selected>5% (Standard)</option>
+                      <option value="0">0% (Zero-rated)</option>
+                    {% else %}
+                      <option value="0">0%</option>
+                      <option value="5">5%</option>
+                      <option value="12">12%</option>
+                      <option value="18" selected>18%</option>
+                      <option value="28">28%</option>
+                    {% endif %}
+                  </select>
+                </td>
+                <td style="text-align:right; font-weight:700;">
+                  <span class="row-total-display">${currSym} 0.00</span>
+                </td>
+                <td style="text-align:center;">
+                  <button type="button" class="btn-remove-row" onclick="removeRow(this)">×</button>
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Financial Totals Section -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px; margin-top:24px; align-items:start;">
+        <div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Terms & Conditions</label>
+            <textarea name="terms" rows="3" style="width:100%; border:1.5px solid var(--border-color); border-radius:6px; padding:8px; font-size:13px;">{{ estimate.terms if is_edit and estimate.terms else '1. Quotation valid for 30 days from issue date.
+2. Payment terms: 50% advance, balance against delivery.
+3. Taxes extra as applicable at time of invoicing.' }}</textarea>
+          </div>
+          <div class="form-group">
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:6px;">Quotation Notes</label>
+            <textarea name="notes" rows="2" style="width:100%; border:1.5px solid var(--border-color); border-radius:6px; padding:8px; font-size:13px;" placeholder="Additional notes or client specifications...">{{ estimate.notes if is_edit else '' }}</textarea>
+          </div>
+        </div>
+
+        <div class="summary-box">
+          <div class="summary-row">
+            <span>Amount Without Tax (Subtotal):</span>
+            <strong id="dispSubtotal">{{ currency_symbol or '₹' }} 0.00</strong>
+          </div>
+          {% if billing_tax.is_vat %}
+          <div class="summary-row" id="rowVAT">
+            <span>{{ billing_tax.label or 'VAT' }} (Tax):</span>
+            <span id="dispVAT">{{ currency_symbol or '₹' }} 0.00</span>
+          </div>
+          {% else %}
+          <div class="summary-row" id="rowCGST">
+            <span>CGST:</span>
+            <span id="dispCGST">{{ currency_symbol|default("₹") }}0.00</span>
+          </div>
+          <div class="summary-row" id="rowSGST">
+            <span>SGST:</span>
+            <span id="dispSGST">{{ currency_symbol|default("₹") }}0.00</span>
+          </div>
+          <div class="summary-row" id="rowIGST" style="display:none;">
+            <span>IGST:</span>
+            <span id="dispIGST">{{ currency_symbol|default("₹") }}0.00</span>
+          </div>
+          {% endif %}
+          <div class="summary-row">
+            <span>Total Tax Applicable:</span>
+            <strong id="dispTotalTax" style="color:#D97706;">{{ currency_symbol or '₹' }} 0.00</strong>
+          </div>
+          <div class="summary-row grand">
+            <span>Grand Total:</span>
+            <strong id="dispGrandTotal" style="color:#012926; font-size:22px;">{{ currency_symbol or '₹' }} 0.00</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:flex-end; gap:12px; margin-bottom:40px;">
+    <a href="{{ url_for('estimate_list') }}" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary" style="padding:10px 24px; font-size:14px; font-weight:700;">
+      {{ '💾 Update Quotation' if is_edit else '💾 Save Quotation' }}
+    </button>
+  </div>
+</form>
+
+<script>
+  const isVat = {{ 'true' if billing_tax.is_vat else 'false' }};
+  const currSym = "{{ currency_symbol or '₹' }}";
+  const loc = isVat ? 'en-AE' : 'en-IN';
+  const companyState = "{{ (company.state if company and company.state else ('Dubai' if billing_tax.is_vat else 'Maharashtra'))|lower }}";
+
+  // Customer dropdown search
+  const custInput = document.getElementById('client_name');
+  const custList = document.getElementById('client_list');
+  const custIdInput = document.getElementById('client_id');
+  const custGstin = document.getElementById('client_gstin');
+  const custState = document.getElementById('client_state');
+  const clientAddress = document.getElementById('client_address');
+  const contactPerson = document.getElementById('contact_person');
+  const phone = document.getElementById('phone');
+  const email = document.getElementById('email');
+
+  if (custInput && custList) {
+    custInput.addEventListener('focus', () => { custList.classList.add('open'); filterCust(); });
+    custInput.addEventListener('input', () => { custList.classList.add('open'); filterCust(); });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.cust-search-wrap')) custList.classList.remove('open');
+    });
+
+    function filterCust() {
+      const q = custInput.value.toLowerCase();
+      custList.querySelectorAll('.cust-search-item').forEach(el => {
+        const text = el.innerText.toLowerCase();
+        el.style.display = text.includes(q) ? 'block' : 'none';
+      });
+    }
+
+    custList.querySelectorAll('.cust-search-item').forEach(el => {
+      el.addEventListener('click', () => {
+        custIdInput.value = el.getAttribute('data-id');
+        custInput.value = el.getAttribute('data-name');
+        if (custGstin) custGstin.value = el.getAttribute('data-gstin') || '';
+        if (custState) custState.value = el.getAttribute('data-state') || '';
+        if (clientAddress) {
+          const addr = [el.getAttribute('data-address'), el.getAttribute('data-city'), el.getAttribute('data-state')].filter(Boolean).join(', ');
+          clientAddress.value = addr;
+        }
+        if (contactPerson) contactPerson.value = el.getAttribute('data-contact') || '';
+        if (phone) phone.value = el.getAttribute('data-phone') || '';
+        if (email) email.value = el.getAttribute('data-email') || '';
+        custList.classList.remove('open');
+        calcAllTotals();
+      });
+    });
+  }
+
+  function addRow() {
+    const tbody = document.getElementById('itemsBody');
+    const tr = document.createElement('tr');
+    tr.className = 'item-row';
+    tr.innerHTML = `
+      <td style="text-align:center; font-weight:700;" class="sno"></td>
+      <td>
+        <input type="hidden" name="stock_item_id[]" class="row-stock-id">
+        <input type="text" name="item_code[]" class="row-code" placeholder="Code">
+      </td>
+      <td><input type="text" name="item_name[]" class="row-name" placeholder="Item description" required></td>
+      <td><input type="text" name="hsn[]" class="row-hsn" placeholder="HSN"></td>
+      <td><input type="number" step="any" name="quantity[]" value="1" class="row-qty" required oninput="calcRow(this)"></td>
+      <td>
+        <select name="unit[]" class="row-unit">
+          <option value="pcs" selected>pcs</option>
+          <option value="kg">kg</option>
+          <option value="box">box</option>
+          <option value="mtr">mtr</option>
+          <option value="ltr">ltr</option>
+          <option value="nos">nos</option>
+          <option value="set">set</option>
+        </select>
+      </td>
+      <td><input type="number" step="0.01" name="rate[]" value="0.00" class="row-rate" required oninput="calcRow(this)"></td>
+      <td><input type="number" step="0.01" name="discount_percent[]" value="0" class="row-disc" oninput="calcRow(this)"></td>
+      <td>
+        <select name="gst_percent[]" class="row-gst" onchange="calcRow(this)">
+          ${isVat ? `
+            <option value="5" selected>5% (Standard)</option>
+            <option value="0">0% (Zero-rated)</option>
+          ` : `
+            <option value="0">0%</option>
+            <option value="5">5%</option>
+            <option value="12">12%</option>
+            <option value="18" selected>18%</option>
+            <option value="28">28%</option>
+          `}
+        </select>
+      </td>
+      <td style="text-align:right; font-weight:700;">
+        <span class="row-total-display">${currSym} 0.00</span>
+      </td>
+      <td style="text-align:center;">
+        <button type="button" class="btn-remove-row" onclick="removeRow(this)">×</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+    updateRowIndices();
+    calcRow(tr.querySelector('.row-qty'));
+  }
+
+  function removeRow(btn) {
+    const tbody = document.getElementById('itemsBody');
+    if (tbody.querySelectorAll('tr').length > 1) {
+      btn.closest('tr').remove();
+      updateRowIndices();
+      calcAllTotals();
+    } else {
+      alert("At least one product line item is required.");
+    }
+  }
+
+  function updateRowIndices() {
+    document.querySelectorAll('#itemsBody tr').forEach((tr, i) => {
+      const sno = tr.querySelector('.sno');
+      if (sno) sno.innerText = i + 1;
+    });
+  }
+
+  function calcRow(elem) {
+    const row = elem.closest('tr');
+    const qty = parseFloat(row.querySelector('.row-qty').value) || 0;
+    const rate = parseFloat(row.querySelector('.row-rate').value) || 0;
+    const disc = parseFloat(row.querySelector('.row-disc').value) || 0;
+    const gstPct = parseFloat(row.querySelector('.row-gst').value) || 0;
+
+    const baseAmount = qty * rate;
+    const discountAmount = baseAmount * (disc / 100);
+    const taxable = baseAmount - discountAmount;
+    const taxAmount = taxable * (gstPct / 100);
+    const total = taxable + taxAmount;
+
+    row.querySelector('.row-total-display').innerText = currSym + ' ' + total.toLocaleString(loc, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    calcAllTotals();
+  }
+
+  function calcAllTotals() {
+    let subtotal = 0;
+    let totalCGST = 0;
+    let totalSGST = 0;
+    let totalIGST = 0;
+    let totalVAT = 0;
+
+    const clientSt = (custState && custState.value ? custState.value.trim().toLowerCase() : companyState);
+    const isInterstate = !isVat && clientSt && clientSt !== companyState;
+
+    document.querySelectorAll('#itemsBody tr').forEach(row => {
+      const qty = parseFloat(row.querySelector('.row-qty').value) || 0;
+      const rate = parseFloat(row.querySelector('.row-rate').value) || 0;
+      const disc = parseFloat(row.querySelector('.row-disc').value) || 0;
+      const gstPct = parseFloat(row.querySelector('.row-gst').value) || 0;
+
+      const baseAmount = qty * rate;
+      const discountAmount = baseAmount * (disc / 100);
+      const taxable = baseAmount - discountAmount;
+      const taxAmount = taxable * (gstPct / 100);
+
+      subtotal += taxable;
+
+      if (isVat) {
+        totalVAT += taxAmount;
+      } else if (isInterstate) {
+        totalIGST += taxAmount;
+      } else {
+        totalCGST += taxAmount / 2;
+        totalSGST += taxAmount / 2;
+      }
+    });
+
+    const totalTax = isVat ? totalVAT : (totalCGST + totalSGST + totalIGST);
+    const grandTotal = subtotal + totalTax;
+
+    document.getElementById('dispSubtotal').innerText = currSym + ' ' + subtotal.toLocaleString(loc, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+    if (isVat) {
+      const elVat = document.getElementById('dispVAT');
+      if (elVat) elVat.innerText = currSym + ' ' + totalVAT.toLocaleString(loc, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    } else if (isInterstate) {
+      document.getElementById('rowCGST').style.display = 'none';
+      document.getElementById('rowSGST').style.display = 'none';
+      document.getElementById('rowIGST').style.display = 'flex';
+      document.getElementById('dispIGST').innerText = currSym + ' ' + totalIGST.toLocaleString(loc, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    } else {
+      document.getElementById('rowCGST').style.display = 'flex';
+      document.getElementById('rowSGST').style.display = 'flex';
+      document.getElementById('rowIGST').style.display = 'none';
+      document.getElementById('dispCGST').innerText = currSym + ' ' + totalCGST.toLocaleString(loc, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      document.getElementById('dispSGST').innerText = currSym + ' ' + totalSGST.toLocaleString(loc, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    document.getElementById('dispTotalTax').innerText = currSym + ' ' + totalTax.toLocaleString(loc, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    document.getElementById('dispGrandTotal').innerText = currSym + ' ' + grandTotal.toLocaleString(loc, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  // Initial calculation on load
+  document.addEventListener('DOMContentLoaded', () => {
+    updateRowIndices();
+    calcAllTotals();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+{% if invoice is defined and invoice.currency and currency_info is defined %}{% set currency_symbol = currency_info(invoice.currency).symbol %}{% endif %}
+{% block title %}Sales Tax Invoice · {{ invoice.invoice_number }}{% endblock %}
+{% set active = 'customer_invoices' %}
+
+{% block extra_style %}
+<style>
+  .inv-paper {
+    background: #fff; border-radius: 12px; border: 1.5px solid var(--border-color);
+    padding: 36px 40px; box-shadow: 0 4px 16px rgba(0,0,0,0.04); margin-bottom: 24px;
+    color: #1a1a2e;
+  }
+  .inv-header-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+    padding-bottom: 20px; border-bottom: 2.5px solid #012926; margin-bottom: 20px;
+  }
+  .company-title { font-size: 22px; font-weight: 800; color: #012926; margin: 0 0 4px; }
+  .company-sub { font-size: 12.5px; color: #4b5563; line-height: 1.5; }
+  
+  .doc-title-block { text-align: right; }
+  .doc-title { font-size: 24px; font-weight: 900; color: #012926; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 6px; }
+  .doc-number { font-family: monospace; font-size: 16px; font-weight: 800; color: #0D9488; }
+
+  .party-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    padding: 16px 20px; background: #F8FAFC; border-radius: 8px;
+    border: 1px solid #E2E8F0; margin-bottom: 24px;
+  }
+  .party-col h4 { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748B; margin: 0 0 8px; }
+  .party-col p { font-size: 13px; line-height: 1.5; margin: 0; color: #1E293B; }
+
+  .items-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  .items-table th {
+    background: #012926; color: #F59E0B;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    padding: 10px 8px; border: 1px solid #E2E8F0; text-align: left;
+  }
+  .items-table td {
+    padding: 10px 8px; border: 1px solid #E2E8F0; font-size: 13px; vertical-align: middle;
+  }
+  .items-table tfoot td { font-weight: 700; background: #F8FAFC; }
+
+  .totals-box { width: 100%; max-width: 440px; margin-left: auto; }
+  .totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13.5px; }
+  .totals-row.grand {
+    font-size: 19px; font-weight: 900; border-top: 2px solid #012926;
+    margin-top: 8px; padding-top: 10px; color: #012926;
+  }
+
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .badge-paid { background: #DCFCE7; color: #16A34A; }
+  .badge-pending { background: #FEF3C7; color: #92400E; }
+  .badge-partial { background: #DBEAFE; color: #1D4ED8; }
+
+  @media print {
+    body { background: #fff !important; padding: 0 !important; }
+    .no-print { display: none !important; }
+    .inv-paper { border: none !important; box-shadow: none !important; padding: 0 !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="no-print" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+  <div>
+    <h2 style="margin:0; font-size:22px;">Sales Tax Invoice</h2>
+    <span style="font-size:13px; color:var(--text-muted);">Invoice # {{ invoice.invoice_number }}</span>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <a href="{{ url_for('customer_invoice_list') }}" class="btn btn-secondary">← Back to List</a>
+    {% if can('finance', 'create') and can('customer_invoices', 'create') and invoice.balance > 0 and invoice.status not in ['Void', 'Cancelled', 'Draft'] %}
+    <a href="{{ url_for('finance_note_new', kind='credit', invoice_id=invoice.id) }}" class="btn btn-secondary">Create Credit Note</a>
+    {% endif %}
+    {% if invoice.note_adjustment %}<span>Credit notes: {{ invoice.currency }} {{ '{:,.2f}'.format(invoice.note_adjustment) }}</span>{% endif %}
+    {% if invoice.sales_order_id and can('sales_orders', 'view') %}
+    <a href="{{ url_for('sales_order_view', order_id=invoice.sales_order_id) }}" class="btn btn-secondary">View Sales Order</a>
+    {% endif %}
+    <a href="{{ url_for('customer_invoice_edit', cust_inv_id=invoice.id) }}" class="btn btn-warning">✏️ Edit Invoice</a>
+    {% if company and company.country == 'India' and invoice.tax_regime in ('GST', 'INDIA_GST') %}
+    <a href="{{ url_for('gst_portal', invoice_id=invoice.id) }}" class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;background:#012926;color:#f59e0b;border:1px solid rgba(245,158,11,0.35);font-weight:700;">
+      <span style="font-size:14px;">⚡</span> GST e-Invoice & e-Way Bill
+    </a>
+    {% endif %}
+    <a href="{{ url_for('customer_invoice_print', cust_inv_id=invoice.id) }}" target="_blank" class="btn btn-primary">🖨️ Print / Download PDF</a>
+  </div>
+</div>
+
+<div class="inv-paper">
+  <!-- Letterhead Header -->
+  <div class="inv-header-grid">
+    <div>
+      <div class="company-title">{{ company.company_name if company else 'Qiyadah ERP' }}</div>
+      <div class="company-sub">
+        {{ company.address or '' }}<br>
+        {% if company and company.phone %}Phone: {{ company.phone }} · {% endif %}
+        {% if company and company.email %}Email: {{ company.email }}<br>{% endif %}
+        {% if company and company.gst_number %}<strong>{{ tax_id_label or ('TRN' if billing_tax.is_vat else 'GSTIN') }}:</strong> {{ company.gst_number }}<br>{% endif %}
+        {% if company and company.state %}<strong>{{ 'Emirate' if billing_tax.is_vat else 'State' }}:</strong> {{ company.state }}{% endif %}
+      </div>
+    </div>
+    <div class="doc-title-block">
+      <div class="doc-title">TAX INVOICE</div>
+      <div class="doc-number"># {{ invoice.invoice_number }}</div>
+      <div style="font-size:13px; margin-top:8px; color:#4b5563;">
+        <strong>Date:</strong> {{ invoice.invoice_date.strftime('%d-%m-%Y') if invoice.invoice_date else '—' }}<br>
+        {% if invoice.due_date %}<strong>Due Date:</strong> {{ invoice.due_date.strftime('%d-%m-%Y') }}<br>{% endif %}
+        <strong>Status:</strong>
+        <span class="badge {% if invoice.status == 'Paid' %}badge-paid{% elif invoice.status == 'Partial' %}badge-partial{% else %}badge-pending{% endif %}">
+          {{ invoice.status }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Party Information -->
+  <div class="party-grid">
+    <div class="party-col">
+      <h4>Billed To (Customer):</h4>
+      <p>
+        <strong>{{ invoice.client_name or (invoice.client_obj.name if invoice.client_obj else 'Direct Customer') }}</strong><br>
+        {{ invoice.billing_address or (invoice.client_obj.address if invoice.client_obj else '') }}<br>
+        {% if invoice.client_gstin or (invoice.client_obj and invoice.client_obj.gst_number) %}
+          <strong>{{ tax_id_label or ('TRN' if billing_tax.is_vat else 'GSTIN') }}:</strong> {{ invoice.client_gstin or invoice.client_obj.gst_number }}<br>
+        {% endif %}
+        <strong>{{ 'Emirate / Place of Supply' if billing_tax.is_vat else 'Place of Supply' }}:</strong> {{ invoice.client_state or (invoice.client_obj.state if invoice.client_obj else (company.state if company else '')) }}
+      </p>
+    </div>
+    <div class="party-col">
+      <h4>Shipped To / Details:</h4>
+      <p>
+        {{ invoice.shipping_address or invoice.billing_address or 'Same as Billing Address' }}<br>
+        {% if invoice.payment_terms %}<strong>Payment Terms:</strong> {{ invoice.payment_terms }}<br>{% endif %}
+        <strong>Invoice Type:</strong> {{ invoice.invoice_type | upper }}
+      </p>
+    </div>
+  </div>
+
+  <!-- Items Table -->
+  <table class="items-table">
+    <thead>
+      <tr>
+        <th style="width:45px; text-align:center;">S.No</th>
+        <th style="width:120px;">Product Code</th>
+        <th>Particulars / Description</th>
+        <th style="width:90px; text-align:center;">HSN Code</th>
+        <th style="width:70px; text-align:right;">Qty</th>
+        <th style="width:60px; text-align:center;">Unit</th>
+        <th style="width:100px; text-align:right;">Rate / Unit</th>
+        <th style="width:90px; text-align:center;">Tax % ({{ billing_tax.label or ('VAT' if billing_tax.is_vat else 'GST') }})</th>
+        <th style="width:115px; text-align:right;">Total Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td style="text-align:center; font-weight:700;">{{ loop.index }}</td>
+        <td style="font-family:monospace; font-size:12px; font-weight:600;">{{ item.item_code or item.code or '—' }}</td>
+        <td>
+          <strong>{{ item.item_name or item.item_description or 'Product Item' }}</strong>
+          {% if item.item_description and item.item_name and item.item_description != item.item_name %}
+            <div style="font-size:11.5px; color:#64748B;">{{ item.item_description }}</div>
+          {% endif %}
+        </td>
+        <td style="text-align:center; font-family:monospace;">{{ item.hsn or '—' }}</td>
+        <td style="text-align:right; font-weight:700;">{{ item.quantity }}</td>
+        <td style="text-align:center;">{{ item.unit or 'pcs' }}</td>
+        <td style="text-align:right;">{{ invoice.currency or currency_symbol or '₹' }} {{ "{:,.2f}".format(item.rate or item.rate_per_kg or 0.0) }}</td>
+        <td style="text-align:center;">{{ item.gst_percent }}%</td>
+        <td style="text-align:right; font-weight:700;">{{ invoice.currency or currency_symbol or '₹' }} {{ "{:,.2f}".format(item.total_amount) }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="9" style="text-align:center; padding:24px; color:#94A3B8;">No items in this invoice.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Bottom Details & Totals -->
+  <div style="display:grid; grid-template-columns: 1.2fr 1fr; gap:30px; align-items:start;">
+    <div>
+      {% if invoice.terms %}
+      <div style="margin-bottom:16px;">
+        <h5 style="font-size:11px; text-transform:uppercase; color:#64748B; margin:0 0 6px;">Terms & Conditions:</h5>
+        <div style="font-size:12px; color:#334155; white-space:pre-line;">{{ invoice.terms }}</div>
+      </div>
+      {% endif %}
+      {% if invoice.notes %}
+      <div>
+        <h5 style="font-size:11px; text-transform:uppercase; color:#64748B; margin:0 0 6px;">Notes:</h5>
+        <div style="font-size:12px; color:#334155;">{{ invoice.notes }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="totals-box">
+      <div class="totals-row">
+        <span>Amount Without Tax (Subtotal):</span>
+        <strong>{{ invoice.currency or currency_symbol or '₹' }} {{ "{:,.2f}".format(invoice.subtotal) }}</strong>
+      </div>
+      {% if billing_tax.is_vat %}
+      <div class="totals-row">
+        <span>{{ billing_tax.label or 'VAT' }} (Tax):</span>
+        <span>{{ invoice.currency or currency_symbol or '₹' }} {{ "{:,.2f}".format(invoice.tax_amount or 0.0) }}</span>
+      </div>
+      {% else %}
+      {% if invoice.cgst_total and invoice.cgst_total > 0 %}
+      <div class="totals-row">
+        <span>CGST:</span>
+        <span>{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(invoice.cgst_total) }}</span>
+      </div>
+      {% endif %}
+      {% if invoice.sgst_total and invoice.sgst_total > 0 %}
+      <div class="totals-row">
+        <span>SGST:</span>
+        <span>{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(invoice.sgst_total) }}</span>
+      </div>
+      {% endif %}
+      {% if invoice.igst_total and invoice.igst_total > 0 %}
+      <div class="totals-row">
+        <span>IGST:</span>
+        <span>{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(invoice.igst_total) }}</span>
+      </div>
+      {% endif %}
+      {% if not invoice.cgst_total and not invoice.sgst_total and not invoice.igst_total and invoice.tax_amount > 0 %}
+      <div class="totals-row">
+        <span>GST Total:</span>
+        <span>{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(invoice.tax_amount) }}</span>
+      </div>
+      {% endif %}
+      {% endif %}
+      <div class="totals-row grand">
+        <span>Grand Total:</span>
+        <span>{{ invoice.currency or currency_symbol or '₹' }} {{ "{:,.2f}".format(invoice.grand_total) }}</span>
+      </div>
+      {% if invoice.paid_amount > 0 %}
+      <div class="totals-row" style="color:#16A34A; font-weight:700;">
+        <span>Paid Amount:</span>
+        <span>{{ invoice.currency or currency_symbol or '₹' }} {{ "{:,.2f}".format(invoice.paid_amount) }}</span>
+      </div>
+      <div class="totals-row" style="color:#DC2626; font-weight:700;">
+        <span>Balance Due:</span>
+        <span>{{ invoice.currency or currency_symbol or '₹' }} {{ "{:,.2f}".format(invoice.balance) }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Signatures -->
+  <div style="display:flex; justify-content:space-between; margin-top:40px; padding-top:30px; border-top:1px solid #E2E8F0;">
+    <div style="text-align:center;">
+      <div style="height:45px;"></div>
+      <div style="border-top:1px dashed #94A3B8; width:180px; font-size:12px; color:#64748B; padding-top:4px;">Customer Signature</div>
+    </div>
+    <div style="text-align:center;">
+      <div style="height:45px;"></div>
+      <div style="border-top:1px dashed #94A3B8; width:200px; font-size:12px; color:#64748B; padding-top:4px;">For {{ company.company_name if company else 'Authorized Signatory' }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

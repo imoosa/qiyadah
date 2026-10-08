@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Chart of Accounts{% endblock %}
+{% block page_title %}Chart of Accounts{% endblock %}
+{% set active = 'chart_of_accounts' %}
+
+{% block extra_style %}
+<style>
+  .coa-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+  .coa-head h2{margin:0;font-size:22px;font-weight:800;color:var(--gray-900)}
+  .coa-sub{font-size:13px;color:var(--gray-500);margin-top:4px}
+  .coa-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+  .coa-card{background:#fff;border:1px solid var(--gray-100);border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.05);overflow:hidden}
+  .coa-card-head{padding:15px 18px;border-bottom:1px solid var(--gray-100);background:var(--gray-50);font-weight:800;color:var(--gray-900)}
+  .coa-body{padding:18px}
+  .coa-table{width:100%;border-collapse:collapse}
+  .coa-table th{padding:10px 12px;text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;background:#012926;color:#F59E0B}
+  .coa-table td{padding:11px 12px;border-bottom:1px solid var(--gray-100);font-size:12.5px;color:var(--gray-700);vertical-align:middle}
+  .coa-table tr:last-child td{border-bottom:none}
+  .coa-code{font-weight:800;color:var(--primary);font-variant-numeric:tabular-nums}
+  .type-badge,.system-badge,.inactive-badge{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:10.5px;font-weight:700}
+  .type-badge{background:var(--primary-light);color:var(--primary)}
+  .system-badge{background:var(--gray-100);color:var(--gray-600)}
+  .inactive-badge{background:var(--danger-light);color:var(--danger)}
+  .form-row{margin-bottom:13px}
+  .form-row label{display:block;font-size:11px;font-weight:700;color:var(--gray-600);margin-bottom:5px}
+  .form-row input,.form-row select,.form-row textarea{width:100%;box-sizing:border-box}
+  .form-help{font-size:11px;color:var(--gray-400);margin-top:4px;line-height:1.4}
+  .coa-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  details.edit-box summary{cursor:pointer;color:var(--primary);font-weight:700;font-size:12px}
+  details.edit-box[open]{min-width:240px}
+  .edit-form{margin-top:10px;padding:12px;background:var(--gray-50);border-radius:10px}
+  .edit-form input{margin-bottom:7px;width:100%;box-sizing:border-box}
+  .edit-form label{font-size:10.5px;font-weight:700;color:var(--gray-600)}
+  .empty{padding:40px;text-align:center;color:var(--gray-400)}
+  @media(max-width:1000px){.coa-grid{grid-template-columns:1fr}.coa-side{order:-1}}
+  @media(max-width:700px){.coa-table-wrap{overflow:auto}.coa-table{min-width:760px}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="coa-head">
+  <div>
+    <h2>📚 Chart of Accounts</h2>
+    <div class="coa-sub">Account master for {{ company.company_name if company else 'the current company' }}. Journal posting is added in the next accounting step.</div>
+  </div>
+  <div class="coa-actions">
+    {% if show_inactive %}
+      <a class="btn btn-ghost" href="{{ url_for('chart_of_accounts') }}">Hide inactive</a>
+    {% else %}
+      <a class="btn btn-ghost" href="{{ url_for('chart_of_accounts', show_inactive=1) }}">Show inactive</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="coa-grid">
+  <div class="coa-card">
+    <div class="coa-card-head">Account Master</div>
+    <div class="coa-table-wrap">
+      <table class="coa-table">
+        <thead>
+          <tr><th>Code</th><th>Account</th><th>Type</th><th>Group</th><th>Normal</th><th>Status / Action</th></tr>
+        </thead>
+        <tbody>
+        {% for a in accounts %}
+          <tr>
+            <td class="coa-code">{{ a.code }}</td>
+            <td>
+              <strong>{{ a.name }}</strong>
+              {% if a.parent %}<div class="form-help">↳ {{ a.parent.code }} · {{ a.parent.name }}</div>{% endif %}
+            </td>
+            <td><span class="type-badge">{{ a.account_type }}</span></td>
+            <td>{{ a.account_group }}</td>
+            <td>{{ a.normal_balance }}</td>
+            <td>
+              {% if a.is_system %}<span class="system-badge">System</span>{% endif %}
+              {% if not a.is_active %}<span class="inactive-badge">Inactive</span>{% endif %}
+              {% if can('finance','edit') %}
+              <details class="edit-box">
+                <summary>Edit</summary>
+                <form class="edit-form" method="post" action="{{ url_for('chart_of_accounts_edit', account_id=a.id) }}">
+                  <label>Account name</label>
+                  <input name="name" value="{{ a.name }}" required>
+                  <label>Group</label>
+                  <input name="account_group" value="{{ a.account_group }}" required>
+                  <label>Notes</label>
+                  <input name="notes" value="{{ a.notes or '' }}">
+                  <label style="display:flex;gap:7px;align-items:center;margin:8px 0">
+                    <input style="width:auto;margin:0" type="checkbox" name="is_active" value="1" {% if a.is_active %}checked{% endif %}>
+                    Active
+                  </label>
+                  <button class="btn btn-primary btn-sm" type="submit">Save</button>
+                </form>
+              </details>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="empty">No accounts found.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if can('finance','create') %}
+  <div class="coa-card coa-side">
+    <div class="coa-card-head">Add Account</div>
+    <div class="coa-body">
+      <form method="post" action="{{ url_for('chart_of_accounts') }}">
+        <div class="form-row">
+          <label>Account Code *</label>
+          <input name="code" maxlength="20" placeholder="e.g. 6110" required>
+          <div class="form-help">Unique within this company.</div>
+        </div>
+        <div class="form-row">
+          <label>Account Name *</label>
+          <input name="name" maxlength="150" placeholder="e.g. Staff Welfare" required>
+        </div>
+        <div class="form-row">
+          <label>Account Type *</label>
+          <select name="account_type" required>
+            <option value="">Select type</option>
+            {% for t in account_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Account Group *</label>
+          <input name="account_group" maxlength="60" placeholder="e.g. Employee Costs" required>
+        </div>
+        <div class="form-row">
+          <label>Parent Account</label>
+          <select name="parent_id">
+            <option value="">No parent</option>
+            {% for p in parents %}<option value="{{ p.id }}">{{ p.code }} · {{ p.name }} ({{ p.account_type }})</option>{% endfor %}
+          </select>
+          <div class="form-help">If selected, the parent must have the same account type.</div>
+        </div>
+        <div class="form-row">
+          <label>Notes</label>
+          <textarea name="notes" rows="3" placeholder="Optional"></textarea>
+        </div>
+        <button class="btn btn-primary" type="submit">＋ Add Account</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

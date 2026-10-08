@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}Quotation · {{ estimate.estimate_id }}{% endblock %}
+{% block page_title %}Quotation View{% endblock %}
+{% set active = 'estimates' %}
+
+{% block extra_style %}
+<style>
+  .inv-paper {
+    background: #fff; border: 1.5px solid #E5E7EB; border-radius: 12px;
+    padding: 36px 42px; max-width: 960px; margin: 0 auto; box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  }
+  body.dark-theme .inv-paper {
+    background: var(--bg-card, #1e293b); border-color: var(--border-color);
+  }
+  .inv-top-bar {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 2px solid #0D9488; padding-bottom: 20px; margin-bottom: 24px;
+  }
+  .company-title { font-size: 24px; font-weight: 800; color: #012926; }
+  body.dark-theme .company-title { color: #F59E0B; }
+  .doc-title-badge {
+    background: #012926; color: #F59E0B; padding: 6px 18px; border-radius: 6px;
+    font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;
+    display: inline-block; text-align: right;
+  }
+  .parties-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 30px;
+    background: var(--bg-table-alt, #f8fafc); border-radius: 8px; padding: 18px 20px;
+    margin-bottom: 24px; border: 1px solid var(--border-color, #E5E7EB);
+  }
+  .party-block h4 {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    color: var(--text-muted); margin: 0 0 8px 0; letter-spacing: .5px;
+  }
+  .party-name { font-size: 16px; font-weight: 700; color: var(--text-body); margin-bottom: 4px; }
+  .party-info { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+  .inv-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  .inv-table th {
+    background: #012926; color: #F59E0B;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    padding: 10px 8px; border: 1px solid rgba(255,255,255,0.1); text-align: left;
+  }
+  .inv-table td {
+    padding: 10px 8px; border-bottom: 1px solid var(--border-color, #E5E7EB);
+    font-size: 13px; color: var(--text-body);
+  }
+  .inv-table tr:nth-child(even) { background: var(--bg-table-alt, #fafafa); }
+
+  .calc-summary-box {
+    width: 360px; margin-left: auto; border: 1.5px solid var(--border-color, #E5E7EB);
+    border-radius: 8px; padding: 16px; background: var(--bg-table-alt, #f8fafc);
+  }
+  .calc-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13.5px; }
+  .calc-row.grand {
+    border-top: 2px solid #012926; margin-top: 8px; padding-top: 10px;
+    font-size: 18px; font-weight: 800; color: #012926;
+  }
+  body.dark-theme .calc-row.grand { color: #F59E0B; border-top-color: #F59E0B; }
+
+  @media print {
+    .no-print, nav, header, aside, .sidebar, .app-header { display: none !important; }
+    body { background: #fff !important; color: #000 !important; }
+    .inv-paper { border: none !important; box-shadow: none !important; padding: 0 !important; max-width: 100% !important; }
+    .main, .content { margin: 0 !important; padding: 0 !important; }
+    @page { margin: 10mm; size: A4; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="no-print" style="max-width:960px; margin:0 auto 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+  <div style="display:flex; align-items:center; gap:12px;">
+    <a href="{{ url_for('estimate_list') }}" class="btn btn-secondary">← Back to Quotations</a>
+    <span class="badge" style="background:#0D9488; color:#fff; font-weight:700; padding:5px 12px; border-radius:20px;">
+      {{ estimate.status or 'Draft' }}
+    </span>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    {% if estimate.status != 'Converted' %}
+    <form method="POST" action="{{ url_for('estimate_convert_to_so', estimate_id=estimate.estimate_id) }}" style="display:inline;" onsubmit="return confirm('Convert this quotation to a Sales Order?');">
+      <button type="submit" class="btn btn-success" style="font-weight:700; background:#059669; color:#fff; border:none; padding:8px 14px; border-radius:6px; cursor:pointer;">
+        📋 Convert to Sales Order
+      </button>
+    </form>
+
+    <form method="POST" action="{{ url_for('estimate_convert_to_invoice', estimate_id=estimate.estimate_id) }}" style="display:inline;" onsubmit="return confirm('Convert this quotation to a Sales Tax Invoice?');">
+      <button type="submit" class="btn btn-primary" style="font-weight:700; background:#0D9488; color:#fff; border:none; padding:8px 14px; border-radius:6px; cursor:pointer;">
+        🧾 Convert to Tax Invoice
+      </button>
+    </form>
+    {% else %}
+    <span class="badge badge-success" style="padding:6px 14px; font-weight:700;">✓ Converted to Order / Invoice</span>
+    {% endif %}
+
+    <a href="{{ url_for('estimate_edit', estimate_id=estimate.estimate_id) }}" class="btn btn-secondary" style="font-weight:600;">
+      ✏️ Edit
+    </a>
+
+    <button type="button" class="btn btn-secondary" onclick="window.print()" style="font-weight:600;">
+      🖨️ Print Quotation
+    </button>
+  </div>
+</div>
+
+<div class="inv-paper">
+  <!-- Top Letterhead -->
+  <div class="inv-top-bar">
+    <div>
+      <div class="company-title">{{ company.company_name if company else 'QIYADAH ERP' }}</div>
+      <div style="font-size:13px; color:var(--text-muted); margin-top:4px; line-height:1.4;">
+        {{ company.address or '' }}<br>
+        {% if company.city or company.state %}{{ company.city or '' }}{% if company.state %}, {{ company.state }}{% endif %}{% if company.pincode %} - {{ company.pincode }}{% endif %}<br>{% endif %}
+        {% if company.gst_number %}<strong>{{ tax_id_label or ('TRN' if billing_tax.is_vat else 'GSTIN') }}:</strong> {{ company.gst_number }}<br>{% endif %}
+        {% if company.phone %}<strong>Phone:</strong> {{ company.phone }} | {% endif %}
+        {% if company.email %}<strong>Email:</strong> {{ company.email }}{% endif %}
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div class="doc-title-badge">QUOTATION / ESTIMATE</div>
+      <div style="font-family:monospace; font-size:16px; font-weight:800; margin-top:8px; color:var(--text-body);">
+        {{ estimate.estimate_id }}
+      </div>
+      <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">
+        <strong>Date:</strong> {{ estimate.date.strftime('%d-%m-%Y') if estimate.date else '' }}
+      </div>
+      {% if estimate.valid_until %}
+      <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">
+        <strong>Valid Until:</strong> {{ estimate.valid_until.strftime('%d-%m-%Y') }}
+      </div>
+      {% endif %}
+      {% if estimate.payment_terms %}
+      <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">
+        <strong>Terms:</strong> {{ estimate.payment_terms }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Parties Info -->
+  <div class="parties-grid">
+    <div class="party-block">
+      <h4>Quotation For / Client:</h4>
+      <div class="party-name">{{ estimate.client_name or (estimate.client_obj.name if estimate.client_obj else 'Valued Customer') }}</div>
+      <div class="party-info">
+        {% if estimate.client_address %}{{ estimate.client_address|nl2br }}<br>{% endif %}
+        {% if estimate.client_gstin %}<strong>{{ tax_id_label or ('TRN' if billing_tax.is_vat else 'GSTIN') }}:</strong> <span style="font-family:monospace;">{{ estimate.client_gstin }}</span><br>{% endif %}
+        {% if estimate.client_state %}<strong>{{ 'Emirate / Place of Supply' if billing_tax.is_vat else 'Place of Supply' }}:</strong> {{ estimate.client_state }}<br>{% endif %}
+        {% if estimate.contact_person %}<strong>Contact:</strong> {{ estimate.contact_person }}<br>{% endif %}
+        {% if estimate.phone %}<strong>Phone:</strong> {{ estimate.phone }}{% endif %}
+      </div>
+    </div>
+
+    <div class="party-block">
+      <h4>Quotation Summary & Delivery:</h4>
+      <div class="party-info" style="line-height:1.7;">
+        <strong>Status:</strong> <span style="font-weight:700; color:#0D9488;">{{ estimate.status or 'Draft' }}</span><br>
+        {% if estimate.delivery_terms %}<strong>Delivery Terms:</strong> {{ estimate.delivery_terms }}<br>{% endif %}
+        {% if estimate.created_by %}<strong>Prepared By:</strong> {{ estimate.created_by }}<br>{% endif %}
+        {% if estimate.created_at %}<strong>Created:</strong> {{ estimate.created_at.strftime('%d-%m-%Y %H:%M') }}<br>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Line Items Table -->
+  <table class="inv-table">
+    <thead>
+      <tr>
+        <th style="width:40px; text-align:center;">#</th>
+        <th style="width:120px;">Product Code</th>
+        <th>Particulars / Description</th>
+        <th style="width:90px; text-align:center;">HSN/SAC</th>
+        <th style="width:70px; text-align:center;">Qty</th>
+        <th style="width:60px; text-align:center;">Unit</th>
+        <th style="width:100px; text-align:right;">Rate ({{ currency_symbol or "₹" }})</th>
+        <th style="width:70px; text-align:center;">Disc %</th>
+        <th style="width:80px; text-align:center;">Tax %</th>
+        <th style="width:120px; text-align:right;">Total ({{ currency_symbol or "₹" }})</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for itm in estimate.items %}
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--text-muted);">{{ loop.index }}</td>
+        <td style="font-family:monospace; font-weight:600;">{{ itm.item_code or itm.code or '—' }}</td>
+        <td>
+          <strong>{{ itm.item_name or itm.description or 'Product Item' }}</strong>
+        </td>
+        <td style="text-align:center; font-family:monospace;">{{ itm.hsn or '—' }}</td>
+        <td style="text-align:center; font-weight:700;">{{ "{:g}".format(itm.qty or 1) }}</td>
+        <td style="text-align:center;">{{ itm.unit or 'pcs' }}</td>
+        <td style="text-align:right; font-family:monospace;">{{ "{:,.2f}".format(itm.rate or 0) }}</td>
+        <td style="text-align:center;">{{ "{:g}%".format(itm.discount_percent or itm.discount or 0) if (itm.discount_percent or itm.discount) else '—' }}</td>
+        <td style="text-align:center;">{{ "{:g}%".format(itm.gst_percent or 0) if itm.gst_percent else '0%' }}</td>
+        <td style="text-align:right; font-weight:700; font-family:monospace;">{{ currency_symbol or '₹' }} {{ "{:,.2f}".format(itm.total_amount or 0) }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted);">No product items found on this quotation.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Bottom Details & Totals Grid -->
+  <div style="display:grid; grid-template-columns: 1fr 380px; gap:24px; align-items:start;">
+    <div>
+      {% if estimate.terms %}
+      <div style="margin-bottom:16px;">
+        <h4 style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 6px 0;">Terms & Conditions:</h4>
+        <div style="font-size:12.5px; color:var(--text-muted); line-height:1.5; white-space:pre-line;">{{ estimate.terms }}</div>
+      </div>
+      {% endif %}
+
+      {% if estimate.notes %}
+      <div>
+        <h4 style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 6px 0;">Quotation Notes:</h4>
+        <div style="font-size:12.5px; color:var(--text-muted); line-height:1.5; white-space:pre-line;">{{ estimate.notes }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="calc-summary-box">
+      <div class="calc-row">
+        <span>Amount Without Tax:</span>
+        <strong style="font-family:monospace;">{{ currency_symbol or '₹' }} {{ "{:,.2f}".format(estimate.subtotal or 0) }}</strong>
+      </div>
+
+      {% if billing_tax.is_vat %}
+      <div class="calc-row">
+        <span>{{ billing_tax.label or 'VAT' }} (Tax):</span>
+        <span style="font-family:monospace;">{{ currency_symbol or '₹' }} {{ "{:,.2f}".format(estimate.tax_amount or 0) }}</span>
+      </div>
+      {% else %}
+      {% if estimate.cgst_total and estimate.cgst_total > 0 %}
+      <div class="calc-row">
+        <span>CGST:</span>
+        <span style="font-family:monospace;">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(estimate.cgst_total) }}</span>
+      </div>
+      {% endif %}
+
+      {% if estimate.sgst_total and estimate.sgst_total > 0 %}
+      <div class="calc-row">
+        <span>SGST:</span>
+        <span style="font-family:monospace;">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(estimate.sgst_total) }}</span>
+      </div>
+      {% endif %}
+
+      {% if estimate.igst_total and estimate.igst_total > 0 %}
+      <div class="calc-row">
+        <span>IGST:</span>
+        <span style="font-family:monospace;">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(estimate.igst_total) }}</span>
+      </div>
+      {% endif %}
+      {% endif %}
+
+      <div class="calc-row" style="border-top:1px dashed var(--border-color); padding-top:6px; margin-top:4px;">
+        <span>Total Tax Applicable:</span>
+        <strong style="color:#D97706; font-family:monospace;">{{ currency_symbol or '₹' }} {{ "{:,.2f}".format(estimate.tax_amount or 0) }}</strong>
+      </div>
+
+      <div class="calc-row grand">
+        <span>Grand Total:</span>
+        <span style="font-family:monospace;">{{ currency_symbol or '₹' }} {{ "{:,.2f}".format(estimate.grand_total or 0) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signature Row -->
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:40px; margin-top:48px; padding-top:20px; border-top:1px solid var(--border-color);">
+    <div>
+      <p style="font-size:12px; color:var(--text-muted); margin:0;">Customer Acceptance (Sign & Stamp):</p>
+      <div style="height:50px;"></div>
+      <div style="border-bottom:1px solid #999; width:200px;"></div>
+    </div>
+    <div style="text-align:right;">
+      <p style="font-size:12px; font-weight:700; color:var(--text-body); margin:0;">For {{ company.company_name if company else 'QIYADAH ERP' }}</p>
+      <div style="height:50px;"></div>
+      <div style="border-bottom:1px solid #999; width:200px; margin-left:auto;"></div>
+      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0;">Authorized Signatory</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

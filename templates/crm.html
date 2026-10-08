@@ -1,0 +1,1716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM Suite · {{ company.company_name if company else 'Qiyadah ERP' }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='qiyadah_icon.png') }}?v=2">
+  <style>
+    :root {
+      --primary: #F59E0B;
+      --primary-light: #FEF3C7;
+      --primary-dark: #D97706;
+      --primary-glow: rgba(245, 158, 11, 0.15);
+      --success: #059669;
+      --success-light: #D1FAE5;
+      --danger: #DC2626;
+      --danger-light: #FEE2E2;
+      --warning: #D97706;
+      --accent: #F59E0B;
+      --purple: #8B5CF6;
+      --blue: #2563EB;
+
+      --bg-body: #F8FAFC;
+      --bg-card: #ffffff;
+      --bg-input: #ffffff;
+      --text-body: #1E293B;
+      --text-muted: #64748B;
+      --text-dim: #94A3B8;
+      --border-color: #E2E8F0;
+      --bg-topbar: #ffffff;
+      --bg-sidebar: #012926;
+      --text-sidebar: #ffffff;
+      --sidebar-w: 260px;
+      --topbar-h: 70px;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --font: 'Plus Jakarta Sans', sans-serif;
+      --shadow-card: 0 1px 4px rgba(0,0,0,0.05);
+    }
+
+    body.dark-theme {
+      --bg-body: #0A0A0A;
+      --bg-card: #1A1A1A;
+      --bg-input: #1A1A1A;
+      --bg-topbar: #0D0D0D;
+      --bg-sidebar: #011A18;
+      --text-body: #E8E8E8;
+      --text-muted: #A0A0A0;
+      --text-dim: #64748B;
+      --border-color: #2A2A2A;
+      --shadow-card: 0 1px 4px rgba(0,0,0,0.5);
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: var(--font);
+      background: var(--bg-body);
+      color: var(--text-body);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* Left Sidebar */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-sidebar);
+      color: var(--text-sidebar);
+      position: fixed;
+      top: 0; bottom: 0; left: 0;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      transition: transform 0.2s;
+    }
+    .sidebar-header {
+      padding: 20px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .sidebar-qiyadah-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .sidebar-qiyadah-icon {
+      width: 38px;
+      height: 38px;
+      object-fit: contain;
+    }
+    .sidebar-qiyadah-word {
+      width: 125px;
+      height: auto;
+      object-fit: contain;
+      filter: brightness(1.2);
+    }
+    .company-pill {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 11px;
+    }
+    .company-pill-name {
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 14px 10px;
+      overflow-y: auto;
+    }
+    .nav-section-title {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.5);
+      padding: 10px 12px 6px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      cursor: pointer;
+      margin-bottom: 2px;
+      transition: all 0.15s;
+    }
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+    }
+    .nav-item.active {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--primary);
+      font-weight: 700;
+    }
+    .nav-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    /* Main Area */
+    .main-wrap {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .topbar {
+      height: var(--topbar-h);
+      background: var(--bg-topbar);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .topbar-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text-body);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .topbar-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--primary-glow);
+      color: var(--primary);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      text-transform: uppercase;
+    }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+    }
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+    .btn-ghost {
+      background: var(--bg-card);
+      color: var(--text-body);
+      border: 1.5px solid var(--border-color);
+    }
+    .btn-ghost:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .theme-toggle-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-body);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    /* ── USER DROPDOWN (MATCHING BASE.HTML) ── */
+    .topbar-user-wrap {
+      position: relative;
+    }
+    .topbar-welcome {
+      background: rgba(0, 0, 0, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: 30px;
+      padding: 4px 12px 4px 6px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s;
+    }
+    body.dark-theme .topbar-welcome {
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .topbar-welcome:hover {
+      background: rgba(0, 0, 0, 0.08);
+      border-color: var(--primary);
+    }
+    body.dark-theme .topbar-welcome:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .topbar-welcome-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .topbar-welcome-text {
+      line-height: 1.2;
+      text-align: left;
+    }
+    .topbar-welcome-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-body);
+    }
+    .topbar-welcome-greeting {
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+    .topbar-welcome-caret {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-left: 2px;
+      transition: transform 0.2s;
+    }
+    .topbar-user-wrap.open .topbar-welcome-caret {
+      transform: rotate(180deg);
+    }
+    .user-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      min-width: 240px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      box-shadow: 0 10px 35px rgba(0,0,0,0.25);
+      z-index: 200;
+      overflow: hidden;
+      animation: dropdownFade 0.15s ease-out;
+    }
+    @keyframes dropdownFade {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .topbar-user-wrap.open .user-dropdown {
+      display: block;
+    }
+    .user-dropdown-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border-color);
+      background: linear-gradient(135deg, #F0FDFA 0%, #FEF3C7 100%);
+    }
+    body.dark-theme .user-dropdown-header {
+      background: linear-gradient(135deg, #1A2A2A 0%, #2A1A0A 100%);
+    }
+    .user-dropdown-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-body);
+    }
+    .topbar-company-plan {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .user-dropdown-email {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      word-break: break-all;
+    }
+    .user-dropdown-role {
+      display: inline-block;
+      margin-top: 6px;
+      background: linear-gradient(90deg, #0D9488, #F59E0B);
+      color: #ffffff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .user-dropdown-body {
+      padding: 8px;
+    }
+    .user-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 9px;
+      font-size: 12.5px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s;
+      cursor: pointer;
+      color: var(--text-body);
+    }
+    .user-dropdown-item:hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+    body.dark-theme .user-dropdown-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .user-dropdown-item.switch-item {
+      color: var(--primary);
+      font-weight: 700;
+    }
+    .user-dropdown-item.switch-item:hover {
+      background: var(--primary-light);
+    }
+    body.dark-theme .user-dropdown-item.switch-item:hover {
+      background: rgba(245, 158, 11, 0.15);
+    }
+    .user-dropdown-item.logout-item {
+      color: var(--danger);
+    }
+    .user-dropdown-item.logout-item:hover {
+      background: var(--danger-light);
+    }
+    body.dark-theme .user-dropdown-item.logout-item:hover {
+      background: rgba(220, 38, 38, 0.15);
+    }
+
+    /* Content Area */
+    .content-area {
+      padding: 24px 28px 48px;
+      flex: 1;
+    }
+    .view-pane {
+      display: none;
+    }
+    .view-pane.active {
+      display: block;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+      border-left: 4px solid var(--stat-color, var(--primary));
+    }
+    .stat-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .stat-val {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text-body);
+    }
+    .stat-sub {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Funnel container */
+    .funnel-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-card);
+    }
+    .funnel-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-body);
+      margin-bottom: 14px;
+    }
+    .funnel-bars {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+    }
+    .funnel-col {
+      background: var(--bg-body);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      text-align: center;
+    }
+    .funnel-col-name {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .funnel-col-val {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    /* Tables & Card Boxes */
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+    .table-header-bar {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .search-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .input {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1.5px solid var(--border-color);
+      background: var(--bg-input);
+      color: var(--text-body);
+      font-family: var(--font);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .input:focus {
+      border-color: var(--primary);
+    }
+
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    table.data-table th {
+      background: var(--bg-body);
+      padding: 12px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-color);
+    }
+    table.data-table td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: middle;
+      font-size: 13px;
+    }
+    table.data-table tr:hover td {
+      background: rgba(0, 0, 0, 0.015);
+    }
+
+    /* Stage Badges */
+    .stage-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .stage-New { background: rgba(37, 99, 235, 0.12); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.3); }
+    .stage-Contacted { background: rgba(14, 165, 233, 0.12); color: #0284c7; border: 1px solid rgba(14, 165, 233, 0.3); }
+    .stage-Qualified { background: rgba(245, 158, 11, 0.12); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .stage-ProposalSent, .stage-Proposal { background: rgba(139, 92, 246, 0.12); color: #7c3aed; border: 1px solid rgba(139, 92, 246, 0.3); }
+    .stage-Won { background: rgba(5, 150, 105, 0.15); color: #059669; border: 1px solid rgba(5, 150, 105, 0.35); }
+    .stage-Lost { background: rgba(220, 38, 38, 0.12); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.3); }
+
+    /* Kanban Board */
+    .crm-kanban {
+      display: flex;
+      gap: 16px;
+      overflow-x: auto;
+      padding-bottom: 20px;
+      min-height: 580px;
+    }
+    .crm-kanban-col {
+      flex: 0 0 270px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      max-height: 80vh;
+      box-shadow: var(--shadow-card);
+    }
+    .crm-col-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .crm-cards {
+      padding: 12px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .crm-card {
+      background: var(--bg-body);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .crm-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card);
+    }
+    .c-card-title {
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: var(--text-body);
+    }
+    .c-card-client {
+      font-size: 12px;
+      color: var(--primary);
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .c-card-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+      font-weight: 700;
+    }
+
+    /* Activities Checklist */
+    .act-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow-card);
+    }
+    .act-check {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      border: 2px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin-top: 2px;
+      font-weight: 800;
+      font-size: 12px;
+    }
+    .act-check.done {
+      background: var(--success);
+      border-color: var(--success);
+      color: #fff;
+    }
+
+    /* Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      max-width: 640px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 26px 28px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .modal-head h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-body);
+    }
+    .close-modal-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .form-group.full {
+      grid-column: 1 / -1;
+    }
+    .form-group label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+    }
+  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='workspace_sidebar.css') }}">
+</head>
+<body>
+
+  <!-- Left Sidebar in Qiyadah Style -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-qiyadah-brand">
+        <img src="{{ url_for('static', filename='qiyadah_icon.png') }}" alt="Qiyadah Logo" class="sidebar-qiyadah-icon">
+        <img src="{{ url_for('static', filename='qiyadah-word.png') }}" alt="QIYADAH" class="sidebar-qiyadah-word">
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button type="button" class="sidebar-create" onclick="openNewLeadModal()"><span class="nav-icon">+</span><span>New Lead</span></button>
+      <div class="nav-section-title">Pipeline & Sales</div>
+      <div class="nav-item active" data-crm-tab="dashboard" onclick="switchCrmTab('dashboard')">
+        <span class="nav-icon">📊</span>
+        <span>CRM Dashboard</span>
+      </div>
+      <div class="nav-item" data-crm-tab="reports" onclick="switchCrmTab('reports')">
+        <span class="nav-icon">&#128202;</span>
+        <span>Reports</span>
+      </div>
+      <div class="nav-item" data-crm-tab="leads" onclick="switchCrmTab('leads')">
+        <span class="nav-icon">🎪</span>
+        <span>Leads Pipeline</span>
+      </div>
+
+      <div class="nav-section-title">Quick Actions</div>
+      <div class="nav-item" onclick="openNewClientModal()">
+        <span class="nav-icon">🏢</span>
+        <span>New Customer</span>
+      </div>
+      <div class="nav-item" data-crm-tab="quotations" onclick="switchCrmTab('quotations')">
+        <span class="nav-icon">📝</span>
+        <span>Quotations</span>
+      </div>
+      <div class="sidebar-subnav" role="group" aria-label="Quotations">
+        <div class="nav-item" onclick="openNewQuoteModal()">
+          <span class="nav-icon">📄</span>
+          <span>New Quotation</span>
+        </div>
+      </div>
+      <div class="nav-item" data-crm-tab="deals" onclick="switchCrmTab('deals')">
+        <span class="nav-icon">&#129309;</span>
+        <span>Deals</span>
+      </div>
+
+      <div class="nav-section-title">Customers & Projects</div>
+      <div class="nav-item" data-crm-tab="customers" onclick="switchCrmTab('customers')">
+        <span class="nav-icon">👤</span>
+        <span>Accounts / Customer 360°</span>
+      </div>
+      <div class="nav-item" data-crm-tab="contacts" onclick="switchCrmTab('contacts')"><span class="nav-icon">&#128101;</span><span>Contacts</span></div>
+      <div class="nav-item" data-crm-tab="projects" onclick="switchCrmTab('projects')"><span class="nav-icon">&#128193;</span><span>Projects</span></div>
+      <div class="nav-section-title">Activities</div>
+      <button type="button" class="nav-item sidebar-action" onclick="openNewActivityModal()"><span class="nav-icon">+</span><span>Log Activity</span></button>
+      <div class="sidebar-subnav" role="group" aria-label="Activities">
+      <div class="nav-item" data-crm-tab="activities" onclick="switchCrmTab('activities')">
+        <span class="nav-icon">📅</span>
+        <span>All Activities</span>
+      </div>
+      <div class="nav-item" data-crm-tab="tasks" onclick="switchCrmTab('tasks')"><span class="nav-icon">&#9989;</span><span>Tasks</span></div>
+      <div class="nav-item" data-crm-tab="meetings" onclick="switchCrmTab('meetings')"><span class="nav-icon">&#128197;</span><span>Meetings</span></div>
+      <div class="nav-item" data-crm-tab="calls" onclick="switchCrmTab('calls')"><span class="nav-icon">&#128222;</span><span>Calls</span></div>
+      </div>
+      <div class="nav-section-title">Settings</div>
+      <div class="nav-item" data-crm-tab="setup" onclick="switchCrmTab('setup')"><span class="nav-icon">&#9881;</span><span>Setup</span></div>
+    </nav>
+  </aside>
+
+  <!-- Main Wrap -->
+  <div class="main-wrap">
+
+    <!-- Topbar in Qiyadah Style -->
+    <header class="topbar">
+      <div class="topbar-left" style="display:flex; align-items:center; gap:16px;">
+        <div class="topbar-company-brand" style="display:flex; align-items:center; gap:8px;">
+          {% if company and company_logo_url %}
+            <img src="{{ company_logo_url }}" alt="{{ company.company_name }}" class="topbar-company-logo" style="height:34px; width:34px; object-fit:contain; border-radius:6px;">
+          {% endif %}
+          <strong><span class="topbar-company-name" style="font-size:15px; font-weight:800; color:var(--text-body);">{{ company.company_name if company else 'Qiyadah ERP' }}</span></strong>
+        </div>
+        <span style="color:var(--border-color); font-size:18px;">|</span>
+        <div class="topbar-title" style="font-size:14px; font-weight:700; color:var(--text-muted); margin:0; display:flex; align-items:center; gap:8px;">
+          <span>CRM Sales Suite</span>
+          <span class="topbar-badge">Pipeline</span>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <a href="{{ url_for('apps_hub') }}" class="btn btn-ghost" title="Return to All Workspaces" style="padding:6px 12px; font-size:12px;">
+          <span>🎛️ All Workspaces</span>
+        </a>
+
+        <button class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light Mode">🌙</button>
+
+        <!-- User Dropdown Menu matching base.html -->
+        <div class="topbar-user-wrap" id="userWrap">
+          <div class="topbar-welcome" id="userTrigger" title="Click to view profile & settings">
+            <div class="topbar-welcome-avatar">
+              {{ (session.user.full_name[0] if session.user and session.user.full_name else (user.full_name[0] if user and user.full_name else 'U'))|upper }}
+            </div>
+            <div class="topbar-welcome-text">
+              <div class="topbar-welcome-name">
+                Welcome, {{ (session.user.full_name.split()[0] if session.user and session.user.full_name else (user.full_name.split()[0] if user and user.full_name else 'User')) }}! 👋
+              </div>
+              <div class="topbar-welcome-greeting">
+                {{ (session.user.role if session.user and session.user.role else (user.role if user and user.role else 'owner'))|replace('_',' ')|title }}
+              </div>
+            </div>
+            <span class="topbar-welcome-caret">▼</span>
+          </div>
+          <div class="user-dropdown" id="userDropdown">
+            <div class="user-dropdown-header">
+              <div class="user-dropdown-name">{{ (session.user.full_name if session.user and session.user.full_name else (user.full_name if user and user.full_name else 'User')) }}</div>
+              <div class="topbar-company-plan">PLAN : {{ company.subscription_plan|upper if company and company.subscription_plan else 'PREMIUM' }}</div>
+              <div class="user-dropdown-email">{{ (session.user.email if session.user and session.user.email else (user.email if user and user.email else '')) }}</div>
+              <span class="user-dropdown-role">{{ (session.user.role if session.user and session.user.role else (user.role if user and user.role else 'owner'))|replace('_',' ')|title }}</span>
+            </div>
+            <div class="user-dropdown-body">
+              <a href="{{ url_for('select_company') }}" class="user-dropdown-item switch-item">
+                🏢 Switch Company
+              </a>
+              <a href="{{ url_for('logout') }}" class="user-dropdown-item logout-item">
+                🚪 Logout
+              </a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </header>
+
+    <!-- App Body Area -->
+    <main class="content-area">
+
+      <!-- 1. CRM DASHBOARD -->
+      <div class="view-pane active" id="pane-dashboard">
+        <!-- Dashboard Action Toolbar -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+          <div>
+            <h2 style="font-size:20px; font-weight:800; color:var(--text-body); margin:0;">Sales Pipeline Overview</h2>
+            <p style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">Track lead conversion, pipeline stages, and customer proposals</p>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            {% if user and user.role in ['owner', 'super_admin'] %}
+            <span style="font-size:11.5px; font-weight:700; color:var(--primary); background:var(--primary-glow); padding:5px 12px; border-radius:20px;">👑 Owner Full Access</span>
+            {% endif %}
+            <button class="btn btn-ghost" onclick="openNewQuoteModal()">+ New Quote</button>
+            <button class="btn btn-primary" onclick="openNewLeadModal()">+ New Lead</button>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card" style="--stat-color:#2563EB;">
+            <div class="stat-label">Total Leads</div>
+            <div class="stat-val" id="c-total-leads">0</div>
+            <div class="stat-sub">Across all pipeline stages</div>
+          </div>
+          <div class="stat-card" style="--stat-color:#F59E0B;">
+            <div class="stat-label">Pipeline Value</div>
+            <div class="stat-val" id="c-pipeline-val">{{ currency_symbol or '₹' }}0</div>
+            <div class="stat-sub">Active opportunity potential</div>
+          </div>
+          <div class="stat-card" style="--stat-color:#059669;">
+            <div class="stat-label">Won Revenue</div>
+            <div class="stat-val" id="c-won-rev">{{ currency_symbol or '₹' }}0</div>
+            <div class="stat-sub">Converted sales deals</div>
+          </div>
+          <div class="stat-card" style="--stat-color:#8B5CF6;">
+            <div class="stat-label">Win Rate</div>
+            <div class="stat-val" id="c-win-rate">0%</div>
+            <div class="stat-sub">Closed deal conversion</div>
+          </div>
+        </div>
+
+        <div class="stats-grid" id="workspaceMetrics" aria-live="polite"></div>
+        <!-- Funnel Stage Row -->
+        <div class="funnel-container">
+          <div class="funnel-title">Sales Pipeline Stage Funnel</div>
+          <div class="funnel-bars" id="funnelRow">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+
+        <!-- Recent Leads Table -->
+        <div class="table-container">
+          <div class="table-header-bar">
+            <h3 style="font-size:15px; font-weight:800; color:var(--text-body);">Active Lead Opportunities</h3>
+            <button class="btn btn-ghost" onclick="switchCrmTab('leads')">Open Pipeline Board →</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Lead Title</th>
+                <th>Client / Account</th>
+                <th>Stage</th>
+                <th>Estimated Value</th>
+                <th>Source</th>
+                <th>Assigned To</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recentLeadsBody">
+              <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">Loading leads...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2. LEADS PIPELINE (KANBAN & TABLE) -->
+      <div class="view-pane" id="pane-leads">
+        <h2 id="crmLeadPaneHeading" style="margin-bottom:16px;font-size:20px;">Leads Pipeline</h2>
+        <div class="table-header-bar" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius); margin-bottom:18px;">
+          <div class="search-filter-row">
+            <input type="text" class="input" id="leadSearch" placeholder="🔍 Search leads, client..." oninput="loadLeads()">
+            <select class="input" id="leadStageFilter" onchange="loadLeads()">
+              <option value="all">All Stages</option>
+              {% for st in lead_stages %}
+              <option value="{{ st }}">{{ st }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            {% if user and user.role in ['owner', 'super_admin'] %}
+            <span style="font-size:11.5px; font-weight:700; color:var(--primary); background:var(--primary-glow); padding:5px 12px; border-radius:20px;">👑 Owner Full Access</span>
+            {% endif %}
+            <button class="btn btn-ghost" onclick="openNewQuoteModal()">+ Quote</button>
+            <button class="btn btn-primary" onclick="openNewLeadModal()">+ New Lead</button>
+          </div>
+        </div>
+
+        <div class="crm-kanban" id="crmKanbanBoard">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- 3. CUSTOMER 360 COCKPIT -->
+      <div class="view-pane" id="pane-customers">
+        <div class="table-container">
+          <div class="table-header-bar">
+            <div class="search-filter-row">
+              <input type="text" class="input" id="clientSearch" placeholder="🔍 Search customers by name, phone..." oninput="loadClients()">
+            </div>
+            <button class="btn btn-primary" onclick="openNewClientModal()">+ New Customer</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Customer Name</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Open Leads</th>
+                <th>Total Orders</th>
+                <th>City</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="clientsTableBody">
+              <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">Loading customers...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 4. ACTIVITIES VIEW -->
+      <div class="view-pane" id="pane-activities">
+        <div class="table-header-bar" style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius); margin-bottom:18px;">
+          <div class="search-filter-row">
+            <select class="input" id="actTypeFilter" onchange="loadActivities()">
+              <option value="all">All Types (Tasks, Calls, Meetings, WhatsApp)</option>
+              <option value="task">Tasks</option>
+              <option value="call">Calls</option>
+              <option value="meeting">Meetings</option>
+              <option value="whatsapp">WhatsApp</option>
+              <option value="email">Email</option>
+              <option value="followup">Follow-ups</option>
+              <option value="note">Notes</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="openNewActivityModal()">+ Log Activity</button>
+        </div>
+
+        <div id="activitiesList">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- 5. QUOTATIONS VIEW -->
+      <div class="view-pane" id="pane-quotations">
+        <div class="table-container">
+          <div class="table-header-bar">
+            <h3 style="font-size:15px; font-weight:800; color:var(--text-body);">Sales Quotations & Proposals</h3>
+            <button class="btn btn-primary" onclick="openNewQuoteModal()">+ Create Quotation</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Quote #</th>
+                <th>Client</th>
+                <th>Title / Scope</th>
+                <th>Total ({{ currency_symbol or "₹" }})</th>
+                <th>Status</th>
+                <th>Valid Until</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="quotesTableBody">
+              <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">Loading quotations...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {% include '_crm_workspace_panes.html' %}
+    </main>
+  </div>
+
+  <!-- New Lead Modal -->
+  <div class="modal-overlay" id="newLeadModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>Create Sales Lead</h3>
+        <button class="close-modal-btn" onclick="closeModal('newLeadModal')">&times;</button>
+      </div>
+      <form onsubmit="submitNewLead(event)">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Lead Title / Project *</label>
+            <input type="text" class="input" id="lead-title" required placeholder="e.g. 50x Heavy Duty Control Panels">
+          </div>
+          <div class="form-group">
+            <label>Client / Company Name *</label>
+            <input type="text" class="input" id="lead-client-name" required placeholder="Precision Automations">
+          </div>
+          <div class="form-group">
+            <label>Client Phone</label>
+            <input type="text" class="input" id="lead-client-phone" placeholder="+91 9876543210">
+          </div>
+          <div class="form-group">
+            <label>Estimated Value ({{ currency_symbol or "₹" }})</label>
+            <input type="number" step="any" class="input" id="lead-value" placeholder="150000">
+          </div>
+          <div class="form-group">
+            <label>Pipeline Stage</label>
+            <select class="input" id="lead-stage">
+              {% for s in lead_stages %}
+              <option value="{{ s }}">{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Lead Source</label>
+            <select class="input" id="lead-source">
+              <option value="Direct">Direct</option>
+              <option value="Referral">Referral</option>
+              <option value="Website">Website</option>
+              <option value="Cold Call">Cold Call</option>
+              <option value="Exhibition">Exhibition</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Expected Close Date</label>
+            <input type="date" class="input" id="lead-close-date">
+          </div>
+          <div class="form-group full">
+            <label>Opportunity Notes</label>
+            <textarea class="input" id="lead-notes" rows="2" placeholder="Key customer requirements or notes"></textarea>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('newLeadModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Lead</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- New Client Modal -->
+  <div class="modal-overlay" id="newClientModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>New Customer Account</h3>
+        <button class="close-modal-btn" onclick="closeModal('newClientModal')">&times;</button>
+      </div>
+      <form onsubmit="submitNewClient(event)">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Company / Customer Name *</label>
+            <input type="text" class="input" id="cli-name" required placeholder="Sterling Enterprises">
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" class="input" id="cli-phone" placeholder="+91 9876543210">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" class="input" id="cli-email" placeholder="contact@sterling.com">
+          </div>
+          <div class="form-group">
+            <label>{{ 'Emirate / City' if billing_tax.is_vat else 'City' }}</label>
+            <input type="text" class="input" id="cli-city" placeholder="{{ 'Dubai' if billing_tax.is_vat else 'Mumbai' }}">
+          </div>
+          <div class="form-group">
+            <label>{{ tax_id_label or ('TRN Number' if billing_tax.is_vat else 'GST Number') }}</label>
+            <input type="text" class="input" id="cli-gst" placeholder="{{ '100XXXXXXXXX003' if billing_tax.is_vat else '27AAAAA0000A1Z5' }}">
+          </div>
+          <div class="form-group full">
+            <label>Primary Contact Person</label>
+            <input type="text" class="input" id="cli-contact" placeholder="Rajesh Sharma (Procurement Head)">
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('newClientModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Customer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Customer 360 Cockpit Modal -->
+  <div class="modal-overlay" id="c360Modal">
+    <div class="modal-box" style="max-width:760px;">
+      <div class="modal-head">
+        <h3 id="c360-title">Customer 360° Cockpit</h3>
+        <button class="close-modal-btn" onclick="closeModal('c360Modal')">&times;</button>
+      </div>
+      <div id="c360-body">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- New Quotation Modal -->
+  <div class="modal-overlay" id="newQuoteModal">
+    <div class="modal-box" style="max-width:700px;">
+      <div class="modal-head">
+        <h3>Create Sales Quotation</h3>
+        <button class="close-modal-btn" onclick="closeModal('newQuoteModal')">&times;</button>
+      </div>
+      <form onsubmit="submitNewQuote(event)">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Proposal Title *</label>
+            <input type="text" class="input" id="q-title" required placeholder="Quotation for Turnkey Supply">
+          </div>
+          <div class="form-group">
+            <label>Customer Name *</label>
+            <input type="text" class="input" id="q-client-name" required placeholder="Customer Name">
+          </div>
+          <div class="form-group">
+            <label>Valid Until</label>
+            <input type="date" class="input" id="q-valid-until">
+          </div>
+          <div class="form-group full">
+            <label>Line Items (Item Name, Qty, Rate)</label>
+            <div id="quoteItemsList">
+              <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <input type="text" class="input q-it-name" placeholder="Item description" style="flex:2;" required>
+                <input type="number" class="input q-it-qty" placeholder="Qty" value="1" style="width:70px;" oninput="calcQuoteTotal()">
+                <input type="number" step="any" class="input q-it-rate" placeholder="Rate ({{ currency_symbol or '₹' }})" value="0" style="flex:1;" oninput="calcQuoteTotal()">
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost" style="font-size:11.5px; padding:4px 10px;" onclick="addQuoteRow()">+ Add Item Row</button>
+          </div>
+          {% if billing_tax.is_vat %}
+          <div class="form-group full">
+            <label>{{ billing_tax.label or 'VAT' }} ({{ currency_symbol or 'AED' }})</label>
+            <input type="number" step="any" class="input" id="q-vat" value="0" oninput="calcQuoteTotal()">
+          </div>
+          {% else %}
+          <div class="form-group">
+            <label>CGST ({{ currency_symbol|default("₹") }})</label>
+            <input type="number" step="any" class="input" id="q-cgst" value="0" oninput="calcQuoteTotal()">
+          </div>
+          <div class="form-group">
+            <label>SGST ({{ currency_symbol|default("₹") }})</label>
+            <input type="number" step="any" class="input" id="q-sgst" value="0" oninput="calcQuoteTotal()">
+          </div>
+          {% endif %}
+          <div class="form-group full">
+            <label>Estimated Total Proposal Value ({{ currency_symbol or '₹' }})</label>
+            <input type="number" step="any" class="input" id="q-total" value="0" readonly style="font-weight:800; font-size:16px; color:var(--primary);">
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('newQuoteModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Generate Quotation</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>window.qiyadahCurrency = {{ base_currency|default('INR')|tojson }};</script>
+  <script src="{{ url_for('static', filename='js/crm_workspace.js') }}"></script>
+  <script>
+    const isVat = {{ 'true' if billing_tax.is_vat else 'false' }};
+    const currSym = "{{ currency_symbol or '₹' }}";
+    const loc = isVat ? 'en-AE' : 'en-IN';
+    let currentCrmTab = 'dashboard';
+    function switchCrmTab(tab) {
+      currentCrmTab = tab;
+      document.querySelectorAll('[data-crm-tab]').forEach(el => el.classList.toggle('active', el.dataset.crmTab === tab));
+      const paneTab = ['tasks', 'meetings', 'calls'].includes(tab) ? 'activities' : tab === 'deals' ? 'leads' : tab;
+      document.querySelectorAll('.view-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + paneTab));
+      if (tab === 'dashboard') { loadDashboard(); loadWorkspaceMetrics(); }
+      if (tab === 'leads' || tab === 'deals') { document.getElementById('crmLeadPaneHeading').textContent = tab === 'deals' ? 'Deals' : 'Leads Pipeline'; document.getElementById('leadStageFilter').value = 'all'; loadLeads(); }
+      if (tab === 'customers') loadClients();
+      if (paneTab === 'activities') {
+        document.getElementById('actTypeFilter').value = ({tasks:'task',meetings:'meeting',calls:'call'})[tab] || 'all';
+        loadActivities();
+      }
+      if (tab === 'quotations') loadQuotations();
+      if (['contacts', 'projects', 'reports', 'setup'].includes(tab)) loadWorkspacePane(tab);
+    }
+
+    function openNewLeadModal() { document.getElementById('newLeadModal').style.display = 'flex'; }
+    function openNewClientModal() { document.getElementById('newClientModal').style.display = 'flex'; }
+    function openNewQuoteModal() { document.getElementById('newQuoteModal').style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    async function loadDashboard() {
+      try {
+        const res = await fetch('/api/crm/dashboard');
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('c-total-leads').textContent = data.total_leads || 0;
+          document.getElementById('c-pipeline-val').textContent = currSym + ' ' + (data.pipeline_value || 0).toLocaleString(loc);
+          document.getElementById('c-won-rev').textContent = currSym + ' ' + (data.won_revenue || 0).toLocaleString(loc);
+          document.getElementById('c-win-rate').textContent = (data.win_rate || 0) + '%';
+
+          // Funnel bars
+          const funnel = data.funnel || {};
+          const fRow = document.getElementById('funnelRow');
+          fRow.innerHTML = (data.stage_order || Object.keys(funnel)).map(st => `
+            <div class="funnel-col">
+              <div class="funnel-col-name">${st}</div>
+              <div class="funnel-col-val">${funnel[st]}</div>
+            </div>
+          `).join('');
+
+          // Recent leads
+          const tbody = document.getElementById('recentLeadsBody');
+          if (!data.recent_leads || data.recent_leads.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">No leads yet. Create your first sales lead!</td></tr>';
+          } else {
+            tbody.innerHTML = data.recent_leads.map(l => `
+              <tr>
+                <td><strong>${l.title}</strong></td>
+                <td>${l.client_name || '—'}</td>
+                <td><span class="stage-badge stage-${l.stage.replace(/\s+/g,'')}">${l.stage}</span></td>
+                <td>${currSym} ${(l.estimated_value || 0).toLocaleString(loc)}</td>
+                <td>${l.source || 'Direct'}</td>
+                <td>${l.assigned_to || 'Sales'}</td>
+                <td>
+                  ${l.stage === 'Won' ?
+                    `<button class="btn btn-primary" style="padding:3px 8px; font-size:11px;" onclick="convertLeadToOrder('${l.id}')">Convert to Order 📦</button>` :
+                    `<button class="btn btn-ghost" style="padding:3px 8px; font-size:11px;" onclick="advanceLeadStage('${l.id}')">Advance Stage →</button>`}
+                </td>
+              </tr>
+            `).join('');
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadLeads() {
+      try {
+        const stage = document.getElementById('leadStageFilter').value;
+        const search = document.getElementById('leadSearch').value;
+        const res = await fetch(`/api/crm/leads?stage=${encodeURIComponent(stage)}&search=${encodeURIComponent(search)}&module=${currentCrmTab === 'deals' ? 'deals' : 'leads'}`);
+        const data = await res.json();
+        if (data.success) {
+          const board = document.getElementById('crmKanbanBoard');
+          const stages = ['New', 'Contacted', 'Qualified', 'Proposal Sent', 'Won', 'Lost'];
+          board.innerHTML = stages.map(st => {
+            const list = data.leads.filter(l => l.stage === st);
+            return `
+              <div class="crm-kanban-col">
+                <div class="crm-col-head">
+                  <span>${st}</span>
+                  <span style="font-size:11px; background:var(--bg-body); padding:2px 7px; border-radius:20px; font-weight:700;">${list.length}</span>
+                </div>
+                <div class="crm-cards">
+                  ${list.map(l => `
+                    <div class="crm-card">
+                      <div class="c-card-title">${l.title}</div>
+                      <div class="c-card-client">${l.client_name || 'Client'}</div>
+                      <div class="c-card-meta">
+                        <span>${currSym} ${(l.estimated_value || 0).toLocaleString(loc)}</span>
+                        ${l.stage === 'Won' ?
+                          `<button class="btn btn-primary" style="padding:2px 6px; font-size:10.5px;" onclick="convertLeadToOrder('${l.id}')">Convert 📦</button>` :
+                          `<button class="btn btn-ghost" style="padding:2px 6px; font-size:10.5px;" onclick="advanceLeadStage('${l.id}')">→</button>`}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function advanceLeadStage(leadId) {
+      const newStage = prompt('Enter new stage (Contacted, Qualified, Proposal Sent, Won, Lost):', 'Contacted');
+      if (!newStage) return;
+
+      try {
+        const res = await fetch(`/api/crm/leads/${leadId}/stage`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ stage: newStage })
+        });
+        const data = await res.json();
+        if (data.success) {
+          loadDashboard();
+          loadLeads();
+        } else {
+          alert(data.error || 'Failed');
+        }
+      } catch (err) {
+        alert('Request failed');
+      }
+    }
+
+    async function convertLeadToOrder(leadId) {
+      if (!confirm('Convert this Won lead directly into an active OrderFlow Order?')) return;
+      try {
+        const res = await fetch(`/api/crm/leads/${leadId}/convert`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('Success! Created Order: ' + data.order_id);
+          window.location.href = '/order-erp';
+        } else {
+          alert(data.error || 'Failed');
+        }
+      } catch (err) {
+        alert('Request failed');
+      }
+    }
+
+    async function loadClients() {
+      try {
+        const res = await fetch('/api/crm/clients');
+        const data = await res.json();
+        if (data.success) {
+          const tbody = document.getElementById('clientsTableBody');
+          if (data.clients.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">No customer records.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.clients.map(c => `
+            <tr>
+              <td><strong style="color:var(--primary); cursor:pointer;" onclick="open360Cockpit('${c.id}')">${c.name}</strong></td>
+              <td>${c.phone || '—'}</td>
+              <td>${c.email || '—'}</td>
+              <td>${c.open_lead_count}</td>
+              <td>${c.order_count}</td>
+              <td>${c.city || '—'}</td>
+              <td>
+                <button class="btn btn-ghost" style="padding:4px 10px; font-size:12px;" onclick="open360Cockpit('${c.id}')">Customer 360°</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function open360Cockpit(clientId) {
+      try {
+        const res = await fetch(`/api/crm/clients/${clientId}/360`);
+        const data = await res.json();
+        if (data.success) {
+          const c = data.client;
+          const k = data.kpis;
+          document.getElementById('c360-title').textContent = `${c.name} · Customer 360°`;
+          const body = document.getElementById('c360-body');
+          body.innerHTML = `
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:20px;">
+              <div style="background:var(--bg-body); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Total Orders Value</div>
+                <div style="font-size:18px; font-weight:800; color:var(--primary); margin-top:2px;">${currSym} ${(k.total_order_value || 0).toLocaleString(loc)}</div>
+              </div>
+              <div style="background:var(--bg-body); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Amount Collected</div>
+                <div style="font-size:18px; font-weight:800; color:#059669; margin-top:2px;">${currSym} ${(k.total_paid_value || 0).toLocaleString(loc)}</div>
+              </div>
+              <div style="background:var(--bg-body); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase; font-weight:700;">Pending Balance</div>
+                <div style="font-size:18px; font-weight:800; color:${k.balance_due > 0 ? '#D97706' : '#059669'}; margin-top:2px;">${currSym} ${(k.balance_due || 0).toLocaleString(loc)}</div>
+              </div>
+            </div>
+
+            <h4 style="font-size:13px; font-weight:700; margin-bottom:8px;">Client Profile</h4>
+            <div style="font-size:12.5px; color:var(--text-muted); line-height:1.6; margin-bottom:18px;">
+              Phone: <strong>${c.phone || '—'}</strong> · Email: <strong>${c.email || '—'}</strong> · ${isVat ? 'TRN' : 'GST'}: <strong>${c.gst || '—'}</strong><br>
+              Address: ${c.address || '—'}, ${c.city || ''}
+            </div>
+
+            <h4 style="font-size:13px; font-weight:700; margin-bottom:8px;">Associated Leads (${data.leads.length})</h4>
+            <div style="margin-bottom:18px;">
+              ${data.leads.map(l => `<div style="padding:6px 0; font-size:12.5px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between;">
+                <span>${l.title}</span> <span class="stage-badge stage-${l.stage.replace(/\s+/g,'')}">${l.stage} (${currSym} ${(l.estimated_value||0).toLocaleString(loc)})</span>
+              </div>`).join('') || '<div style="font-size:12px; color:var(--text-muted);">No leads yet.</div>'}
+            </div>
+
+            <h4 style="font-size:13px; font-weight:700; margin-bottom:8px;">OrderFlow Orders (${data.orders.length})</h4>
+            <div>
+              ${data.orders.map(o => `<div style="padding:6px 0; font-size:12.5px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between;">
+                <span><strong>${o.id}</strong>: ${o.item_description.slice(0,35)}...</span> <span>${currSym} ${(o.amount_due||0).toLocaleString(loc)} (${o.status})</span>
+              </div>`).join('') || '<div style="font-size:12px; color:var(--text-muted);">No orders yet.</div>'}
+            </div>
+          `;
+          document.getElementById('c360Modal').style.display = 'flex';
+        }
+      } catch (err) {
+        alert('Failed to load Customer 360');
+      }
+    }
+
+    async function loadActivities() {
+      try {
+        const type = document.getElementById('actTypeFilter').value;
+        const res = await fetch(`/api/crm/activities?type=${type}`);
+        const data = await res.json();
+        if (data.success) {
+          const list = document.getElementById('activitiesList');
+          if (data.activities.length === 0) {
+            list.innerHTML = '<div style="text-align:center; padding:32px; color:var(--text-muted);">No activities logged yet.</div>';
+            return;
+          }
+          list.innerHTML = data.activities.map(a => `
+            <div class="act-card">
+              <div class="act-check ${a.status === 'completed' ? 'done' : ''}" onclick="toggleActivity(${a.id})">
+                ${a.status === 'completed' ? '✓' : ''}
+              </div>
+              <div style="flex:1;">
+                <div style="font-weight:700; font-size:13.5px; ${a.status === 'completed' ? 'text-decoration:line-through; opacity:0.6;' : ''}">${crmEscape(a.title)}</div>
+                <div style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">${crmEscape(a.summary)}</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">Due: ${crmEscape(a.due_date || 'None')} · Type: <span style="text-transform:capitalize;">${crmEscape(a.type)}</span> · By: ${crmEscape(a.created_by)}</div>
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function toggleActivity(actId) {
+      try {
+        await fetch(`/api/crm/activities/${actId}/toggle`, { method: 'PUT' });
+        loadActivities();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadQuotations() {
+      try {
+        const res = await fetch('/api/crm/quotations');
+        const data = await res.json();
+        if (data.success) {
+          const tbody = document.getElementById('quotesTableBody');
+          if (data.quotations.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">No quotations created yet.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.quotations.map(q => `
+            <tr>
+              <td><strong style="color:var(--primary);">${q.quote_number}</strong></td>
+              <td><strong>${q.client_name || 'Customer'}</strong></td>
+              <td>${q.title}</td>
+              <td><strong>${currSym} ${(q.total_amount || 0).toLocaleString(loc)}</strong></td>
+              <td><span class="stage-badge" style="background:rgba(245,158,11,0.15); color:var(--primary);">${q.status}</span></td>
+              <td style="font-size:11.5px; color:var(--text-muted);">${q.valid_until || '—'}</td>
+              <td>
+                <button class="btn btn-primary" style="padding:4px 8px; font-size:11px;" onclick="convertQuoteToOrder('${q.id}')">Convert to Order 📦</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function convertQuoteToOrder(quoteId) {
+      if (!confirm('Convert this accepted quotation into an active Order in OrderFlow?')) return;
+      try {
+        const res = await fetch(`/api/crm/quotations/${quoteId}/convert`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert('Success! Order created: ' + data.order_id);
+          window.location.href = '/order-erp';
+        } else {
+          alert(data.error || 'Failed');
+        }
+      } catch (err) {
+        alert('Request failed');
+      }
+    }
+
+    function addQuoteRow() {
+      const div = document.createElement('div');
+      div.style = 'display:flex; gap:8px; margin-bottom:8px;';
+      div.innerHTML = `
+        <input type="text" class="input q-it-name" placeholder="Item description" style="flex:2;" required>
+        <input type="number" class="input q-it-qty" placeholder="Qty" value="1" style="width:70px;" oninput="calcQuoteTotal()">
+        <input type="number" step="any" class="input q-it-rate" placeholder="Rate (${currSym})" value="0" style="flex:1;" oninput="calcQuoteTotal()">
+      `;
+      document.getElementById('quoteItemsList').appendChild(div);
+    }
+
+    function calcQuoteTotal() {
+      let sub = 0;
+      document.querySelectorAll('#quoteItemsList > div').forEach(row => {
+        const q = parseFloat(row.querySelector('.q-it-qty').value) || 0;
+        const r = parseFloat(row.querySelector('.q-it-rate').value) || 0;
+        sub += (q * r);
+      });
+      const vatEl = document.getElementById('q-vat');
+      const vat = vatEl ? (parseFloat(vatEl.value) || 0) : 0;
+      const cgstEl = document.getElementById('q-cgst');
+      const cgst = cgstEl ? (parseFloat(cgstEl.value) || 0) : 0;
+      const sgstEl = document.getElementById('q-sgst');
+      const sgst = sgstEl ? (parseFloat(sgstEl.value) || 0) : 0;
+      document.getElementById('q-total').value = (sub + vat + cgst + sgst).toFixed(2);
+    }
+
+    async function submitNewLead(e) {
+      e.preventDefault();
+      const payload = {
+        title: document.getElementById('lead-title').value,
+        client_name: document.getElementById('lead-client-name').value,
+        client_phone: document.getElementById('lead-client-phone').value,
+        estimated_value: document.getElementById('lead-value').value,
+        stage: document.getElementById('lead-stage').value,
+        source: document.getElementById('lead-source').value,
+        expected_close_date: document.getElementById('lead-close-date').value,
+        notes: document.getElementById('lead-notes').value
+      };
+      try {
+        const res = await fetch('/api/crm/leads', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('newLeadModal');
+          loadDashboard();
+          loadLeads();
+          alert('Lead created successfully!');
+        } else {
+          alert(data.error || 'Failed');
+        }
+      } catch (err) {
+        alert('Request failed');
+      }
+    }
+
+    async function submitNewClient(e) {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('cli-name').value,
+        phone: document.getElementById('cli-phone').value,
+        email: document.getElementById('cli-email').value,
+        city: document.getElementById('cli-city').value,
+        gst: document.getElementById('cli-gst').value,
+        contact_name: document.getElementById('cli-contact').value
+      };
+      try {
+        const res = await fetch('/api/crm/clients', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('newClientModal');
+          loadClients();
+          alert('Customer created successfully!');
+        } else {
+          alert(data.error || 'Failed');
+        }
+      } catch (err) {
+        alert('Request failed');
+      }
+    }
+
+    async function submitNewQuote(e) {
+      e.preventDefault();
+      const items = [];
+      document.querySelectorAll('#quoteItemsList > div').forEach(row => {
+        items.push({
+          name: row.querySelector('.q-it-name').value,
+          qty: parseFloat(row.querySelector('.q-it-qty').value) || 1,
+          rate: parseFloat(row.querySelector('.q-it-rate').value) || 0
+        });
+      });
+
+      const payload = {
+        title: document.getElementById('q-title').value,
+        client_name: document.getElementById('q-client-name').value,
+        client_id: '0',
+        valid_until: document.getElementById('q-valid-until').value,
+        items: items,
+        vat: document.getElementById('q-vat') ? document.getElementById('q-vat').value : 0,
+        cgst: document.getElementById('q-cgst') ? document.getElementById('q-cgst').value : 0,
+        sgst: document.getElementById('q-sgst') ? document.getElementById('q-sgst').value : 0
+      };
+
+      try {
+        const res = await fetch('/api/crm/quotations', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('newQuoteModal');
+          loadQuotations();
+          alert('Quotation generated: ' + data.quotation.quote_number);
+        } else {
+          alert(data.error || 'Failed');
+        }
+      } catch (err) {
+        alert('Request failed');
+      }
+    }
+
+    // Theme toggle
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark-theme');
+      localStorage.setItem('qiyadah_theme', isDark ? 'dark' : 'light');
+      document.getElementById('themeToggle').textContent = isDark ? '☀️' : '🌙';
+    });
+    if (localStorage.getItem('qiyadah_theme') === 'dark') {
+      document.body.classList.add('dark-theme');
+      document.getElementById('themeToggle').textContent = '☀️';
+    }
+
+    loadDashboard();
+    loadWorkspaceMetrics();
+
+    // User Dropdown toggle (matching base.html)
+    (function () {
+      const wrap = document.getElementById('userWrap');
+      const trigger = document.getElementById('userTrigger');
+      if (!wrap || !trigger) return;
+      trigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        wrap.classList.toggle('open');
+      });
+      document.addEventListener('click', function () {
+        wrap.classList.remove('open');
+      });
+      const dropdown = document.getElementById('userDropdown');
+      if (dropdown) {
+        dropdown.addEventListener('click', function (e) {
+          e.stopPropagation();
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% block title %}Debtors{% endblock %}
+{% block page_title %}Debtors{% endblock %}
+{% set active = 'debtors' %}
+
+{% block extra_style %}
+<style>
+  .summary-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
+  .sum-card { background:var(--bg-card); border-radius:14px; padding:20px 24px; border:1px solid var(--border-color);
+              display:flex; align-items:center; gap:16px; transition: background 0.3s ease, border-color 0.3s ease; }
+  .sum-icon { font-size:32px; }
+  .sum-val  { font-size:24px; font-weight:800; color: var(--text-body); }
+  .sum-lbl  { font-size:12px; color:var(--text-muted); margin-top:2px; }
+
+  .search-bar { display:flex; gap:12px; margin-bottom:16px; flex-wrap: wrap; }
+  .search-bar input { max-width:320px; background:var(--bg-input); color:var(--text-body); border-color:var(--border-color); }
+  .search-bar select { background:var(--bg-input); color:var(--text-body); border-color:var(--border-color); padding: 9px 12px; border-radius: 8px; font-family: var(--font); font-size: 13.5px; }
+
+  .chip-overdue { background:#FEE2E2; color:#DC2626; padding:2px 8px; border-radius:10px;
+                  font-size:11px; font-weight:700; margin-left:6px; }
+  body.dark-theme .chip-overdue { background:rgba(220,38,38,0.15); color:#F87171; }
+
+  .amt-pending  { color:#DC2626; font-weight:700; }
+  body.dark-theme .amt-pending { color:#F87171; }
+  .amt-due      { color:#D97706; font-weight:600; }
+  body.dark-theme .amt-due { color:#FBBF24; }
+  .amt-payment  { color:#16A34A; font-weight:600; }
+  body.dark-theme .amt-payment { color:#34D399; }
+
+  .inv-tag { background:#EEF2FF; color:#4F46E5; padding:2px 7px; border-radius:6px;
+             font-size:11px; font-weight:700; white-space:nowrap; }
+  body.dark-theme .inv-tag { background:rgba(79,70,229,0.15); color:#818CF8; }
+  .awb-tag { background:#F0FDF4; color:#16A34A; padding:2px 7px; border-radius:6px;
+             font-size:11px; font-weight:700; white-space:nowrap; }
+  body.dark-theme .awb-tag { background:rgba(5,150,105,0.15); color:#34D399; }
+
+  .view-btn { background:var(--primary-light); color:var(--primary); border:none; padding:6px 12px;
+              border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none;
+              transition:background .15s; display:inline-flex; align-items:center; gap:4px; }
+  .view-btn:hover { background:var(--primary); color:#fff; }
+  body.dark-theme .view-btn { background:rgba(245,158,11,0.15); color:#FBBF24; }
+  body.dark-theme .view-btn:hover { background:#F59E0B; color:#fff; }
+
+  .receipt-btn { background:#DCFCE7; color:#16A34A; border:none; padding:6px 12px;
+                 border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none;
+                 transition:background .15s; display:inline-flex; align-items:center; gap:4px; margin-left:6px; }
+  .receipt-btn:hover { background:#16A34A; color:#fff; }
+  body.dark-theme .receipt-btn { background:rgba(5,150,105,0.15); color:#34D399; }
+  body.dark-theme .receipt-btn:hover { background:#16A34A; color:#fff; }
+
+  .tbl-row:hover { background:var(--gray-50); }
+  body.dark-theme .tbl-row:hover { background:rgba(255,255,255,0.03); }
+  .action-cell  { display:flex; gap:6px; white-space:nowrap; }
+  .table-wrap th {
+    background: #012926;
+    color: #F59E0B;
+  }
+  body.dark-theme .table-wrap th {
+    background: #011A18;
+    color: #F59E0B;
+  }
+  .table-wrap td { color: var(--text-body); border-color: var(--border-color); }
+  .table-wrap tbody tr { border-bottom: 1px solid var(--border-color); }
+
+  @media(max-width:900px){ .summary-bar{grid-template-columns:1fr 1fr;} }
+  @media(max-width:600px){
+    .summary-bar{grid-template-columns:1fr; gap:10px; margin-bottom:16px;}
+    .sum-card{padding:14px 16px;}
+    .sum-val{font-size:19px;}
+    .search-bar{gap:8px;}
+    .search-bar input{max-width:none; width:100%;}
+    .search-bar select{max-width:none !important; width:100%;}
+    .page-header{gap:10px;}
+    .page-header > div:last-child{width:100%;}
+    .page-header .btn{flex:1; text-align:center;}
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h2 style="color:var(--text-body);">📥 Debtors</h2>
+    <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">
+      Clients who owe you money — track outstanding balances &amp; due dates.
+    </p>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <a href="/receipts/new" class="btn btn-success">💰 Record Receipt</a>
+    <a href="/invoice/new"  class="btn btn-primary">+ New Invoice</a>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="summary-bar">
+  <div class="sum-card">
+    <div class="sum-icon">💰</div>
+    <div>
+      <div class="sum-val" style="color:#DC2626;">{{ currency_symbol|default("₹") }}{{ "{:,.0f}".format(total_outstanding) }}</div>
+      <div class="sum-lbl">Total Outstanding</div>
+    </div>
+  </div>
+  <div class="sum-card">
+    <div class="sum-icon">👥</div>
+    <div>
+      <div class="sum-val" style="color:#4F46E5;">{{ debtors|length }}</div>
+      <div class="sum-lbl">Active Debtors</div>
+    </div>
+  </div>
+  <div class="sum-card">
+    <div class="sum-icon">⚠️</div>
+    <div>
+      <div class="sum-val" style="color:#D97706;">{{ overdue_count }}</div>
+      <div class="sum-lbl">Overdue Accounts</div>
+    </div>
+  </div>
+</div>
+
+<!-- Search / Filter -->
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="🔍  Search debtor, invoice, AWB…" oninput="filterTable()">
+  <select id="filterOverdue" onchange="filterTable()" style="max-width:180px;">
+    <option value="all">All Debtors</option>
+    <option value="overdue">Overdue Only</option>
+  </select>
+</div>
+
+<!-- Table -->
+<div class="card">
+  <div class="table-wrap">
+    <table id="debtorTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Client</th>
+          <th>Last Invoice / AWB</th>
+          <th>Total Pending</th>
+          <th>Last Invoice Date</th>
+          <th>Nearest Due Date</th>
+          <th>Due Amount</th>
+          <th>Last Payment</th>
+          <th>Last Paid Amount</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in debtors %}
+        <tr class="tbl-row {% if d.overdue %}row-overdue{% endif %}"
+            data-overdue="{{ 'yes' if d.overdue else 'no' }}"
+            data-search="{{ d.name|lower }} {{ (d.last_invoice_id or '')|lower }} {{ (d.last_awb or '')|lower }}">
+          <td style="color:var(--text-muted); font-size:12px;">{{ loop.index }}</td>
+          <td>
+            <strong style="color:var(--text-body);">{{ d.name }}</strong>
+            {% if d.overdue %}<span class="chip-overdue">OVERDUE</span>{% endif %}
+            <div style="font-size:11px; color:var(--text-muted);">
+              {% if d.phone %}📞 {{ d.phone }}{% endif %}
+              {% if d.city %} · {{ d.city }}{% endif %}
+            </div>
+          </td>
+          <td>
+            {% if d.last_invoice_id %}
+              <span class="inv-tag">{{ d.last_invoice_id }}</span>
+            {% endif %}
+            {% if d.last_awb %}
+              <div style="margin-top:4px;"><span class="awb-tag">✈ {{ d.last_awb }}</span></div>
+            {% elif not d.last_invoice_id %}
+              <span style="color:var(--text-muted);">—</span>
+            {% endif %}
+          </td>
+          <td><span class="amt-pending">{{ currency_symbol|default("₹") }}{{ "{:,.0f}".format(d.total_pending) }}</span></td>
+          <td style="color:var(--text-muted); font-size:13px;">
+            {% if d.last_invoice_date %}{{ d.last_invoice_date.strftime('%d %b %Y') }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if d.nearest_due_date %}
+              <span style="color:{% if d.overdue %}#DC2626{% else %}#D97706{% endif %}; font-weight:600; font-size:13px;">
+                {{ d.nearest_due_date.strftime('%d %b %Y') }}
+              </span>
+            {% else %}
+              <span style="color:var(--text-muted);">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if d.nearest_due_amt %}
+              <span class="amt-due">{{ currency_symbol|default("₹") }}{{ "{:,.0f}".format(d.nearest_due_amt) }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="color:var(--text-muted); font-size:13px;">
+            {% if d.last_payment_date %}{{ d.last_payment_date.strftime('%d %b %Y') }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if d.last_payment_amt %}
+              <span class="amt-payment">{{ currency_symbol|default("₹") }}{{ "{:,.0f}".format(d.last_payment_amt) }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td onclick="event.stopPropagation()">
+            <div class="action-cell">
+              <a href="/debtors/{{ d.id }}/statement" class="view-btn">Statement →</a>
+              <a href="/receipts/new?client_id={{ d.id }}" class="receipt-btn">💰 Receipt</a>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10" style="text-align:center; padding:48px; color:var(--text-muted);">
+            🎉 No outstanding debtors right now!
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function filterTable(){
+  const q       = document.getElementById('searchInput').value.toLowerCase();
+  const overdue = document.getElementById('filterOverdue').value;
+  document.querySelectorAll('#debtorTable tbody tr.tbl-row').forEach(row => {
+    const searchText = row.dataset.search || '';
+    const isOver     = row.dataset.overdue === 'yes';
+    const matchQ     = !q || searchText.includes(q);
+    const matchO     = overdue === 'all' || (overdue === 'overdue' && isOver);
+    row.style.display = (matchQ && matchO) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

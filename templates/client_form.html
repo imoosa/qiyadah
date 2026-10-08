@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if client else 'New' }} Client{% endblock %}
+{% block page_title %}{{ 'Edit' if client else 'New' }} Client{% endblock %}
+{% set active = 'clients' %}
+
+{% block extra_style %}
+<style>
+  .form-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #E5E7EB;
+    padding: 28px 32px;
+    max-width: 820px;
+  }
+  .section-title {
+    font-size: 12px;
+    font-weight: 800;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    margin: 28px 0 14px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #F3F4F6;
+  }
+  .section-title:first-of-type { margin-top: 0; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .form-actions {
+    display: flex; gap: 12px; justify-content: flex-end;
+    margin-top: 28px; padding-top: 20px; border-top: 1px solid #F3F4F6;
+  }
+  .field-hint  { font-size: 11px; color: #9CA3AF; margin-top: 4px; }
+  .gst-valid   { color: #16A34A !important; font-weight: 600; }
+  .gst-invalid { color: #DC2626 !important; font-weight: 600; }
+  .req { color: #DC2626; margin-left: 2px; }
+  .flash-error {
+    background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626;
+    padding: 12px 16px; border-radius: 10px; margin-bottom: 20px;
+    font-size: 13px; font-weight: 600;
+  }
+  @media (max-width: 640px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .form-card { padding: 20px 16px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ '✏️ Edit Client' if client else '➕ New Client' }}</h2>
+  <a href="/clients" class="btn btn-ghost">← Back to Clients</a>
+</div>
+
+{% with messages = get_flashed_messages(category_filter=["error"]) %}
+  {% if messages %}{% for msg in messages %}
+    <div class="flash-error">⚠️ {{ msg }}</div>
+  {% endfor %}{% endif %}
+{% endwith %}
+
+{% if existing_match %}
+<div style="margin-bottom:16px; padding:14px 18px; border-radius:10px; background:#FFFBEB; border:1px solid #FDE68A; color:#92400E;">
+  {% if existing_match.deleted %}
+    <strong>⚠️ A client named "{{ existing_match.name }}" already exists but was deleted.</strong>
+    <p style="margin:6px 0 12px;">Restoring brings back all their bookings, estimates, customer invoices, and debtor statement exactly as they were. Creating a new client instead starts a completely separate, empty record under the same name.</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <form method="POST" action="/clients/{{ existing_match.id }}/restore" style="display:inline">
+        <button type="submit" class="btn btn-primary btn-sm">Restore this client</button>
+      </form>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('forceNewInput').value='1'; document.getElementById('clientForm').submit();">Create separate new client anyway</button>
+    </div>
+  {% else %}
+    <strong>⚠️ A client named "{{ existing_match.name }}" already exists ({{ existing_match.client_id }}).</strong>
+    <p style="margin:6px 0 12px;">It's already active and showing in your Clients list. Go to it instead of creating a duplicate — or create a separate new client anyway.</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <a href="/clients/{{ existing_match.id }}" class="btn btn-primary btn-sm">Go to existing client</a>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('forceNewInput').value='1'; document.getElementById('clientForm').submit();">Create separate new client anyway</button>
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Client-side exact-match modal: shown BEFORE any submit reaches the
+     server, in place of the generic "Similar client name(s)" popup, when
+     the typed name exactly matches an existing client (active or
+     deleted). The generic fuzzy popup still runs for near-matches that
+     aren't exact. -->
+<div id="exactMatchOverlay" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(15,23,42,.55); align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#fff; border-radius:14px; max-width:440px; width:100%; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,.25); text-align:center;">
+    <div style="font-size:28px; margin-bottom:6px;">⚠️</div>
+    <h3 style="font-size:16.5px; font-weight:800; color:#0F172A; margin:0 0 10px;" id="exactMatchTitle"></h3>
+    <p style="font-size:13px; color:#334155; line-height:1.5; margin:0 0 16px;" id="exactMatchBody"></p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+      <button type="button" class="btn btn-primary btn-sm" id="exactMatchPrimaryBtn"></button>
+      <button type="button" class="btn btn-ghost btn-sm" id="exactMatchCreateAnywayBtn">Create separate new client anyway</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="exactMatchCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="form-card">
+  <form method="POST"
+        action="{{ '/clients/' ~ client.id ~ '/edit' if client else '/clients/new' }}"
+        id="clientForm" enctype="multipart/form-data">
+    <input type="hidden" name="force_new" id="forceNewInput" value="">
+
+    <!-- ══ 1. Basic Information ══════════════════════════════════════════ -->
+    <div class="section-title">👤 Basic Information</div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Client / Company Name <span class="req">*</span></label>
+        <input type="text" name="client_name" required
+               value="{{ client.client_name if client else (form_data.client_name if form_data else '') }}"
+               placeholder="e.g. Reliance Industries Pvt Ltd">
+      </div>
+      <div class="form-group">
+        <label>Client Type</label>
+        <select name="client_type">
+          {% for t in ['Business','Individual','Government','NGO / Trust','Export'] %}
+          <option value="{{ t }}" {{ 'selected' if client and client.client_type == t }}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Contact Person</label>
+      <input type="text" name="contact_person"
+             value="{{ client.contact_person if client else '' }}"
+             placeholder="Primary contact at the client company, e.g. Rahul Mehta">
+    </div>
+
+    <!-- ══ 2. Contact Details ════════════════════════════════════════════ -->
+    <div class="section-title">📞 Contact Details</div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Primary Phone <span class="req">*</span></label>
+        <input type="tel" name="phone" required maxlength="15"
+               value="{{ client.phone if client else '' }}"
+               placeholder="9876543210">
+      </div>
+      <div class="form-group">
+        <label>Alternate Phone</label>
+        <input type="tel" name="alternate_phone" maxlength="15"
+               value="{{ client.alternate_phone if client else '' }}"
+               placeholder="9876543211">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" name="email"
+               value="{{ client.email if client else '' }}"
+               placeholder="contact@company.com">
+      </div>
+      <div class="form-group">
+        <label>Website</label>
+        <input type="text" name="website"
+               value="{{ client.website if client else '' }}"
+               placeholder="https://company.com">
+      </div>
+    </div>
+
+    <!-- ══ 3. Address ════════════════════════════════════════════════════ -->
+    <div class="section-title">📍 Address</div>
+
+    <div class="form-group">
+      <label>Address Line 1</label>
+      <input type="text" name="address_line1"
+             value="{{ client.address_line1 if client else '' }}"
+             placeholder="Plot 12, Industrial Area, Phase 2">
+    </div>
+    <div class="form-group">
+      <label>Address Line 2 <span style="color:#9CA3AF;font-size:11px">(optional)</span></label>
+      <input type="text" name="address_line2"
+             value="{{ client.address_line2 if client else '' }}"
+             placeholder="Near Metro Station">
+    </div>
+    <div class="grid-3">
+      <div class="form-group">
+        <label>City</label>
+        <input type="text" name="city"
+               value="{{ client.city if client else '' }}"
+               placeholder="Mumbai">
+      </div>
+      <div class="form-group">
+        <label>{{ 'Emirate / State' if billing_tax.is_vat else 'State' }}</label>
+        <select name="state">
+          <option value="">— Select {{ 'Emirate' if billing_tax.is_vat else 'State' }} —</option>
+          {% if billing_tax.is_vat %}
+            {% set emirates = ['Abu Dhabi', 'Dubai', 'Sharjah', 'Ajman', 'Umm Al Quwain', 'Ras Al Khaimah', 'Fujairah'] %}
+            {% set sel = client.state if client else 'Dubai' %}
+            {% for s in emirates %}
+            <option value="{{ s }}" {{ 'selected' if sel == s }}>{{ s }}</option>
+            {% endfor %}
+          {% else %}
+            {% set states = [
+              'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh',
+              'Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka',
+              'Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram',
+              'Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu',
+              'Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal',
+              'Andaman and Nicobar Islands','Chandigarh',
+              'Dadra and Nagar Haveli and Daman and Diu',
+              'Delhi','Jammu and Kashmir','Ladakh','Lakshadweep','Puducherry'
+            ] %}
+            {% set sel = client.state if client else '' %}
+            {% for s in states %}
+            <option value="{{ s }}" {{ 'selected' if sel == s }}>{{ s }}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>{{ 'P.O. Box / Postal Code' if billing_tax.is_vat else 'PIN Code' }}</label>
+        <input type="text" name="pincode" maxlength="10"
+               value="{{ client.pincode if client else '' }}"
+               placeholder="{{ '00000' if billing_tax.is_vat else '400001' }}">
+      </div>
+    </div>
+    <div class="form-group" style="max-width:260px">
+      <label>Country</label>
+      <input type="text" name="country"
+             value="{{ client.country if client else (billing_tax.country if billing_tax and billing_tax.country else ('United Arab Emirates' if billing_tax.is_vat else 'India')) }}"
+             placeholder="{{ 'United Arab Emirates' if billing_tax.is_vat else 'India' }}">
+    </div>
+
+    <!-- ══ 4. Tax & Identity ══════════════════════════════════════════ -->
+    <div class="section-title">🧾 {{ 'Tax & Business Registration Details' if billing_tax.is_vat else 'GST & Tax Details' }}</div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label>{{ tax_id_label or ('TRN (Tax Registration Number)' if billing_tax.is_vat else 'GST Number') }}</label>
+        <input type="text" name="gst_number" id="gstInput" maxlength="15"
+               value="{{ client.gst_number if client else '' }}"
+               placeholder="{{ '100XXXXXXXXX003' if billing_tax.is_vat else '27AAABC1234F1Z5' }}"
+               oninput="this.value=this.value.toUpperCase(); validateGST(this)">
+        <div class="field-hint" id="gstHint">
+          {{ '15-digit Tax Registration Number (TRN).' if billing_tax.is_vat else '15-character GSTIN. Must be unique per company.' }}
+        </div>
+      </div>
+      <div class="form-group">
+        <label>{{ 'Tax Registration Status' if billing_tax.is_vat else 'GST Registration Type' }}</label>
+        <select name="gst_type">
+          {% if billing_tax.is_vat %}
+            {% set sel_gt = client.gst_type if client else 'VAT Registered' %}
+            {% for gt in ['VAT Registered','Non-Registered','Designated Zone (Free Zone 0% VAT)','Export / Out of Scope'] %}
+            <option value="{{ gt }}" {{ 'selected' if sel_gt == gt }}>{{ gt }}</option>
+            {% endfor %}
+          {% else %}
+            {% set sel_gt = client.gst_type if client else 'Regular' %}
+            {% for gt in ['Regular','Composition','Unregistered','SEZ','Export / Zero-rated'] %}
+            <option value="{{ gt }}" {{ 'selected' if sel_gt == gt }}>{{ gt }}</option>
+            {% endfor %}
+          {% endif %}
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>{{ 'Trade License / CR Number' if billing_tax.is_vat else 'PAN Number' }}</label>
+        <input type="text" name="pan_number" maxlength="30"
+               value="{{ client.pan_number if client else '' }}"
+               placeholder="{{ 'e.g. CN-1029384 or 839201' if billing_tax.is_vat else 'AAAAA1234F' }}"
+               oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="form-group">
+        <label>{{ 'Emirates ID / National ID' if billing_tax.is_vat else 'Aadhar Number' }}</label>
+        <input type="text" name="aadhar_number" id="aadharInput" maxlength="18"
+               value="{{ client.aadhar_number if client else '' }}"
+               placeholder="{{ '784-XXXX-XXXXXXX-X' if billing_tax.is_vat else '123456789012' }}"
+               oninput="validateAadhar(this)">
+        <div class="field-hint" id="aadharHint">{{ 'Emirates ID (784-...) or National ID.' if billing_tax.is_vat else '12-digit Aadhar number.' }}</div>
+      </div>
+    </div>
+
+    <div class="field-hint" style="margin-bottom:10px;">
+      Documents uploaded here are attached to this client's profile for compliance verification.
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>{{ 'Emirates ID / ID — Front' if billing_tax.is_vat else 'Aadhaar — Front' }}</label>
+        <input type="file" name="aadhar_front_file" accept=".jpg,.jpeg,.png,.pdf">
+        {% if client and client.aadhar_front_file %}
+        <div class="field-hint"><a href="{{ url_for('static', filename='client_docs/' + client.aadhar_front_file) }}" target="_blank">📎 View current file</a></div>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label>{{ 'Emirates ID / ID — Back' if billing_tax.is_vat else 'Aadhaar — Back' }}</label>
+        <input type="file" name="aadhar_back_file" accept=".jpg,.jpeg,.png,.pdf">
+        {% if client and client.aadhar_back_file %}
+        <div class="field-hint"><a href="{{ url_for('static', filename='client_docs/' + client.aadhar_back_file) }}" target="_blank">📎 View current file</a></div>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label>{{ 'Trade License / CR Document' if billing_tax.is_vat else 'PAN — Front' }}</label>
+        <input type="file" name="pan_front_file" accept=".jpg,.jpeg,.png,.pdf">
+        {% if client and client.pan_front_file %}
+        <div class="field-hint"><a href="{{ url_for('static', filename='client_docs/' + client.pan_front_file) }}" target="_blank">📎 View current file</a></div>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label>{{ 'VAT Certificate / Other Document' if billing_tax.is_vat else 'PAN — Back' }}</label>
+        <input type="file" name="pan_back_file" accept=".jpg,.jpeg,.png,.pdf">
+        {% if client and client.pan_back_file %}
+        <div class="field-hint"><a href="{{ url_for('static', filename='client_docs/' + client.pan_back_file) }}" target="_blank">📎 View current file</a></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ══ 5. Financial / Credit ═════════════════════════════════════════ -->
+    <div class="section-title">💰 Financial Settings</div>
+
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Opening Balance ({{ currency_symbol or '₹' }})</label>
+        <input type="number" name="opening_balance" min="0" step="0.01"
+               value="{{ client.opening_balance if client else 0 }}"
+               placeholder="0.00">
+        <div class="field-hint">Amount already owed before any invoices.</div>
+      </div>
+      <div class="form-group">
+        <label>Credit Limit ({{ currency_symbol or '₹' }})</label>
+        <input type="number" name="credit_limit" min="0" step="0.01"
+               value="{{ client.credit_limit if client else 0 }}"
+               placeholder="0.00">
+        <div class="field-hint">Max outstanding allowed. 0 = no limit.</div>
+      </div>
+      <div class="form-group">
+        <label>Credit Period (days)</label>
+        <input type="number" name="credit_days" min="0" max="365"
+               value="{{ client.credit_days if client else 30 }}"
+               placeholder="30">
+        <div class="field-hint">Invoice payment due in N days.</div>
+      </div>
+    </div>
+
+    <!-- ══ 6. Status & Notes ════════════════════════════════════════════ -->
+    <div class="section-title">📋 Status & Notes</div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Account Status</label>
+        <select name="status">
+          {% set sel_s = client.status if client else 'Active' %}
+          {% for s in ['Active','Pending','Paid','Overdue','Inactive'] %}
+          <option value="{{ s }}" {{ 'selected' if sel_s == s }}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if client %}
+      <div class="form-group">
+        <label>Outstanding Balance</label>
+        <input type="text" disabled
+               value="{{ currency_symbol|default("₹") }}{{ '{:,.2f}'.format(client.outstanding) }}"
+               style="background:#F0FDF4;color:#16A34A;font-weight:700;cursor:not-allowed">
+        <div class="field-hint">Auto-updated from invoices & payments.</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="form-group">
+      <label>Internal Notes</label>
+      <textarea name="notes" rows="3"
+                placeholder="Internal notes about this client (not visible to client)…">{{ client.notes if client else '' }}</textarea>
+    </div>
+
+    <!-- ══ Actions ═══════════════════════════════════════════════════════ -->
+    <div class="form-actions">
+      <a href="/clients" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        {{ '💾 Save Changes' if client else '➕ Add Client' }}
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+const isVat = {{ 'true' if billing_tax.is_vat else 'false' }};
+const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
+function validateGST(input) {
+  const val  = input.value.trim();
+  const hint = document.getElementById('gstHint');
+  if (!val) {
+    hint.textContent = isVat ? '15-digit TRN.' : '15-character {{ tax_id_label|default("Tax ID") }}. Must be unique per company.';
+    hint.className   = 'field-hint';
+    return;
+  }
+  if (isVat) {
+    if (/^[0-9]{15}$/.test(val)) {
+      hint.textContent = '✓ Valid TRN format (15 digits)';
+      hint.className   = 'field-hint gst-valid';
+    } else {
+      hint.textContent = `✗ TRN should be 15 digits (currently ${val.length})`;
+      hint.className   = 'field-hint gst-invalid';
+    }
+  } else {
+    if (GST_REGEX.test(val)) {
+      hint.textContent = '✓ Valid GST format';
+      hint.className   = 'field-hint gst-valid';
+    } else {
+      hint.textContent = '✗ Invalid — expected format: 27AAABC1234F1Z5 (15 chars)';
+      hint.className   = 'field-hint gst-invalid';
+    }
+  }
+}
+
+function validateAadhar(input) {
+  const val  = input.value.trim();
+  const hint = document.getElementById('aadharHint');
+  if (!val) {
+    hint.textContent = isVat ? 'Emirates ID or National ID.' : '12-digit Aadhar number.';
+    hint.className   = 'field-hint';
+    return;
+  }
+  if (isVat) {
+    hint.textContent = '✓ ID recorded';
+    hint.className   = 'field-hint gst-valid';
+  } else {
+    if (/^[0-9]{12}$/.test(val)) {
+      hint.textContent = '✓ Valid format';
+      hint.className   = 'field-hint gst-valid';
+    } else {
+      hint.textContent = `✗ ${val.length}/12 digits`;
+      hint.className   = 'field-hint gst-invalid';
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const g = document.getElementById('gstInput');
+  if (g && g.value) validateGST(g);
+  const a = document.getElementById('aadharInput');
+  if (a && a.value) validateAadhar(a);
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  const g = document.getElementById('gstInput');
+  if (g && g.value) validateGST(g);
+  const a = document.getElementById('aadharInput');
+  if (a && a.value) validateAadhar(a);
+
+  let similarCheckDone = false;
+  const clientForm = document.getElementById('clientForm');
+  clientForm.addEventListener('submit', async function (e) {
+    if (similarCheckDone) return;
+    const nameInput = this.querySelector('input[name="client_name"]');
+    const name = nameInput.value.trim();
+    if (!name) return;
+    e.preventDefault();
+
+    const excludeId = "{{ client.id if client else '' }}";
+    const url = `/clients/check_similar?name=${encodeURIComponent(name)}` +
+                (excludeId ? `&exclude_id=${excludeId}` : '');
+
+    let matches = [];
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      matches = data.matches || [];
+    } catch (err) {
+      similarCheckDone = true;
+      this.submit();
+      return;
+    }
+
+    if (matches.length === 0) {
+      similarCheckDone = true;
+      this.submit();
+      return;
+    }
+
+    // Exact name match (active or deleted) → show the specific
+    // Restore / Go-to-existing modal instead of the generic fuzzy popup.
+    const exact = matches.find(m => m.name.trim().toLowerCase() === name.toLowerCase());
+    if (exact) {
+      const overlay     = document.getElementById('exactMatchOverlay');
+      const title        = document.getElementById('exactMatchTitle');
+      const body          = document.getElementById('exactMatchBody');
+      const primaryBtn     = document.getElementById('exactMatchPrimaryBtn');
+      const createAnywayBtn = document.getElementById('exactMatchCreateAnywayBtn');
+      const cancelBtn        = document.getElementById('exactMatchCancelBtn');
+      const isDeleted = exact.status === 'Deleted';
+
+      title.textContent = isDeleted
+        ? `"${exact.name}" already exists but was deleted`
+        : `"${exact.name}" already exists`;
+      body.textContent = isDeleted
+        ? 'Restoring brings back all their bookings, estimates, customer invoices, and debtor statement exactly as they were. Creating a new client instead starts a completely separate, empty record under the same name.'
+        : "It's already active in your Clients list. Go to it instead of creating a duplicate — or create a separate new client anyway.";
+      primaryBtn.textContent = isDeleted ? 'Restore this client' : 'Go to existing client';
+
+      primaryBtn.onclick = function () {
+        if (isDeleted) {
+          const restoreForm = document.createElement('form');
+          restoreForm.method = 'POST';
+          restoreForm.action = `/clients/${exact.id}/restore`;
+          document.body.appendChild(restoreForm);
+          restoreForm.submit();
+        } else {
+          window.location = `/clients/${exact.id}`;
+        }
+      };
+      createAnywayBtn.onclick = function () {
+        overlay.style.display = 'none';
+        similarCheckDone = true;
+        document.getElementById('forceNewInput').value = '1';
+        clientForm.submit();
+      };
+      cancelBtn.onclick = function () {
+        overlay.style.display = 'none';
+      };
+      overlay.style.display = 'flex';
+      return;
+    }
+
+    const list = matches.map(m =>
+      `• ${m.name}${m.city ? ' (' + m.city + ')' : ''}${m.phone ? ' — ' + m.phone : ''}`
+    ).join('\n');
+
+    const proceed = await appConfirm(
+      `Similar client name(s) already exist:\n\n${list}\n\nCreate "${name}" as a new client anyway?`,
+      { type: 'warning', okLabel: 'Create Anyway', cancelLabel: 'Cancel' }
+    );
+    if (proceed) {
+      similarCheckDone = true;
+      this.submit();
+    }
+  });
+});
+</script>
+{% endblock %}
