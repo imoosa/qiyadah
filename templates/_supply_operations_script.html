@@ -1,0 +1,831 @@
+<script>
+
+    let globalClients = [];
+    let globalProducts = [];
+
+    function switchTab(tab) {
+      {% if not can('sales_orders', 'view') %}if (tab === 'sales-orders') tab = 'dashboard';{% endif %}
+      {% if not can('clients', 'view') %}if (tab === 'clients') tab = 'dashboard';{% endif %}
+      if (!document.getElementById('pane-' + tab)) return;
+      document.getElementById('supply-overview').hidden = tab !== 'dashboard';
+      history.replaceState(null, '', '#' + tab);
+      document.querySelectorAll('.sidebar-nav .nav-item').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.supply-operations .view-pane').forEach(el => el.classList.remove('active'));
+
+      document.querySelectorAll('[data-order-tab]').forEach(el => {
+        el.classList.toggle('active', el.dataset.orderTab === tab);
+      });
+      const pane = document.getElementById('pane-' + tab);
+      if (pane) pane.classList.add('active');
+
+      document.querySelectorAll('.nav-item[href*="#"]').forEach(link => link.classList.toggle('active', link.hash === '#' + tab));
+      if (tab === 'dashboard') loadStats();
+      if (tab === 'orders') loadOrders();
+      if (tab === 'workflow') loadWorkflow();
+      if (tab === 'sales-orders') loadSalesOrders();
+      if (tab === 'clients') loadClientsMaster();
+    }
+
+    function filterByStatus(st) {
+      switchTab('orders');
+      document.getElementById('statusFilter').value = st;
+      loadOrders();
+    }
+
+    function openNewOrderModal() {
+      populateClientSelects();
+      document.getElementById('newOrderModal').style.display = 'flex';
+    }
+
+    function openNewSalesOrderModal(presetClientId, presetClientName) {
+      populateClientSelects();
+      document.getElementById('so-order-date').value = new Date().toISOString().split('T')[0];
+      const container = document.getElementById('soItemsContainer');
+      container.innerHTML = '';
+      addSoItemRow();
+      if (presetClientId) {
+        document.getElementById('so-client-select').value = presetClientId;
+        document.getElementById('so-client-name').value = presetClientName || '';
+      }
+      document.getElementById('newSalesOrderModal').style.display = 'flex';
+    }
+
+    function openNewClientModal() {
+      document.getElementById('newClientModal').style.display = 'flex';
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).style.display = 'none';
+    }
+
+    function calcTotal() {
+      const q = parseFloat(document.getElementById('new-quantity').value) || 0;
+      const p = parseFloat(document.getElementById('new-unit-price').value) || 0;
+      document.getElementById('new-amount-due').value = (q * p).toFixed(2);
+    }
+
+    function getBadgeClass(st) {
+      if (!st) return 'badge-created';
+      if (st === 'Order Created' || st === 'Draft') return 'badge-created';
+      if (st.includes('Credit') || st.includes('Amount')) return 'badge-credit';
+      if (st.includes('Production') || st.includes('Processing') || st === 'Confirmed') return 'badge-prod';
+      if (st.includes('Quality')) return 'badge-qc';
+      if (st === 'Delivered' || st === 'Invoiced' || st === 'Won') return 'badge-delivered';
+      if (st === 'Cancelled' || st === 'Lost') return 'badge-cancelled';
+      return 'badge-created';
+    }
+
+    // Preload clients and products
+    async function initMasters() {
+      try {
+        {% if can('clients', 'view') %}
+        const cRes = await fetch('/api/order-erp/clients');
+        const cData = await cRes.json();
+        if (cData.success) {
+          globalClients = cData.clients;
+          populateClientSelects();
+        }
+        {% endif %}
+      } catch (e) {}
+
+      try {
+        {% if can('stock', 'view') %}
+        const pRes = await fetch('/api/order-erp/products');
+        const pData = await pRes.json();
+        if (pData.success) {
+          globalProducts = pData.products;
+          const dl = document.getElementById('productList');
+          dl.innerHTML = globalProducts.map(p => `<option value="${p.name}">{{ currency_symbol|default("₹") }}${p.selling_price || p.unit_price} · Code: ${p.code}</option>`).join('');
+        }
+        {% endif %}
+      } catch (e) {}
+    }
+
+    function populateClientSelects() {
+      const soSelect = document.getElementById('so-client-select');
+      const newOrderSelect = document.getElementById('new-client-select');
+
+      const options = `<option value="">-- Choose Client --</option>` + globalClients.map(c => `
+        <option value="${c.id}">${c.name} (${c.city || 'No City'})</option>
+      `).join('');
+
+      if (soSelect) soSelect.innerHTML = options;
+      if (newOrderSelect) newOrderSelect.innerHTML = options;
+    }
+
+    function onSelectClientForOrder(select) {
+      const cid = select.value;
+      const client = globalClients.find(c => c.id == cid);
+      if (client) {
+        document.getElementById('new-client-name').value = client.name;
+        document.getElementById('new-client-phone').value = client.phone || '';
+      }
+    }
+
+    function onSelectClientForSO(select) {
+      const cid = select.value;
+      const client = globalClients.find(c => c.id == cid);
+      if (client) {
+        document.getElementById('so-client-name').value = client.name;
+        document.getElementById('so-client-phone').value = client.phone || '';
+      }
+    }
+
+    // Dynamic Sales Order item rows
+    function addSoItemRow() {
+      const container = document.getElementById('soItemsContainer');
+      const div = document.createElement('div');
+      div.className = 'so-item-row';
+      div.style = 'display:grid; grid-template-columns: 2.5fr 1fr 1fr 1.2fr 1fr 1fr 1.2fr 35px; gap:8px; margin-bottom:8px; align-items:center;';
+      div.innerHTML = `
+        <input type="text" class="q-input so-it-name" placeholder="Item Name / Code" list="productList" required oninput="calcSoTotal()">
+        <input type="number" class="q-input so-it-qty" placeholder="Qty" value="1" min="0.1" step="any" required oninput="calcSoTotal()">
+        <input type="text" class="q-input so-it-unit" placeholder="Unit" value="pcs">
+        <input type="number" step="any" class="q-input so-it-rate" placeholder="Rate {{ currency_symbol|default("₹") }}" value="0" required oninput="calcSoTotal()">
+        <input type="number" step="any" class="q-input so-it-disc" placeholder="Disc %" value="0" oninput="calcSoTotal()">
+        <select class="q-input so-it-gst" onchange="calcSoTotal()">{% for tax_rate in (billing_tax.rates if billing_tax is defined else [0, 5, 12, 18, 28]) %}<option value="{{ tax_rate }}" {% if tax_rate == (billing_tax.default_rate if billing_tax is defined else 18) %}selected{% endif %}>{{ tax_rate }}%</option>{% endfor %}
+        </select>
+        <input type="text" class="q-input so-it-total" value="{{ currency_symbol|default("₹") }}0" readonly style="font-weight:700; background:var(--bg-body);">
+        <button type="button" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:16px;" onclick="this.parentElement.remove(); calcSoTotal();">&times;</button>
+      `;
+      container.appendChild(div);
+      calcSoTotal();
+    }
+
+    function calcSoTotal() {
+      let subtotal = 0;
+      let totalTax = 0;
+      document.querySelectorAll('.so-item-row').forEach(row => {
+        const qty = parseFloat(row.querySelector('.so-it-qty').value) || 0;
+        const rate = parseFloat(row.querySelector('.so-it-rate').value) || 0;
+        const disc = parseFloat(row.querySelector('.so-it-disc').value) || 0;
+        const gst = parseFloat(row.querySelector('.so-it-gst').value) || 0;
+
+        const raw = qty * rate;
+        const discounted = raw - (raw * (disc / 100));
+        const tax = discounted * (gst / 100);
+        const lineTotal = discounted + tax;
+
+        row.querySelector('.so-it-total').value = '{{ currency_symbol|default("₹") }}' + Math.round(lineTotal).toLocaleString('{{ number_locale|default("en-IN") }}');
+        subtotal += discounted;
+        totalTax += tax;
+      });
+
+      const grand = subtotal + totalTax;
+      document.getElementById('soBreakdownText').textContent = `Subtotal: {{ currency_symbol|default("₹") }}${Math.round(subtotal).toLocaleString('{{ number_locale|default("en-IN") }}')} · Tax: {{ currency_symbol|default("₹") }}${Math.round(totalTax).toLocaleString('{{ number_locale|default("en-IN") }}')}`;
+      document.getElementById('soGrandTotalText').textContent = `{{ currency_symbol|default("₹") }}${Math.round(grand).toLocaleString('{{ number_locale|default("en-IN") }}')}`;
+    }
+
+    // Submit new Sales Order
+    async function submitNewSalesOrder(e) {
+      e.preventDefault();
+      const items = [];
+      document.querySelectorAll('.so-item-row').forEach(row => {
+        items.push({
+          item_name: row.querySelector('.so-it-name').value,
+          quantity: parseFloat(row.querySelector('.so-it-qty').value) || 1,
+          unit: row.querySelector('.so-it-unit').value || 'pcs',
+          rate: parseFloat(row.querySelector('.so-it-rate').value) || 0,
+          discount_percent: parseFloat(row.querySelector('.so-it-disc').value) || 0,
+          gst_percent: parseFloat(row.querySelector('.so-it-gst').value) || 0
+        });
+      });
+
+      const payload = {
+        client_id: document.getElementById('so-client-select').value,
+        client_name: document.getElementById('so-client-name').value,
+        client_phone: document.getElementById('so-client-phone').value,
+        order_date: document.getElementById('so-order-date').value,
+        delivery_date: document.getElementById('so-delivery-date').value,
+        reference_no: document.getElementById('so-reference-no').value,
+        status: document.getElementById('so-status').value,
+        terms: document.getElementById('so-terms').value,
+        items: items
+      };
+
+      try {
+        const res = await fetch('/api/order-erp/sales-orders', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('newSalesOrderModal');
+          loadSalesOrders();
+          loadStats();
+          alert(`Sales Order ${data.sales_order.order_no} created successfully!`);
+        } else {
+          alert('Error: ' + (data.error || 'Failed'));
+        }
+      } catch (err) {
+        alert('Request failed');
+      }
+    }
+
+    // Submit new Client
+    async function submitNewClient(e) {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('cli-name').value,
+        contact_person: document.getElementById('cli-contact').value,
+        phone: document.getElementById('cli-phone').value,
+        email: document.getElementById('cli-email').value,
+        city: document.getElementById('cli-city').value,
+        gst_number: document.getElementById('cli-gst').value,
+        credit_limit: document.getElementById('cli-credit').value,
+        address: document.getElementById('cli-address').value
+      };
+
+      try {
+        const res = await fetch('/api/order-erp/clients', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('newClientModal');
+          initMasters();
+          loadClientsMaster();
+          loadStats();
+          alert(`Client ${data.client.name} created successfully!`);
+        } else {
+          alert('Error: ' + (data.error || 'Failed'));
+        }
+      } catch (err) {
+        alert('Request failed');
+      }
+    }
+
+    // Load Stats on Dashboard
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/order-erp/stats');
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error('Production figures unavailable');
+        if (data.success) {
+          document.getElementById('stat-active').textContent = data.active_orders;
+          document.getElementById('stat-prod').textContent = data.in_processing;
+          document.getElementById('stat-credit').textContent = data.credit_pending;
+          document.getElementById('stat-qc').textContent = data.quality_check;
+          document.getElementById('stat-ready').textContent = data.qc_approved;
+          document.getElementById('stat-dispatched').textContent = data.dispatched;
+          document.getElementById('stat-delivered').textContent = data.delivered;
+          document.getElementById('scm-stats-status').textContent = 'Production figures updated for your current company and role.';
+
+          // Recent Manufacturing orders
+          const tbody = document.getElementById('recentOrdersBody');
+          if (!data.recent_orders || data.recent_orders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">No manufacturing orders recorded yet.</td></tr>';
+          } else {
+            tbody.innerHTML = data.recent_orders.map(o => `
+              <tr>
+                <td><strong style="color:var(--primary); cursor:pointer;" onclick="openOrderDetail('${o.id}')">${o.id}</strong></td>
+                <td><strong>${o.client_name}</strong></td>
+                <td style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${o.item_description}</td>
+                <td><span class="status-badge ${getBadgeClass(o.status)}">${o.status}</span></td>
+                <td>{{ currency_symbol|default("₹") }}${(o.amount_due || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</td>
+                <td>
+                  <button class="btn btn-ghost" style="padding:4px 10px; font-size:11.5px;" onclick="openOrderDetail('${o.id}')">Details →</button>
+                </td>
+              </tr>
+            `).join('');
+          }
+        }
+      } catch (err) {
+        document.getElementById('scm-stats-status').textContent = 'Production figures could not be loaded. Refresh to try again.';
+        console.error(err);
+      }
+
+      {% if not can("sales_orders", "view") %}return;{% endif %}
+      // Load Recent SOs on Dashboard
+      try {
+        const soRes = await fetch('/api/order-erp/sales-orders');
+        const soData = await soRes.json();
+        if (soData.success) {
+          const soBody = document.getElementById('recentSoBody');
+          const recent = soData.sales_orders.slice(0, 5);
+          if (recent.length === 0) {
+            soBody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">No sales orders recorded yet.</td></tr>';
+          } else {
+            soBody.innerHTML = recent.map(so => {
+              const scope = so.items.map(i => i.item_name).join(', ') || 'Custom Items';
+              return `
+                <tr>
+                  <td><strong style="color:var(--primary); cursor:pointer;" onclick="openSalesOrderDetail(${so.id})">${so.order_no}</strong></td>
+                  <td><strong>${so.client_name}</strong></td>
+                  <td>${so.order_date || '—'}</td>
+                  <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${scope}</td>
+                  <td><strong>{{ currency_symbol|default("₹") }}${(so.grand_total || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</strong></td>
+                  <td><span class="status-badge ${getBadgeClass(so.status)}">${so.status}</span></td>
+                  <td>
+                    <button class="btn btn-ghost" style="padding:4px 8px; font-size:11.5px;" onclick="openSalesOrderDetail(${so.id})">View SO</button>
+                  </td>
+                </tr>
+              `;
+            }).join('');
+          }
+        }
+      } catch (e) {}
+    }
+
+    function salesInvoiceAction(so) {
+      {% if can('customer_invoices', 'view') %}
+      if (so.sales_invoice_id) return `<a class="btn btn-primary" href="/customer-invoices/view/${so.sales_invoice_id}">View Sales Invoice</a>`;
+      {% endif %}
+      {% if can('customer_invoices', 'create') and can('sales_orders', 'view') %}
+      if (so.status === 'Confirmed' && !so.sales_invoice_id) return `<form method="post" action="/sales-order/${so.id}/convert-to-invoice" onsubmit="this.querySelector('button').disabled=true"><button type="submit" class="btn btn-primary">Convert to Sales Invoice</button></form>`;
+      {% endif %}
+      return '';
+    }
+
+    // Load Sales Orders View
+    async function loadSalesOrders() {
+      try {
+        const search = document.getElementById('soSearch').value;
+        const status = document.getElementById('soStatusFilter').value;
+        const res = await fetch(`/api/order-erp/sales-orders?search=${encodeURIComponent(search)}&status=${status}`);
+        const data = await res.json();
+        if (data.success) {
+          const tbody = document.getElementById('salesOrdersTableBody');
+          if (data.sales_orders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:28px; color:var(--text-muted);">No matching sales orders.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.sales_orders.map(so => {
+            const scope = so.items.map(i => `${i.item_name} (x${i.quantity})`).join(', ') || 'Order Items';
+            return `
+              <tr>
+                <td><strong style="color:var(--primary); cursor:pointer;" onclick="openSalesOrderDetail(${so.id})">${so.order_no}</strong></td>
+                <td>
+                  <strong>${so.client_name}</strong>
+                  ${so.client_phone ? `<br><span style="font-size:11px; color:var(--text-muted);">${so.client_phone}</span>` : ''}
+                </td>
+                <td>${so.order_date || '—'}</td>
+                <td>${so.delivery_date || '—'}</td>
+                <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${scope}</td>
+                <td><strong>{{ currency_symbol|default("₹") }}${(so.grand_total || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</strong></td>
+                <td><span class="status-badge ${getBadgeClass(so.status)}">${so.status}</span></td>
+                <td>
+                  <div style="display:flex; gap:6px;">
+                    <button class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" onclick="openSalesOrderDetail(${so.id})">Details</button>
+                    ${salesInvoiceAction(so)}
+                    <button class="btn btn-primary" style="padding:4px 8px; font-size:11px;" onclick="convertSoToProduction(${so.id})">🚀 Produce</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Open Sales Order Detail Modal
+    async function openSalesOrderDetail(orderId) {
+      try {
+        const res = await fetch(`/api/order-erp/sales-orders/${orderId}`);
+        const data = await res.json();
+        if (data.success) {
+          const so = data.sales_order;
+          document.getElementById('so-detail-title').textContent = `${so.order_no} · ${so.client_name}`;
+          const content = document.getElementById('soDetailsContent');
+
+          content.innerHTML = `
+            <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:18px;">
+              <div style="background:var(--bg-body); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase;">Customer Profile</div>
+                <div style="font-size:14px; font-weight:800; margin-top:2px;">${so.client_name}</div>
+                <div style="font-size:11.5px; color:var(--text-muted);">${so.client_phone || 'No Phone'} · ${so.client_city || ''}</div>
+              </div>
+              <div style="background:var(--bg-body); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase;">Order Dates</div>
+                <div style="font-size:13px; font-weight:700; margin-top:2px;">Date: ${so.order_date || '—'}</div>
+                <div style="font-size:11.5px; color:var(--text-muted);">Due: ${so.delivery_date || 'None'}</div>
+              </div>
+              <div style="background:var(--bg-body); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase;">Financial Status</div>
+                <div style="font-size:16px; font-weight:800; color:var(--primary); margin-top:2px;">{{ currency_symbol|default("₹") }}${(so.grand_total || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</div>
+                <div style="font-size:11.5px;"><span class="status-badge ${getBadgeClass(so.status)}" style="padding:2px 6px; font-size:10px;">${so.status}</span></div>
+              </div>
+            </div>
+
+            <h4 style="font-size:13px; font-weight:800; margin-bottom:8px;">Order Line Items (${so.items.length})</h4>
+            <table class="q-table" style="margin-bottom:18px; border:1px solid var(--border-color); border-radius:8px;">
+              <thead>
+                <tr>
+                  <th>Item Description</th>
+                  <th>Qty</th>
+                  <th>Rate ({{ currency_symbol|default("₹") }})</th>
+                  <th>Disc</th>
+                  <th>{{ billing_tax.label if billing_tax is defined else "Tax" }}</th>
+                  <th>Total ({{ currency_symbol|default("₹") }})</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${so.items.map(it => `
+                  <tr>
+                    <td><strong>${it.item_name}</strong>${it.description ? `<div style="font-size:11px; color:var(--text-muted);">${it.description}</div>` : ''}</td>
+                    <td>${it.quantity} ${it.unit}</td>
+                    <td>{{ currency_symbol|default("₹") }}${(it.rate || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</td>
+                    <td>${it.discount_percent || 0}%</td>
+                    <td>${it.gst_percent || 0}%</td>
+                    <td><strong>{{ currency_symbol|default("₹") }}${(it.total_amount || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-body); padding:14px 18px; border-radius:8px; border:1px solid var(--border-color); margin-bottom:20px;">
+              <div style="font-size:12px; color:var(--text-muted);">
+                Subtotal: <strong>{{ currency_symbol|default("₹") }}${(so.subtotal || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</strong> · {{ billing_tax.label if billing_tax is defined else "Tax" }}: <strong>{{ currency_symbol|default("₹") }}${(so.tax_amount || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</strong>
+              </div>
+              <div style="font-size:18px; font-weight:800; color:var(--primary);">
+                Grand Total: {{ currency_symbol|default("₹") }}${(so.grand_total || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <button class="btn btn-ghost" onclick="closeModal('soDetailsModal')">Close</button>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-primary" onclick="convertSoToProduction(${so.id})">🚀 Push into Production Pipeline</button>
+                ${salesInvoiceAction(so)}
+              </div>
+            </div>
+          `;
+          document.getElementById('soDetailsModal').style.display = 'flex';
+        }
+      } catch (e) {
+        alert('Failed to load Sales Order');
+      }
+    }
+
+    // Convert Sales Order to OrderFlow production order
+    async function convertSoToProduction(orderId) {
+      if (!confirm('Push this Sales Order into the OrderFlow manufacturing pipeline?')) return;
+      try {
+        const res = await fetch(`/api/order-erp/sales-orders/${orderId}/send-to-production`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert(data.message || 'Production Order generated!');
+          closeModal('soDetailsModal');
+          loadStats();
+          loadOrders();
+          switchTab('orders');
+        } else {
+          alert('Error: ' + (data.error || 'Failed'));
+        }
+      } catch (e) {
+        alert('Request failed');
+      }
+    }
+
+    // Load Clients Master View
+    async function loadClientsMaster() {
+      try {
+        const search = document.getElementById('clientMasterSearch').value;
+        const res = await fetch(`/api/order-erp/clients?search=${encodeURIComponent(search)}`);
+        const data = await res.json();
+        if (data.success) {
+          const tbody = document.getElementById('clientsTableBody');
+          if (data.clients.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:28px; color:var(--text-muted);">No client records found.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.clients.map(c => `
+            <tr>
+              <td><strong style="color:var(--primary); cursor:pointer;" onclick="openClientProfile(${c.id})">${c.name}</strong></td>
+              <td>${c.contact_person || '—'}</td>
+              <td>${c.phone || '—'}</td>
+              <td>${c.email || '—'}</td>
+              <td>${c.city || '—'}</td>
+              <td>${c.gst_number || '—'}</td>
+              <td><span style="font-weight:700; background:var(--primary-glow); color:var(--primary); padding:2px 8px; border-radius:12px;">${c.sales_orders_count || 0}</span></td>
+              <td><span style="font-weight:700; background:rgba(59,130,246,0.12); color:#2563eb; padding:2px 8px; border-radius:12px;">${c.order_flow_count || 0}</span></td>
+              <td>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" onclick="openNewSalesOrderModal(${c.id}, '${c.name.replace(/'/g, "\'")}')">+ SO</button>
+                  <button class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" onclick="openClientProfile(${c.id})">360°</button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Client Profile Cockpit
+    async function openClientProfile(clientId) {
+      try {
+        const res = await fetch(`/api/order-erp/clients/${clientId}/details`);
+        const data = await res.json();
+        if (data.success) {
+          const c = data.client;
+          const s = data.stats;
+          document.getElementById('cli-prof-title').textContent = `${c.name} · Client 360°`;
+          const content = document.getElementById('clientProfileContent');
+
+          content.innerHTML = `
+            <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-bottom:18px;">
+              <div style="background:var(--bg-body); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Sales Orders Value</div>
+                <div style="font-size:16px; font-weight:800; color:var(--primary); margin-top:2px;">{{ currency_symbol|default("₹") }}${(s.total_so_value || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</div>
+              </div>
+              <div style="background:var(--bg-body); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Mfg Orders Value</div>
+                <div style="font-size:16px; font-weight:800; color:#2563eb; margin-top:2px;">{{ currency_symbol|default("₹") }}${(s.total_mfg_value || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</div>
+              </div>
+              <div style="background:var(--bg-body); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Collected</div>
+                <div style="font-size:16px; font-weight:800; color:#059669; margin-top:2px;">{{ currency_symbol|default("₹") }}${(s.total_collected || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</div>
+              </div>
+              <div style="background:var(--bg-body); padding:10px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Balance Due</div>
+                <div style="font-size:16px; font-weight:800; color:${s.balance_due > 0 ? '#d97706' : '#059669'}; margin-top:2px;">{{ currency_symbol|default("₹") }}${(s.balance_due || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</div>
+              </div>
+            </div>
+
+            <div style="font-size:12.5px; color:var(--text-muted); line-height:1.6; margin-bottom:18px;">
+              Phone: <strong>${c.phone || '—'}</strong> · Email: <strong>${c.email || '—'}</strong> · {{ tax_id_label|default("Tax ID") }}: <strong>${c.gst_number || '—'}</strong><br>
+              Address: ${c.address || '—'}, ${c.city || ''}
+            </div>
+
+            <h4 style="font-size:13px; font-weight:800; margin-bottom:8px;">Linked Sales Orders (${data.sales_orders.length})</h4>
+            <div style="max-height:140px; overflow-y:auto; margin-bottom:18px; border:1px solid var(--border-color); border-radius:8px;">
+              ${data.sales_orders.map(so => `
+                <div style="padding:8px 12px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; font-size:12px;">
+                  <span><strong>${so.order_no}</strong> (${so.order_date || '—'})</span>
+                  <span>{{ currency_symbol|default("₹") }}${(so.grand_total || 0).toLocaleString('{{ number_locale|default("en-IN") }}')} <span class="status-badge ${getBadgeClass(so.status)}" style="padding:1px 6px; font-size:10px;">${so.status}</span></span>
+                </div>
+              `).join('') || '<div style="padding:12px; text-align:center; color:var(--text-muted); font-size:12px;">No sales orders yet.</div>'}
+            </div>
+
+            <h4 style="font-size:13px; font-weight:800; margin-bottom:8px;">Linked Production Orders (${data.order_flows.length})</h4>
+            <div style="max-height:140px; overflow-y:auto; margin-bottom:18px; border:1px solid var(--border-color); border-radius:8px;">
+              ${data.order_flows.map(of => `
+                <div style="padding:8px 12px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; font-size:12px;">
+                  <span><strong>${of.id}</strong>: ${of.item_description.slice(0, 35)}...</span>
+                  <span>{{ currency_symbol|default("₹") }}${(of.amount_due || 0).toLocaleString('{{ number_locale|default("en-IN") }}')} <span class="status-badge ${getBadgeClass(of.status)}" style="padding:1px 6px; font-size:10px;">${of.status}</span></span>
+                </div>
+              `).join('') || '<div style="padding:12px; text-align:center; color:var(--text-muted); font-size:12px;">No manufacturing orders yet.</div>'}
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button class="btn btn-ghost" onclick="closeModal('clientProfileModal')">Close</button>
+              <button class="btn btn-primary" onclick="closeModal('clientProfileModal'); openNewSalesOrderModal(${c.id}, '${c.name.replace(/'/g, "\'")}')">+ Create Sales Order</button>
+            </div>
+          `;
+          document.getElementById('clientProfileModal').style.display = 'flex';
+        }
+      } catch (e) {
+        alert('Failed to load client details');
+      }
+    }
+
+    // Manufacturing Orders List
+    async function loadOrders() {
+      try {
+        const status = document.getElementById('statusFilter').value;
+        const priority = document.getElementById('priorityFilter').value;
+        const search = document.getElementById('orderSearch').value;
+
+        const params = new URLSearchParams({ status, priority, search });
+        const res = await fetch(`/api/order-erp/orders?${params}`);
+        const data = await res.json();
+        if (data.success) {
+          const tbody = document.getElementById('ordersTableBody');
+          if (data.orders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:28px; color:var(--text-muted);">No matching orders found.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.orders.map(o => `
+            <tr>
+              <td><strong style="color:var(--primary); cursor:pointer;" onclick="openOrderDetail('${o.id}')">${o.id}</strong></td>
+              <td><strong>${o.client_name}</strong><br><span style="font-size:11px; color:var(--text-muted);">${o.client_phone || ''}</span></td>
+              <td style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${o.item_description}</td>
+              <td>${o.quantity}</td>
+              <td>{{ currency_symbol|default("₹") }}${(o.amount_due || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}<br><span style="font-size:10px; color:${o.balance > 0 ? '#d97706' : '#059669'};">${o.payment_status}</span></td>
+              <td><span class="status-badge ${getBadgeClass(o.status)}">${o.status}</span></td>
+              <td><span style="text-transform:capitalize; font-weight:700; font-size:11px;">${o.priority}</span></td>
+              <td>${o.partner || '—'}</td>
+              <td>
+                <button class="btn btn-ghost" style="padding:4px 10px; font-size:11.5px;" onclick="openOrderDetail('${o.id}')">Manage</button>
+              </td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Workflow Kanban
+    async function loadWorkflow() {
+      try {
+        const res = await fetch('/api/order-erp/orders?status=all');
+        const data = await res.json();
+        if (data.success) {
+          const board = document.getElementById('kanbanBoard');
+          const stages = [
+            'Order Created', 'Pending Credit Check', 'Credit Approved',
+            'Approved for Production', 'In Processing', 'Sent for Quality Check',
+            'Quality Approved', 'Dispatched', 'Delivered'
+          ];
+          board.innerHTML = stages.map(st => {
+            const list = data.orders.filter(o => o.status === st);
+            return `
+              <div class="kanban-col">
+                <div class="kanban-col-head">
+                  <span>${st}</span>
+                  <span class="kanban-col-count">${list.length}</span>
+                </div>
+                <div class="kanban-cards">
+                  ${list.map(o => `
+                    <div class="kanban-item" onclick="openOrderDetail('${o.id}')">
+                      <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-bottom:4px;">
+                        <span>${o.id}</span>
+                        <span style="text-transform:uppercase; font-size:9.5px; font-weight:700;">${o.priority}</span>
+                      </div>
+                      <div style="font-weight:700; font-size:13px; margin-bottom:2px;">${o.client_name}</div>
+                      <div style="font-size:12px; color:var(--text-muted); margin-bottom:6px;">${o.item_description.slice(0, 45)}...</div>
+                      <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700;">
+                        <span>Qty: ${o.quantity}</span>
+                        <span style="color:var(--primary);">{{ currency_symbol|default("₹") }}${(o.amount_due || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</span>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Submit new Manufacturing Order
+    async function submitNewOrder(e) {
+      e.preventDefault();
+      const payload = {
+        client_name: document.getElementById('new-client-name').value,
+        client_phone: document.getElementById('new-client-phone').value,
+        item_description: document.getElementById('new-item-desc').value,
+        quantity: document.getElementById('new-quantity').value,
+        unit_price: document.getElementById('new-unit-price').value,
+        amount_due: document.getElementById('new-amount-due').value,
+        amount_paid: document.getElementById('new-amount-paid').value,
+        priority: document.getElementById('new-priority').value,
+        partner: document.getElementById('new-partner').value,
+        notes: document.getElementById('new-notes').value
+      };
+      try {
+        const res = await fetch('/api/order-erp/orders', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('newOrderModal');
+          loadStats();
+          loadOrders();
+          alert('Order created: ' + data.order.id);
+        } else {
+          alert('Error: ' + (data.error || 'Failed'));
+        }
+      } catch (err) {
+        alert('Request failed');
+      }
+    }
+
+    // Order Detail Modal
+    async function openOrderDetail(orderId) {
+      try {
+        const res = await fetch(`/api/order-erp/orders/${orderId}`);
+        const data = await res.json();
+        if (data.success) {
+          const o = data.order;
+          document.getElementById('det-order-title').textContent = `Order ${o.id} · ${o.client_name}`;
+          const content = document.getElementById('orderDetailContent');
+          const optionsHtml = data.available_transitions.map(st => `<option value="${st}" ${st === o.status ? 'selected' : ''}>${st}</option>`).join('');
+
+          content.innerHTML = `
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+              <div style="background:var(--bg-body); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase;">Customer</div>
+                <div style="font-size:14px; font-weight:800; margin-top:2px;">${o.client_name}</div>
+                <div style="font-size:12px; color:var(--text-muted);">${o.client_phone || 'No phone'}</div>
+              </div>
+              <div style="background:var(--bg-body); padding:12px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="font-size:10.5px; color:var(--text-muted); text-transform:uppercase;">Order estimate</div>
+                <div style="font-size:14px; font-weight:800; margin-top:2px;">{{ currency_symbol|default("₹") }}${(o.amount_due || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}</div>
+                <div style="font-size:11.5px; color:${o.balance > 0 ? '#d97706' : '#059669'};">Paid: {{ currency_symbol|default("₹") }}${(o.amount_paid || 0).toLocaleString('{{ number_locale|default("en-IN") }}')} (Balance: {{ currency_symbol|default("₹") }}${(o.balance || 0).toLocaleString('{{ number_locale|default("en-IN") }}')})</div>
+              </div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px;">Specification</div>
+              <div style="font-size:13px; background:var(--bg-body); padding:10px 12px; border-radius:8px; border:1px solid var(--border-color);">${o.item_description}</div>
+            </div>
+
+            <!-- Transition -->
+            <div style="background:var(--primary-glow); border:1px solid rgba(245, 158, 11, 0.35); padding:14px; border-radius:8px; margin-bottom:20px;">
+              <div style="font-weight:700; font-size:12.5px; margin-bottom:8px; color:var(--primary-dark);">Update Status</div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <select class="q-input" id="trans-status" style="flex:1;">
+                  ${optionsHtml}
+                </select>
+                <input type="text" class="q-input" id="trans-partner" placeholder="Assign Partner / Tech" value="${o.partner || ''}" style="flex:1;">
+                <button class="btn btn-primary" onclick="advanceOrderStatus('${o.id}')">Update</button>
+              </div>
+              <div style="margin-top:8px;">
+                <input type="text" class="q-input" id="trans-note" placeholder="Status change note / inspection feedback..." style="width:100%;">
+              </div>
+            </div>
+
+            <h4 style="font-size:13px; font-weight:800; margin-bottom:10px;">Workflow Timeline</h4>
+            <div style="border-left:2px solid var(--border-color); padding-left:14px; margin-left:6px;">
+              ${data.history.map(h => `
+                <div style="margin-bottom:12px; position:relative;">
+                  <div style="position:absolute; left:-19px; top:3px; width:8px; height:8px; border-radius:50%; background:var(--primary);"></div>
+                  <div style="font-size:11px; color:var(--text-muted);">${h.changed_at} · by <strong>${h.changed_by}</strong></div>
+                  <div style="font-size:12.5px; font-weight:600;"><span class="status-badge ${getBadgeClass(h.status)}" style="padding:2px 7px; font-size:10px;">${h.status}</span> — ${h.note || 'Updated'}</div>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          const related = document.createElement('div');
+          related.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin:16px 0;';
+          for (const link of data.related_documents || []) {
+            const a = document.createElement('a'); a.href = link.href; a.textContent = link.label; a.className = 'btn btn-ghost'; related.appendChild(a);
+          }
+          if (data.create_sales_order_url) {
+            const button = document.createElement('button'); button.className = 'btn btn-primary'; button.textContent = 'Create draft sales order';
+            button.onclick = async () => {
+              button.disabled = true;
+              try { const response = await fetch(data.create_sales_order_url, {method:'POST'}); const result = await response.json();
+                if (!response.ok || !result.success) throw new Error(result.error || 'Could not create sales order');
+                window.location.href = result.redirect;
+              } catch (error) { alert(error.message); button.disabled = false; }
+            }; related.appendChild(button);
+          }
+          const note = document.createElement('p'); note.textContent = 'Order estimates and manually entered payments do not post receipts to Finance. Use the linked sales invoice for recorded balances.';
+          note.style.cssText = 'font-size:12px;color:var(--text-muted);'; related.appendChild(note);
+          content.prepend(related);
+          document.getElementById('orderDetailModal').style.display = 'flex';
+        }
+      } catch (err) {
+        alert('Failed to load order');
+      }
+    }
+
+    async function advanceOrderStatus(orderId) {
+      const status = document.getElementById('trans-status').value;
+      const partner = document.getElementById('trans-partner').value;
+      const note = document.getElementById('trans-note').value;
+      try {
+        const res = await fetch(`/api/order-erp/orders/${orderId}/status`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ status, partner, note })
+        });
+        const data = await res.json();
+        if (data.success) {
+          openOrderDetail(orderId);
+          loadStats();
+          loadOrders();
+        } else {
+          alert('Error: ' + (data.error || 'Failed'));
+        }
+      } catch (e) {
+        alert('Request failed');
+      }
+    }
+
+
+    function openSupplySection() {
+      const section = location.hash.slice(1) || 'dashboard';
+      if (section.startsWith('scm-')) {
+        switchTab('dashboard');
+        history.replaceState(null, '', '#' + section);
+        document.getElementById(section)?.scrollIntoView({block: 'start'});
+        return;
+      }
+      const statuses = {credit: 'Pending Credit Check', quality: 'Sent for Quality Check', dispatch: 'Dispatched', ready: 'Quality Approved', delivered: 'Delivered'};
+      if (statuses[section]) { filterByStatus(statuses[section]); history.replaceState(null, '', '#' + section); }
+      else switchTab(document.getElementById('pane-' + section) ? section : 'dashboard');
+      document.querySelectorAll('.nav-item[href*="#"]').forEach(link => {
+        link.classList.toggle('active', link.hash === '#' + section);
+      });
+    }
+    window.addEventListener('hashchange', openSupplySection);
+    initMasters();
+    openSupplySection();
+    const linkedOrder = new URLSearchParams(window.location.search).get('order_id');
+    if (linkedOrder) openOrderDetail(linkedOrder);
+</script>

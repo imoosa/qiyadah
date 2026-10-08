@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Business Outlook | Qiyadah{% endblock %}
+{% block page_title %}Business Outlook{% endblock %}
+{% block extra_style %}
+{% include '_bi_workspace_style.html' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='bi_predictive.css') }}">
+{% endblock %}
+{% block content %}
+<main class="bi-work outlook" id="outlookApp" data-warehouse="{{ url_for('bi_warehouse') }}" data-sales="{{ url_for('customer_invoice_list') }}" data-stock="{{ url_for('inventory_list') }}" data-crm="{{ url_for('crm_view') }}" data-cash="{{ url_for('cash_in_hand') }}">
+  <header class="outlook-header">
+    <div><span class="outlook-eyebrow">BUSINESS INTELLIGENCE / PLANNING</span><h1>Your business outlook</h1><p>See what may happen next and where to focus your attention.</p></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <a class="outlook-link" href="{{ url_for('bi_intelligence') }}" style="background:var(--primary,#F59E0B);color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;font-family:var(--font,'Plus Jakarta Sans',sans-serif);">🧠 Back to BI Workspace</a>
+      <a class="outlook-link" href="{{ url_for('bi_warehouse') }}">Refresh source data ↗</a>
+    </div>
+  </header>
+  <nav class="outlook-nav" aria-label="Business intelligence"><a href="{{ url_for('bi_intelligence') }}">🧠 BI Workspace</a><a href="{{ url_for('bi_dashboard') }}">Dashboard</a><a href="{{ url_for('bi_builder') }}">BI builder</a><a href="#priorities">What to work on</a><a href="#forecast-section">Forecasts</a><a href="#planning-details">Stock & customers</a></nav>
+  {% if company.company_id|string|lower == 'demo001' %}<p class="outlook-demo">Demo account · This outlook includes sample records. Use it to explore the analysis, not to plan real spending.</p>{% endif %}
+  <form id="outlookControls" class="bi-tools outlook-controls">
+    <label>Look ahead<select id="horizon"><option value="3">3 months</option><option value="6">6 months</option><option value="12">12 months</option></select></label>
+    <label>Supplier delivery time (days)<input id="lead" type="number" required min="1" max="180" step="1" value="14" aria-describedby="leadHelp"></label>
+    <button id="update" type="submit">Update outlook</button>
+    <span id="leadHelp">How long a stock order usually takes to arrive.<br>Updating the outlook uses the latest saved data snapshot.</span>
+  </form>
+  <p id="predictionStatus" role="status" aria-live="polite"></p>
+  <div id="results" aria-busy="true"></div>
+</main>
+{% endblock %}
+{% block extra_script %}<script src="{{ url_for('static', filename='bi_predictive.js') }}"></script>{% endblock %}

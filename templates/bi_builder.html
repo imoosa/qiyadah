@@ -1,0 +1,2400 @@
+{% extends "base.html" %}
+{% block title %}BI Studio Builder | Qiyadah{% endblock %}
+{% block page_title %}BI Studio Builder{% endblock %}
+{% block extra_style %}
+<style>
+/* ============================================================
+   POWER-BI WORKSPACE DOCK & DRAG-AND-DROP STUDIO
+   ============================================================ */
+:root {
+  --pb-primary: var(--primary, #F59E0B);
+  --pb-primary-dark: var(--primary-dark, #D97706);
+  --pb-primary-light: var(--primary-light, #FEF3C7);
+  --pb-accent: var(--primary, #F59E0B);
+  --pb-border: var(--border-color, #E2E8F0);
+  --pb-bg-studio: var(--bg-body, #F8FAFC);
+  --pb-panel-bg: var(--bg-card, #ffffff);
+  --pb-text-main: var(--text-body, #1E293B);
+  --pb-text-muted: var(--text-muted, #64748B);
+}
+
+/* Hide the standard ERP left sidebar to provide maximum canvas space */
+.sidebar, #sidebar, .mobile-backdrop, .sidebar-header, .sidebar-nav {
+  display: none !important;
+}
+.main {
+  margin-left: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+  background: var(--pb-bg-studio) !important;
+}
+.header {
+  border-bottom: 1px solid var(--pb-border);
+}
+
+/* BI Builder Studio Container */
+.pb-studio {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 65px);
+  min-height: 700px;
+  overflow: hidden;
+  font-family: var(--font, 'Plus Jakarta Sans', sans-serif);
+  color: var(--pb-text-main);
+}
+.pb-studio * { box-sizing: border-box; font-family: var(--font, 'Plus Jakarta Sans', sans-serif); }
+
+/* ── Top Ribbon Toolbar ── */
+.pb-ribbon {
+  background: var(--pb-panel-bg);
+  border-bottom: 1px solid var(--pb-border);
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: var(--shadow-card);
+  z-index: 10;
+  flex: none;
+}
+.pb-ribbon-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pb-brand-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--primary-dark, #D97706);
+  background: var(--primary-light, #FEF3C7);
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.pb-doc-title-input {
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--pb-text-main);
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  min-width: 180px;
+  max-width: 320px;
+}
+.pb-doc-title-input:hover, .pb-doc-title-input:focus {
+  background: var(--gray-100, #F1F5F9);
+  border-color: var(--primary, #F59E0B);
+  outline: none;
+}
+
+/* Ribbon Filter Strip */
+.pb-ribbon-center {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pb-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-table-alt, #F8FAFC);
+  border: 1px solid var(--pb-border);
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pb-text-main);
+}
+.pb-filter-pill input, .pb-filter-pill select {
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pb-text-main);
+  padding: 2px 4px;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Ribbon Action Buttons */
+.pb-ribbon-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.pb-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-family: var(--font, 'Plus Jakarta Sans', sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.pb-btn-workspace {
+  background: var(--bg-sidebar, #012926);
+  color: #ffffff !important;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+.pb-btn-workspace:hover {
+  background: #011A18;
+}
+.pb-btn-primary {
+  background: var(--primary, #F59E0B);
+  color: #fff;
+}
+.pb-btn-primary:hover { background: var(--primary-dark, #D97706); color: #fff; }
+.pb-btn-subtle {
+  background: var(--bg-card, #ffffff);
+  color: var(--pb-text-main);
+  border: 1.5px solid var(--pb-border);
+}
+.pb-btn-subtle:hover { background: var(--gray-100, #F1F5F9); }
+.pb-btn-danger {
+  background: var(--danger-light, #FEE2E2);
+  color: var(--danger, #DC2626);
+  border-color: rgba(220, 38, 38, 0.25);
+}
+.pb-btn-danger:hover { background: #fecaca; }
+
+/* ── 3-Column Studio Layout ── */
+.pb-main-workspace {
+  display: grid;
+  grid-template-columns: 280px 1fr 360px;
+  height: 100%;
+  overflow: hidden;
+  background: #eaeff0;
+}
+.pb-main-workspace.left-collapsed {
+  grid-template-columns: 0px 1fr 360px;
+}
+.pb-main-workspace.right-collapsed {
+  grid-template-columns: 280px 1fr 0px;
+}
+.pb-main-workspace.both-collapsed {
+  grid-template-columns: 0px 1fr 0px;
+}
+
+/* ── Left Column: Data & Table Explorer ── */
+.pb-data-explorer {
+  background: var(--pb-panel-bg);
+  border-right: 1px solid var(--pb-border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  z-index: 5;
+}
+.pb-panel-header {
+  padding: 12px 16px;
+  background: #f8fbf9;
+  border-bottom: 1px solid var(--pb-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pb-panel-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 850;
+  color: #104238;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pb-search-box {
+  padding: 8px 14px;
+  border-bottom: 1px solid #e2eee7;
+  background: #fff;
+}
+.pb-search-box input {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px 0 28px;
+  background: #f5f9f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23547b6e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'%3E%3C/circle%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'%3E%3C/line%3E%3C/svg%3E") no-repeat 8px center;
+  border: 1px solid #cfe0d7;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+}
+.pb-tables-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.pb-table-group {
+  margin-bottom: 8px;
+  border: 1px solid #dce8e1;
+  border-radius: 8px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.pb-table-head {
+  padding: 9px 12px;
+  background: #f4faf7;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #124c40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.pb-table-head:hover { background: #e8f5ee; }
+.pb-table-head .pb-toggle-arrow {
+  font-size: 10px;
+  color: #557d6f;
+  transition: transform 0.2s ease;
+}
+.pb-table-group.collapsed .pb-toggle-arrow {
+  transform: rotate(-90deg);
+}
+.pb-table-group.collapsed .pb-table-fields {
+  display: none;
+}
+.pb-table-fields {
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Draggable Field Items */
+.pb-field-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: #f8fbf9;
+  border: 1px solid #dcebe3;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #16493e;
+  cursor: grab;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+.pb-field-item:hover {
+  background: #eaf6f0;
+  border-color: #9eccb5;
+  transform: translateX(2px);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+.pb-field-item:active { cursor: grabbing; }
+.pb-field-item.is-measure {
+  border-left: 3px solid #0c7864;
+}
+.pb-field-item.is-dimension {
+  border-left: 3px solid #2874a6;
+}
+.pb-field-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pb-field-badge {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.pb-field-badge.dim { background: #e6f0fa; color: #1e5a84; }
+.pb-field-badge.mes { background: #e3f5ec; color: #086653; }
+
+/* Sub-table indent */
+.pb-subtable-block {
+  margin: 6px 0 2px 10px;
+  border-left: 2px dashed #9bc8b3;
+  padding-left: 8px;
+}
+.pb-subtable-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: #23584c;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Center Column: Canvas ── */
+.pb-canvas-center {
+  height: 100%;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pb-canvas-shell {
+  width: 100%;
+  min-height: 100%;
+}
+.pb-canvas {
+  --accent:#0c7864;
+  display: block;
+  min-height: 680px;
+  padding: 14px;
+  border: 1px dashed #a4bbac;
+  border-radius: 12px;
+  position: relative;
+  background: #f5faf6;
+  width: 100%;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.02);
+}
+.pb-canvas.empty:after {
+  content: '⚡ Blank Canvas · Drag fields or add visuals from the gallery to begin building';
+  position: absolute;
+  top: 45%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #5d8172;
+  pointer-events: none;
+  font-weight: 750;
+  font-size: 14px;
+}
+.pb-canvas.canvas_light { background: #f5faf6; }
+.pb-canvas.canvas_cream { background: #fffaf0; }
+.pb-canvas.canvas_green { background: linear-gradient(135deg,#073d38,#0d6555); }
+.pb-canvas.canvas_midnight { background: linear-gradient(145deg,#101c2d,#234051); }
+.pb-canvas.canvas_gold { background: linear-gradient(145deg,#fff6d2,#f1dfaa); }
+.pb-canvas.canvas_slate { background: linear-gradient(145deg,#e8f0f1,#cbdde0); }
+.pb-canvas.canvas_dots { background-color:#f8fbf9; background-image:radial-gradient(#bbd2c4 1px,transparent 1px); background-size:18px 18px; }
+.pb-canvas.canvas_custom_image { background-size:cover; background-position:center; background-repeat:no-repeat; }
+.pb-canvas.canvas_green.empty:after, .pb-canvas.canvas_midnight.empty:after, .pb-canvas.canvas_custom_image.empty:after {
+  color: #ffffff;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.65);
+}
+
+/* Cards & Resizing Controls */
+.pb-card {
+  touch-action: none;
+  z-index: 1;
+  background: #fff;
+  border: 1px solid #cfdfd4;
+  border-radius: 12px;
+  padding: 12px;
+  min-width: 0;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(5,47,41,0.08);
+  cursor: grab;
+  --tone: #0c7864;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100%;
+  box-sizing: border-box;
+  transition: box-shadow 0.15s ease;
+}
+.pb-card.accent_gold { --tone: #c69b00; }
+.pb-card.accent_blue { --tone: #276caa; }
+.pb-card.accent_purple { --tone: #8452aa; }
+.pb-card.accent_coral { --tone: #cb6651; }
+.pb-card.selected {
+  outline: 2px solid #0c7864;
+  box-shadow: 0 0 0 4px rgba(12,120,100,0.18), 0 6px 18px rgba(0,0,0,0.1);
+}
+.pb-card-head {
+  touch-action: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  align-items: center;
+  border-bottom: 1px solid #e7f0eb;
+  padding-bottom: 6px;
+  font-size: var(--pb-title-size, 13px);
+  color: var(--pb-title-color, inherit);
+  font-weight: 800;
+  flex: none;
+}
+.pb-card-head span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pb-card-head button {
+  background: #edf5f1;
+  color: #165243;
+  padding: 2px 7px;
+  height: auto;
+  border-radius: 6px;
+  border: 1px solid #cce0d5;
+}
+.pb-card-head button:hover { background: #dceddd; }
+.pb-card-body {
+  touch-action: pan-y;
+  padding-top: 8px;
+  font-size: var(--pb-font-size, 12px);
+  color: var(--pb-text-color, inherit);
+  overflow: auto;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: none !important;
+}
+.pb-resize { touch-action: none; position: absolute; background: transparent; }
+.pb-resize:hover, .pb-resize:active { background: rgba(12,120,100,.35); }
+.pb-resize-se { right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize; border-bottom-right-radius: 6px; }
+.pb-resize-e { top: 6px; bottom: 6px; right: -4px; width: 9px; cursor: ew-resize; border-radius: 4px; }
+.pb-resize-s { left: 6px; right: 6px; bottom: -4px; height: 9px; cursor: ns-resize; border-radius: 4px; }
+
+/* Numbers & Mini visuals */
+.pb-number { font-size: var(--pb-value-size, 28px); font-weight: 850; color: var(--pb-value-color, var(--tone)); line-height: 1.2; overflow-wrap: anywhere; }
+.pb-delta { font-size: var(--pb-font-size, 12px); color: #518772; font-weight: 600; }
+.pb-svg { width: 100%; height: 100%; min-height: 90px; }
+.pb-mini { color: var(--pb-text-color, inherit); display: flex; justify-content: space-between; gap: 5px; font-size: var(--pb-font-size, 12px); }
+.pb-mini span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pb-mini strong { white-space: nowrap; }
+.pb-track { height: 6px; border-radius: 6px; background: #e1ece5; margin: 3px 0 6px; overflow: hidden; }
+.pb-track i { display: block; height: 100%; background: var(--tone); }
+.pb-chart-body-flex { display:flex; flex-direction:row; align-items:center; justify-content:space-between; gap:8px; width:100%; height:100%; flex:1 1 auto; min-height:0; overflow:hidden; }
+.pb-chart-svg { display:block; width:calc(100% * var(--pb-chart-scale,1)); max-width:none; height:auto; margin:6px auto; flex:none; }
+.pb-chart-body-flex .pb-chart-svg { flex:1 1 auto; width:auto; max-width:100%; height:100%; max-height:100%; min-width:0; min-height:0; margin:0 auto; }
+.pb-chart-body-flex .pb-chart-svg:not(.pb-ring-svg) { transform:scale(var(--pb-chart-scale,1)); transform-origin:center center; }
+.pb-chart-legend, .pb-chart-legend-vertical { display:flex; flex-direction:column; align-items:flex-start; justify-content:center; flex:0 1 38%; max-width:44%; max-height:100%; min-width:72px; overflow-y:auto; padding-left:8px; border-left:1px solid rgba(12,120,100,0.14); margin:0; gap:4px; }
+.pb-chart-legend span { display:inline-flex; align-items:center; gap:5px; line-height:1.2; max-width:100%; overflow-wrap:anywhere; }
+.pb-chart-legend i { display:inline-block; flex:none; width:10px; height:10px; border-radius:2px; }
+.pb-color-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:8px 0; font-size:12px; }
+.pb-color-row input { width:44px; padding:2px; flex:none; }
+.pb-tile { display: flex; min-height: calc(180px * var(--pb-chart-scale,1)); border-radius: 8px; overflow: hidden; }
+.pb-tile span { display: flex; align-items: center; justify-content: center; min-width: 15px; padding: 4px; color: #fff; font-size: 10px; overflow: hidden; }
+.pb-funnel { height: calc(20px * var(--pb-chart-scale,1)); margin: 5px auto; background: var(--tone); border-radius: 3px; min-width: 12%; }
+.pb-grid-table { width: 100%; border-collapse: collapse; font-size: var(--pb-font-size, 12px); }
+.pb-grid-table td { padding: 6px; border-bottom: 1px solid #e5eee8; }
+.pb-grid-table td:last-child { text-align: right; font-weight: 700; }
+.pb-studio .pb-grid-table,.pb-studio .pb-grid-table tr,.pb-studio .pb-grid-table td {
+  background:transparent !important;color:var(--pb-text-color) !important;
+}
+.pb-studio .pb-grid-table td:last-child {color:var(--pb-value-color) !important;}
+.pb-studio .pb-grid-table tr:hover {outline:1px solid currentColor;}
+.pb-filter {display:flex;gap:10px;flex-wrap:wrap;}
+.pb-filter label {flex:1;min-width:100px;}
+.pb-filter select,.pb-filter input {width:100%;min-width:0;}
+.pb-filter-help {font-size:11px;margin:8px 0;color:inherit;}
+
+.pb-gauge { display: grid; place-items: center; width: 92px; height: 92px; border-radius: 50%; margin: 6px auto; }
+.pb-gauge span { display: grid; place-items: center; width: 64px; height: 64px; background: #fff; border-radius: 50%; font-weight: 800; color: #1c5043; }
+
+/* ── Right Column: Studio Dock Tabs ── */
+.pb-studio-dock {
+  background: var(--pb-panel-bg);
+  border-left: 1px solid var(--pb-border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  z-index: 5;
+}
+.pb-dock-nav {
+  display: flex;
+  border-bottom: 1px solid var(--pb-border);
+  background: #f5faf7;
+}
+.pb-dock-btn {
+  flex: 1;
+  padding: 10px 4px;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font-size: 12px;
+  font-weight: 800;
+  color: #557d6f;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+.pb-dock-btn:hover { background: #eaf4ef; color: #104037; }
+.pb-dock-btn.active {
+  color: #0c7864;
+  border-bottom-color: #0c7864;
+  background: #ffffff;
+}
+.pb-dock-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+}
+
+/* ── X-Axis & Y-Axis Dropzones ── */
+.pb-dropzone-box {
+  background: #f8fbf9;
+  border: 2px dashed #9bc8b3;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  transition: all 0.15s ease;
+}
+.pb-dropzone-box.dragover {
+  border-color: #0c7864;
+  background: #e3f5ec;
+  box-shadow: 0 0 0 3px rgba(12,120,100,0.15);
+}
+.pb-dropzone-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 850;
+  color: #124c40;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+.pb-dropzone-pills {
+  min-height: 38px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.pb-dropzone-empty {
+  font-size: 11.5px;
+  color: #719386;
+  font-style: italic;
+}
+.pb-dropped-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0c7864;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 750;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+.pb-dropped-pill.dim { background: #1f618d; }
+.pb-dropped-pill button {
+  background: transparent;
+  border: 0;
+  color: #fff;
+  opacity: 0.8;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+}
+.pb-dropped-pill button:hover { opacity: 1; }
+
+/* Visual Gallery Grid */
+.pb-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.pb-gallery-btn {
+  background: #f4faf7;
+  border: 1px solid #d2e4db;
+  border-radius: 8px;
+  padding: 8px 4px;
+  text-align: center;
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 750;
+  color: #14483e;
+  transition: all 0.15s ease;
+}
+.pb-gallery-btn:hover {
+  background: #e2f2e9;
+  border-color: #8ac4a7;
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+}
+.pb-gallery-btn b { font-size: 20px; line-height: 1; }
+
+/* Settings Sections */
+.pb-dock-section {
+  background: #fbfdfc;
+  border: 1px solid #dbe8e1;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pb-dock-section legend {
+  font-size: 11px;
+  font-weight: 850;
+  color: #0f4e41;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0 6px;
+  background: #fbfdfc;
+}
+.pb-check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: #17483e;
+  padding: 4px 0;
+  user-select: none;
+}
+.pb-check-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #0c7864;
+  cursor: pointer;
+  margin: 0;
+}
+.pb-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pb-field-row label {
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #194c40;
+}
+.pb-field-row input, .pb-field-row select, .pb-field-row textarea {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #bdd2c8;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #143831;
+  background: #fff;
+  outline: none;
+}
+.pb-field-row textarea { height: auto; padding: 8px; }
+
+/* Color Control */
+.pb-color-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #bdd0c7;
+  border-radius: 6px;
+  padding: 2px 6px;
+  height: 32px;
+}
+.pb-color-ctrl input[type="color"] {
+  border: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0;
+  background: none;
+}
+.pb-color-ctrl span { font-size: 11px; font-family: monospace; font-weight: 700; color: #436458; }
+
+/* Ghost & Resize Helpers */
+.pb-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.85;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+.pb-drop-guide {
+  position: absolute;
+  pointer-events: none;
+  border: 2px dashed #0c7864;
+  background: rgba(12,120,100,0.12);
+  border-radius: 10px;
+  z-index: 0;
+}
+
+/* Use the Base action colour consistently throughout BI Studio. */
+.pb-studio button, .pb-studio .pb-btn {
+  background:var(--primary,#F59E0B) !important;color:#231800 !important;border-color:var(--primary-dark,#D97706) !important;
+}
+.pb-studio button:hover, .pb-studio .pb-btn:hover {background:var(--primary-dark,#D97706) !important;}
+.pb-studio button.active {box-shadow:inset 0 -3px #694000;}
+.pb-studio button:focus-visible,.pb-studio .pb-btn:focus-visible {outline:2px solid #694000;outline-offset:2px;}
+.pb-studio button:disabled {opacity:.5;cursor:wait;}
+.pb-main-workspace {grid-template-columns:minmax(0,1fr) 360px;}
+.pb-panel-tab {flex:1;padding:12px 8px;border:0;font-weight:800;cursor:pointer;}
+.pb-dashboard-select {max-width:220px;height:32px;border:1px solid var(--pb-border);border-radius:6px;}
+.pb-studio-dock .pb-data-explorer {min-height:0;flex:1;border:0;width:100%;}
+#pbDesignPanel {display:flex;flex-direction:column;min-height:0;flex:1;}
+.pb-studio [hidden] {display:none !important;}
+#pbStatus {color:#15803d !important;}
+#pbStatus.pb-error {color:#b91c1c !important;}
+.pb-field-tools {display:flex;flex-direction:column;gap:6px;padding:10px;border-bottom:1px solid var(--pb-border);font-size:11px;}
+.pb-field-tools .pb-btn {justify-content:center;}
+.pb-main-workspace.pb-fields-expanded {grid-template-columns:minmax(0,1fr) 640px;}
+.pb-studio-dock.pb-fields-expanded {display:grid;grid-template-columns:280px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);}
+.pb-studio-dock.pb-fields-expanded > .pb-dock-nav {grid-column:1/-1;}
+.pb-studio-dock.pb-fields-expanded #pbDatabasePanel {grid-column:1;grid-row:2;border-right:1px solid var(--pb-border);}
+.pb-studio-dock.pb-fields-expanded #pbDesignPanel {grid-column:2;grid-row:2;}
+#pbCollapseFields {padding:0 8px;height:28px;font-size:11px;}
+.pb-studio-dock.pb-fields-expanded #pbFieldsCount {display:none;}
+@media(max-width:1000px){.pb-main-workspace.pb-fields-expanded{grid-template-columns:minmax(0,1fr) minmax(480px,65%);}.pb-studio-dock.pb-fields-expanded{grid-template-columns:minmax(190px,45%) minmax(0,1fr);}}
+@media(max-width:600px){.pb-main-workspace.pb-fields-expanded{grid-template-columns:minmax(0,1fr);}.pb-studio-dock.pb-fields-expanded{overflow-x:auto;grid-template-columns:220px minmax(260px,1fr);}}
+@media(max-width:800px){.pb-main-workspace{grid-template-columns:minmax(0,1fr) 290px;}.pb-ribbon{padding:8px;}.pb-ribbon-right{flex-wrap:wrap;}}
+@media(max-width:600px){.pb-main-workspace{grid-template-columns:minmax(0,1fr);overflow:auto;}.pb-studio-dock{height:420px;}.pb-canvas-center{min-height:450px;}}
+
+/* Keep name, selection and save controls together despite Base form widths. */
+.pb-ribbon-left {flex:1 1 auto;align-items:flex-end;gap:12px;}
+.pb-dashboard-field {display:flex;flex:0 1 auto;flex-direction:column;gap:5px;min-width:0;}
+.pb-ribbon .pb-dashboard-field label {display:block;width:auto;margin:0;font-size:12px;font-weight:750;}
+.pb-ribbon .pb-dashboard-field input,.pb-ribbon .pb-dashboard-field select {width:220px;min-width:0;max-width:100%;height:36px;margin:0;padding:6px 10px;border:1px solid var(--pb-border);border-radius:6px;background:#fff;color:var(--pb-text-main);font-size:13px;}
+.pb-ribbon .pb-visibility-field select {width:145px;}
+.pb-dashboard-save-row {display:flex;align-items:center;gap:8px;}
+.pb-dashboard-save-row #pbSave {flex:none;}
+.pb-save-flash {flex:none;margin:8px 18px;padding:10px 14px;border:1px solid #86cda2;border-radius:8px;background:#ecfdf3;color:#166534;font-weight:700;}
+@media(max-width:600px){.pb-ribbon-left{width:100%;}.pb-dashboard-save-row select{flex:1;width:160px!important;}.pb-dashboard-field{max-width:100%;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pb-studio">
+  <!-- ── 1. TOP RIBBON TOOLBAR ── -->
+  <header class="pb-ribbon">
+    <div class="pb-ribbon-left">
+      <span class="pb-brand-tag">🧠 BI STUDIO</span>
+      <div class="pb-dashboard-field">
+        <label for="pbTitle">Dashboard name</label>
+        <input id="pbTitle" class="pb-doc-title-input" value="Executive Overview" placeholder="Enter dashboard name" maxlength="100" required>
+      </div>
+      <div class="pb-dashboard-field">
+        <label for="pbSaved">Select dashboard</label>
+        <div class="pb-dashboard-save-row">
+          <select id="pbSaved" class="pb-dashboard-select"><option value="">New dashboard (unsaved)</option></select>
+          <button id="pbSave" class="pb-btn pb-btn-primary" type="button">💾 Save Dashboard</button>
+        </div>
+      </div>
+      <div class="pb-dashboard-field pb-visibility-field">
+        <label for="pbVisibility">Visibility</label>
+        <select id="pbVisibility"><option value="private">🔒 Private</option><option value="owner_team">👥 Owner Team</option></select>
+      </div>
+    </div>
+
+    <div class="pb-ribbon-center">
+      <div class="pb-filter-pill">
+        <span>📅</span>
+        <input type="date" id="pbFrom" value="{{ from_date }}">
+        <span>→</span>
+        <input type="date" id="pbTo" value="{{ to_date }}">
+      </div>
+      <div class="pb-filter-pill">
+        <span>🏢</span>
+        <select id="pbFocus">
+          <option value="">All business</option>
+          <option value="employee_id">Sales staff</option>
+          <option value="country">Country</option>
+          <option value="client_id">Customer</option>
+          <option value="supplier_id">Supplier</option>
+          <option value="product_category">Product category</option>
+          <option value="expense_category">Expense category</option>
+        </select>
+        <select id="pbFocusValue" disabled style="max-width:120px;"><option value="">All</option></select>
+      </div>
+    </div>
+
+    <div class="pb-ribbon-right">
+      <a href="{{ url_for('bi_intelligence') }}" class="pb-btn pb-btn-workspace" title="Back to BI Workspace">
+        <span>🧠</span> Back to BI Workspace
+      </a>
+      <a href="{{ url_for('bi_dashboard') }}" class="pb-btn pb-btn-subtle" title="Switch to BI Dashboard">
+        <span>📊</span> Dashboard
+      </a>
+      <button id="pbRefresh" class="pb-btn pb-btn-subtle" type="button" title="Refresh Data">🔄 Refresh</button>
+      <button id="pbNew" class="pb-btn pb-btn-subtle" type="button">+ New</button>
+      <button id="pbSample" type="button" class="pb-btn pb-btn-subtle">Load Sample</button>
+      <button id="pbDuplicate" class="pb-btn pb-btn-subtle" type="button">Duplicate</button>
+      <button id="pbDelete" class="pb-btn pb-btn-danger" type="button">🗑</button>
+    </div>
+  </header>
+  <div id="pbSaveFlash" class="pb-save-flash" role="status" aria-live="polite" hidden></div>
+
+  <!-- ── 2. 3-ZONE MAIN WORKSPACE ── -->
+  <div id="pbWorkspace" class="pb-main-workspace">
+    <!-- ── LEFT COLUMN: DATABASE TABLES & SUB-TABLES EXPLORER ── -->
+
+
+    <!-- ── CENTER COLUMN: DASHBOARD CANVAS ── -->
+    <main class="pb-canvas-center">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px;">
+        <span id="pbStatus" role="status" aria-live="polite" style="font-size:12px;font-weight:800;color:#0c7864;"></span>
+        <span id="pbFocusNote" style="font-size:11.5px;color:#527467;">Drag fields to X/Y-Axis dropzones or click to add visuals.</span>
+        <span id="pbCanvasCount" style="font-size:12px;font-weight:700;color:#527467;">0 Visuals</span>
+      </div>
+      <div class="pb-canvas-shell">
+        <div id="pbCanvas" class="pb-canvas canvas_light empty" aria-label="BI Canvas"></div>
+      </div>
+    </main>
+
+    <!-- ── RIGHT COLUMN: STUDIO DOCK (VISUALS, DROPZONES, FORMATTING, SAVED) ── -->
+    <aside id="pbStudioDock" class="pb-studio-dock" aria-label="Studio Tools & Settings">
+      <nav class="pb-dock-nav" aria-label="Sidebar panels">
+        <button type="button" id="pbDatabaseTab" class="pb-panel-tab active" aria-controls="pbDatabasePanel" aria-pressed="true">Database Tables</button>
+        <button type="button" id="pbDesignTab" class="pb-panel-tab" aria-controls="pbDesignPanel" aria-pressed="false">Design</button>
+      </nav>
+    <aside id="pbDatabasePanel" class="pb-data-explorer" aria-label="Database Tables and Fields">
+      <div class="pb-panel-header">
+        <h3>📂 Database Tables</h3>
+        <button id="pbCollapseFields" type="button" class="pb-btn" hidden aria-label="Collapse database tables column">Collapse ›</button>
+        <span id="pbFieldsCount" style="font-size:11px;font-weight:700;color:#557d6f;">6 Tables</span>
+      </div>
+      <div class="pb-search-box">
+        <input id="pbFieldSearch" type="text" placeholder="Search tables & fields…">
+      </div>
+      <div id="pbTablesContainer" class="pb-tables-scroll">
+        <!-- Tables and Sub-tables will be dynamically injected here from semantic tree -->
+      </div>
+    </aside>
+      <div id="pbDesignPanel" hidden>
+      <div class="pb-field-tools">
+        <button id="pbToggleFields" type="button" class="pb-btn" aria-controls="pbDatabasePanel" aria-expanded="false">Select chart fields</button>
+        <span>Open tables beside Design to choose or drag fields.</span>
+      </div>
+      <nav class="pb-dock-nav">
+        <button id="pbDockTabDropzones" type="button" class="pb-dock-btn active" data-tab="dropzones">⚙ Axis & Data</button>
+        <button id="pbDockTabVisuals" type="button" class="pb-dock-btn" data-tab="visuals">📊 Visuals</button>
+        <button id="pbDockTabTheme" type="button" class="pb-dock-btn" data-tab="theme">🎨 Theme</button>
+      </nav>
+
+      <div class="pb-dock-content">
+        <!-- TAB 1: DROPZONES & WIDGET CONFIG -->
+        <div id="pbDockPanelDropzones" class="pb-dock-panel">
+          <div id="pbDropzoneContainer">
+            <!-- X-AXIS DROPZONE -->
+            <div id="pbDropzoneX" class="pb-dropzone-box" data-dropzone="x">
+              <div class="pb-dropzone-head">
+                <span>📌 X-Axis (Category / Date)</span>
+                <span style="font-size:10px;color:#547b6d;">Drop dimension here</span>
+              </div>
+              <div id="pbDropzoneXPills" class="pb-dropzone-pills">
+                <span class="pb-dropzone-empty">Drag dimension from Database Tables...</span>
+              </div>
+              <div id="pbGrainRow" class="pb-field-row" style="margin-top:8px;display:none;">
+                <label>Date Interval (Grain)</label>
+                <select id="pbSemanticGrain">
+                  <option value="day">Day</option>
+                  <option value="month" selected>Month</option>
+                  <option value="quarter">Quarter</option>
+                  <option value="year">Year</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Y-AXIS DROPZONE -->
+            <div id="pbDropzoneY" class="pb-dropzone-box" data-dropzone="y">
+              <div class="pb-dropzone-head">
+                <span>📌 Y-Axis (Measure / Value)</span>
+                <span style="font-size:10px;color:#547b6d;">Drop numbers here</span>
+              </div>
+              <div id="pbDropzoneYPills" class="pb-dropzone-pills">
+                <span class="pb-dropzone-empty">Drag measure from Database Tables...</span>
+              </div>
+              <div class="pb-field-row" style="margin-top:8px;">
+                <label>Calculation / Aggregation</label>
+                <select id="pbSemanticAggregation">
+                  <option value="sum" selected>Sum (Total)</option>
+                  <option value="avg">Average per record</option>
+                  <option value="count">Count of records</option>
+                  <option value="min">Minimum value</option>
+                  <option value="max">Maximum value</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- SORT & LIMIT -->
+            <div class="pb-dock-section">
+              <legend>Data Filtering & Sorting</legend>
+              <div class="pb-field-row">
+                <label>Sorting Order</label>
+                <select id="pbSemanticSort">
+                  <option value="name_asc">Group / Date Ascending</option>
+                  <option value="value_desc">Largest First (High → Low)</option>
+                  <option value="value_asc">Smallest First (Low → High)</option>
+                </select>
+              </div>
+              <div class="pb-field-row">
+                <label>Max Data Points</label>
+                <select id="pbSemanticLimit">
+                  <option value="5">Top 5</option>
+                  <option value="10">Top 10</option>
+                  <option value="20" selected>Top 20</option>
+                  <option value="50">Top 50</option>
+                  <option value="100">Top 100</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Widget Settings Container -->
+          <div id="pbSettings" class="pb-settings"></div>
+        </div>
+
+        <!-- TAB 2: VISUAL GALLERY -->
+        <div id="pbDockPanelVisuals" class="pb-dock-panel" hidden>
+          <h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#547b6e;margin:0 0 8px;">KPI Cards</h4>
+          <div class="pb-gallery-grid" style="margin-bottom:14px;">
+            <button class="pb-gallery-btn" data-add="metric" data-style="default"><b>▣</b><span>KPI</span></button>
+            <button class="pb-gallery-btn" data-add="metric" data-style="hero"><b>▤</b><span>Hero KPI</span></button>
+            <button class="pb-gallery-btn" data-add="metric" data-style="sparkline"><b>⌁</b><span>Sparkline</span></button>
+            <button class="pb-gallery-btn" data-add="metric" data-style="progress"><b>◔</b><span>Target</span></button>
+            <button class="pb-gallery-btn" data-add="metric" data-style="gauge"><b>◉</b><span>Gauge</span></button>
+          </div>
+
+          <h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#547b6e;margin:0 0 8px;">Charts & Plots</h4>
+          <div class="pb-gallery-grid" style="margin-bottom:14px;">
+            <button class="pb-gallery-btn" data-add="chart" data-style="bar"><b>☷</b><span>Bar</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="column"><b>▥</b><span>Column</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="line"><b>⌁</b><span>Line</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="spline_line"><b>∿</b><span>Curved</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="area"><b>◿</b><span>Area</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="curved_area"><b>🌊</b><span>Curved Area</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="donut"><b>◉</b><span>Donut</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="pie"><b>◕</b><span>Pie</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="treemap"><b>▦</b><span>Treemap</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="stacked_column"><b>▤</b><span>Stacked Col</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="stacked_bar"><b>☷</b><span>Stacked Bar</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="grouped_bar"><b>▥</b><span>Grouped Bar</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="combo"><b>▥⌁</b><span>Combo</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="radar"><b>🕸</b><span>Radar</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="polar_area"><b>🧭</b><span>Polar</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="scatter"><b>∴</b><span>Scatter</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="waterfall"><b>▂▅</b><span>Waterfall</span></button>
+            <button class="pb-gallery-btn" data-add="chart" data-style="funnel"><b>▽</b><span>Funnel</span></button>
+          </div>
+
+          <h4 style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#547b6e;margin:0 0 8px;">Tables & Text</h4>
+          <div class="pb-gallery-grid">
+            <button class="pb-gallery-btn" data-add="table" data-style="default"><b>▤</b><span>Table</span></button>
+            <button class="pb-gallery-btn" data-add="text" data-style="default"><b>T</b><span>Note</span></button>
+            <button class="pb-gallery-btn" data-add="filter" data-style="default"><b>▣</b><span>Date Filter</span></button>
+<button class="pb-gallery-btn" data-add="filter" data-style="client_id"><b>▣</b><span>Customer Filter</span></button>
+<button class="pb-gallery-btn" data-add="filter" data-style="employee_id"><b>▣</b><span>Employee Filter</span></button>
+<button class="pb-gallery-btn" data-add="filter" data-style="supplier_id"><b>▣</b><span>Supplier Filter</span></button>
+<button class="pb-gallery-btn" data-add="filter" data-style="country"><b>▣</b><span>Country Filter</span></button>
+<button class="pb-gallery-btn" data-add="filter" data-style="product_category"><b>▣</b><span>Product Category Filter</span></button>
+<button class="pb-gallery-btn" data-add="filter" data-style="expense_category"><b>▣</b><span>Expense Category Filter</span></button>
+          </div>
+        </div>
+
+        <!-- TAB 3: THEME & STYLING -->
+        <div id="pbDockPanelTheme" class="pb-dock-panel" hidden>
+          <div class="pb-dock-section">
+            <legend>Canvas Background Theme</legend>
+            <div id="pbBackgrounds" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;"></div>
+            <div style="margin-top:8px;">
+              <label class="pb-btn pb-btn-subtle" for="pbBgUpload" style="font-size:11px;width:100%;justify-content:center;">🖼 Upload Image Background</label>
+              <input type="file" id="pbBgUpload" accept="image/*" hidden>
+              <button type="button" id="pbBgRemove" class="pb-btn pb-btn-danger" style="font-size:11px;width:100%;margin-top:4px;" hidden>Remove Image</button>
+            </div>
+          </div>
+        </div>
+
+
+      </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Drill Down Modal -->
+  <div id="pbDrill" class="pb-drill" hidden role="dialog" aria-modal="true" aria-labelledby="pbDrillTitle">
+    <div class="pb-drill-panel" style="background:#fff;border-radius:12px;padding:18px;max-width:750px;margin:50px auto;box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #dce8e1;padding-bottom:10px;">
+        <h2 id="pbDrillTitle" style="margin:0;font-size:16px;font-weight:800;color:#0e4a3e;">Source records</h2>
+        <button id="pbDrillClose" type="button" class="pb-btn pb-btn-subtle" style="height:28px;">Close</button>
+      </div>
+      <p id="pbDrillSummary" style="font-size:12px;color:#537568;margin:8px 0;"></p>
+      <div style="max-height:360px;overflow-y:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="background:#f3f8f5;text-align:left;"><th style="padding:6px;">Date</th><th style="padding:6px;">Reference</th><th style="padding:6px;">Party</th><th id="pbDrillValueHeader" style="padding:6px;text-align:right;">Amount</th></tr>
+          </thead>
+          <tbody id="pbDrillRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script src="{{ url_for('static', filename='bi_builder_charts.js') }}?v=10"></script>
+<script>
+(() => {
+const csrf={{ bi_csrf|tojson }}, semanticCatalog={{ bi_semantic_catalog|tojson }};
+const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const labels={canvas_light:'Light',canvas_cream:'Ivory',canvas_green:'Green',canvas_midnight:'Midnight',canvas_gold:'Gold',canvas_slate:'Slate',canvas_dots:'Dots'};
+const accents=['teal','gold','blue','purple','coral'];
+const catalogue={
+  metric:['net_sales','billed_sales','sales_invoices','active_customers','purchase_cost','purchase_total','expenses','receivables','payables','inventory_value','low_stock_items','gross_profit_estimate','net_profit_estimate'],
+  chart:['trend_sales','trend_purchases','trend_expenses','trend_comparison','sales_category_month','customer_performance','financial_bridge','top_customers','sales_countries','top_suppliers','stock_categories','custom'],
+  table:['top_customers','sales_countries','top_suppliers','stock_categories'],
+  text:['note'],
+  filter:['date_range','client_id','employee_id','supplier_id','country','product_category','expense_category']
+};
+
+const trendStyles=['bar','column','line','area','donut','pie','lollipop','step_line','radar','polar_area','spline_line','curved_area','grouped_bar'];
+const categoryStyles=['bar','column','donut','pie','treemap','funnel','lollipop','radar','polar_area','grouped_bar'];
+const chartStyles={
+  custom:['bar','column','line','area','donut','pie','treemap','funnel','lollipop','step_line','grouped_column','stacked_column','stacked_bar','combo','radar','polar_area','spline_line','curved_area','grouped_bar'],
+  trend_sales:trendStyles,trend_purchases:trendStyles,trend_expenses:trendStyles,
+  trend_comparison:['line','combo','grouped_column','stacked_column','stacked_bar','area','spline_line','curved_area','bar','column'],
+  sales_category_month:['stacked_column','stacked_bar','grouped_column','combo'],
+  customer_performance:['scatter','bar','column','grouped_bar'],
+  financial_bridge:['waterfall','bar'],
+  top_customers:categoryStyles,sales_countries:categoryStyles,top_suppliers:categoryStyles,stock_categories:categoryStyles
+};
+const typeStyles={metric:['default','hero','sparkline','progress','gauge'],table:['default','compact'],text:['default'],filter:['default']};
+const display=k=>k.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase());
+const example=()=>[{id:'sample_sales',type:'metric',key:'net_sales',title:'Net Sales',x:0,y:0,w:6,h:4,style:'hero',text:'',accent:'teal',card_color:'#ffffff',opacity:100,target:0},{id:'sample_invoices',type:'metric',key:'sales_invoices',title:'Invoices',x:6,y:0,w:6,h:4,style:'sparkline',text:'',accent:'blue',card_color:'#ffffff',opacity:100,target:0},{id:'sample_receivables',type:'metric',key:'receivables',title:'Receivables',x:12,y:0,w:6,h:4,style:'default',text:'',accent:'gold',card_color:'#ffffff',opacity:100,target:0},{id:'sample_stock',type:'metric',key:'inventory_value',title:'Stock Value',x:18,y:0,w:6,h:4,style:'default',text:'',accent:'purple',card_color:'#ffffff',opacity:100,target:0},{id:'sample_trend',type:'chart',key:'trend_sales',title:'Sales Trend',x:0,y:4,w:14,h:6,style:'area',text:'',accent:'teal',card_color:'#ffffff',opacity:100,target:0},{id:'sample_customers',type:'chart',key:'top_customers',title:'Top Customers',x:14,y:4,w:10,h:6,style:'bar',text:'',accent:'gold',card_color:'#ffffff',opacity:100,target:0}];
+
+let state={id:null,revision:null,widgets:[],background:'canvas_light',selected:null,data:null,visuals:{},dirty:false},drag=null,resize=null,filterOptions={},visualRequest=0,dataRequest=0,dashboardRequest=0,uploadedBgImage=null;
+const status=(s,error=false)=>{let el=$('pbStatus');if(el){el.textContent=s;el.classList.toggle('pb-error',error)}},mark=()=>{state.dirty=true;$('pbSaveFlash').hidden=true;status('Unsaved changes')};
+const money=(v,c)=>new Intl.NumberFormat(undefined,{style:'currency',currency:c||{{ base_currency|default('INR')|tojson }},maximumFractionDigits:0}).format(Number(v)||0);
+const valueDisplay=(v,w)=>w.key==='custom'&&['count','quantity','reorder_level'].includes(w.semantic_measure)?(Number(v)||0).toLocaleString(undefined,{maximumFractionDigits:2}):money(v,state.data?.base_currency);
+const colors=['#117965','#e9bd18','#478cb3','#9a70b8','#df8260','#83b88f','#7799cc','#d7ae8a'];
+const inside=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
+const nearbyOffsets=[];for(let dy=-12;dy<=12;dy++)for(let dx=-24;dx<=24;dx++)if(dx||dy)nearbyOffsets.push({dx,dy,score:Math.abs(dx)+Math.abs(dy)*3});nearbyOffsets.sort((a,b)=>a.score-b.score);
+
+function place(w,x,y,autoPlace=true){
+  let maxX=24-w.w,maxY=400-w.h;x=Math.max(0,Math.min(maxX,x));y=Math.max(0,Math.min(maxY,y));
+  let free=(xx,yy)=>!state.widgets.some(o=>o.id!==w.id&&inside({...w,x:xx,y:yy},o));
+  if(free(x,y)){w.x=x;w.y=y;return true}
+  if(!autoPlace)return false;
+  for(const off of nearbyOffsets){let xx=x+off.dx,yy=y+off.dy;if(xx>=0&&xx<=maxX&&yy>=0&&yy<=maxY&&free(xx,yy)){w.x=xx;w.y=yy;return true}}
+  for(let yy=0;yy<=maxY;yy++)for(let xx=0;xx<=maxX;xx++)if(free(xx,yy)){w.x=xx;w.y=yy;return true}
+  return false;
+}
+function styles(w){return w.type==='chart'?chartStyles[w.key]:w.type==='metric'&&(w.metric_keys||[]).length>1?['default','hero','sparkline']:typeStyles[w.type]}
+function defaultDataset(style){return ({scatter:'customer_performance',waterfall:'financial_bridge'})[style]||'custom'}
+function fresh(type,style){
+  let size={metric:[6,4],chart:[12,8],table:[10,6],text:[8,4],filter:[8,4]}[type];
+  let key=type==='chart'?defaultDataset(style):type==='filter'&&catalogue.filter.includes(style)?style:catalogue[type][0];
+  if(type==='filter')style='default';
+  return {
+    id:'w_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7),
+    type,key,
+    title:key==='custom'?'Net Sales Amount':type==='filter'?filterLabel(key):display(key),
+    x:0,y:0,w:size[0],h:size[1],
+    style:style==='custom'?'column':style||typeStyles[type]?.[0]||'bar',
+    text:'',accent:'teal',card_color:'#ffffff',opacity:100,
+    title_font_size:13,title_color:'#163a34',
+    subtitle:'',subtitle_font_size:11,subtitle_color:'#527467',
+    font_size:12,text_color:'#163a34',
+    value_size:28,value_color:'#0c7864',
+    axis_font_size:10,axis_color:'#557568',
+    data_label_font_size:14,
+    legend_font_size:11,legend_color:'#335548',
+    compare:type==='metric'?'previous_period':'none',target:0,
+    x_title:'',y_title:'',show_axes:true,show_grid:true,show_values:false,show_legend:true,show_markers:true,
+    number_format:'compact',label_mode:'percent',...semanticCatalog.defaults
+  };
+}
+function add(type,style,x=0,y=0){
+  if(state.widgets.length>=30){status('Maximum 30 visuals',true);return}
+  let w=fresh(type,style);state.widgets.push(w);
+  if(!place(w,x,y)){state.widgets.pop();status('No space at that position',true);return}
+  state.selected=w.id;mark();render();switchDockTab('dropzones');if(w.key==='custom')loadVisuals();
+}
+const active=()=>state.widgets.find(w=>w.id===state.selected);
+
+/* Dock Navigation */
+let fieldsExpanded=false;
+function setFieldsExpanded(expanded){
+  fieldsExpanded=expanded;
+  $('pbWorkspace').classList.toggle('pb-fields-expanded',expanded);
+  $('pbStudioDock').classList.toggle('pb-fields-expanded',expanded);
+  $('pbToggleFields').setAttribute('aria-expanded',String(expanded));
+  $('pbToggleFields').textContent=expanded?'Collapse tables':'Select chart fields';
+  $('pbCollapseFields').hidden=!expanded;
+  $('pbDatabasePanel').hidden=!expanded;
+  $('pbDesignPanel').hidden=false;
+}
+$('pbToggleFields').addEventListener('click',()=>setFieldsExpanded(!fieldsExpanded));
+$('pbCollapseFields').addEventListener('click',()=>setFieldsExpanded(false));
+function switchSidebarPanel(panel){
+  const database=panel==='database';
+  if(database&&fieldsExpanded)setFieldsExpanded(false);
+  $('pbDatabasePanel').hidden=!database&&!fieldsExpanded;
+  $('pbDesignPanel').hidden=database;
+  for(const [id,selected] of [['pbDatabaseTab',database],['pbDesignTab',!database]]){
+    $(id).classList.toggle('active',selected);$(id).setAttribute('aria-pressed',String(selected));
+  }
+}
+$('pbDatabaseTab').addEventListener('click',()=>switchSidebarPanel('database'));
+$('pbDesignTab').addEventListener('click',()=>switchSidebarPanel('design'));
+
+function switchDockTab(tabId){
+  switchSidebarPanel('design');
+document.querySelectorAll('.pb-dock-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.tab===tabId));
+  $('pbDockPanelDropzones').hidden=tabId!=='dropzones';
+  $('pbDockPanelVisuals').hidden=tabId!=='visuals';
+  $('pbDockPanelTheme').hidden=tabId!=='theme';
+
+}
+document.querySelectorAll('.pb-dock-btn').forEach(btn=>btn.addEventListener('click',()=>switchDockTab(btn.dataset.tab)));
+
+/* ── Render Left Table Explorer with Sub-tables ── */
+function renderDataExplorer(){
+  const container=$('pbTablesContainer');
+  const tree=semanticCatalog.tree||[];
+  let html='';
+  tree.forEach(tbl=>{
+    html+=`
+      <div class="pb-table-group" data-table-id="${esc(tbl.id)}">
+        <div class="pb-table-head" onclick="this.parentElement.classList.toggle('collapsed')">
+          <span>${tbl.icon||'📊'} ${esc(tbl.label)}</span>
+          <span class="pb-toggle-arrow">▼</span>
+        </div>
+        <div class="pb-table-fields">
+          ${tbl.fields.map(f=>`
+            <div class="pb-field-item ${f.type==='measure'?'is-measure':'is-dimension'}"
+                 draggable="true"
+                 data-table="${esc(tbl.id)}"
+                 data-field="${esc(f.key)}"
+                 data-type="${esc(f.type)}"
+                 data-label="${esc(f.label)}"
+                 data-kind="${esc(f.kind)}">
+              <span class="pb-field-name">${f.icon||'•'} ${esc(f.label)}</span>
+              <span class="pb-field-badge ${f.type==='measure'?'mes':'dim'}">${f.type==='measure'?'123':'ABC'}</span>
+            </div>
+          `).join('')}
+
+          ${(tbl.sub_tables||[]).map(sub=>`
+            <div class="pb-subtable-block">
+              <div class="pb-subtable-title">${sub.icon||'📦'} ${esc(sub.label)}</div>
+              ${sub.fields.map(sf=>`
+                <div class="pb-field-item ${sf.type==='measure'?'is-measure':'is-dimension'}"
+                     draggable="true"
+                     data-table="${esc(sub.id)}"
+                     data-field="${sf.key}"
+                     data-type="${sf.type}"
+                     data-label="${esc(sf.label)}"
+                     data-kind="${sf.kind}">
+                  <span class="pb-field-name">${sf.icon||'•'} ${esc(sf.label)}</span>
+                  <span class="pb-field-badge ${sf.type==='measure'?'mes':'dim'}">${sf.type==='measure'?'123':'ABC'}</span>
+                </div>
+              `).join('')}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+  container.innerHTML=html;
+
+  // Search filter
+  $('pbFieldSearch').addEventListener('input',e=>{
+    const q=e.target.value.toLowerCase();
+    container.querySelectorAll('.pb-table-group').forEach(grp=>{
+      const text=grp.textContent.toLowerCase();
+      grp.style.display=text.includes(q)?'':'none';
+    });
+  });
+
+  // Attach Drag handlers to fields
+  container.querySelectorAll('.pb-field-item').forEach(el=>{
+    el.addEventListener('dragstart',e=>{
+      e.dataTransfer.setData('text/plain',JSON.stringify({
+        table:el.dataset.table,
+        field:el.dataset.field,
+        type:el.dataset.type,
+        label:el.dataset.label,
+        kind:el.dataset.kind
+      }));
+      e.dataTransfer.effectAllowed='copy';
+    });
+
+    // Quick click assignment
+    el.addEventListener('click',()=>{
+      let w=active();
+      if(!w){add('chart','column');w=active()}
+      assignFieldToWidget(w,el.dataset.table,el.dataset.field,el.dataset.type,el.dataset.label);
+    });
+  });
+}
+
+function assignFieldToWidget(w,table,field,type,label){
+  if(w.type==='metric'){
+    if(type!=='measure'){status('KPI cards accept numeric measures only. Dates and customer names cannot be used.',true);return}
+    const mappings={
+      sales:{subtotal:'net_sales',grand_total:'billed_sales',outstanding:'receivables',count:'sales_invoices'},
+      purchase:{subtotal:'purchase_cost',grand_total:'purchase_total',outstanding:'payables'},
+      expenses:{amount:'expenses'},stock:{value:'inventory_value'}
+    };
+    const mappedKey=catalogue.metric.includes(field)?field:mappings[table]?.[field];
+    if(!mappedKey){status('This measure is not supported by KPI cards. Use a chart for this field.',true);return}
+    w.key=mappedKey;
+    w.metric_keys=[mappedKey];
+    w.title=display(mappedKey);
+    mark();
+    render();
+    return;
+  }
+
+  if(w.type!=='chart'||w.key!=='custom'){
+    w.type='chart';w.key='custom';
+    Object.assign(w,semanticCatalog.defaults);
+  }
+
+  if(w.semantic_source!==table){
+    w.semantic_source=table;
+    const tableDims=Object.keys(semanticCatalog.sources[table]?.dimensions||{});
+    const tableMeasures=Object.keys(semanticCatalog.sources[table]?.measures||{});
+    w.semantic_dimension=tableDims[0]||'period';
+    w.semantic_measure=tableMeasures[0]||'subtotal';
+    w.semantic_measures=[w.semantic_measure];
+  }
+
+  if(type==='dimension'){
+    w.semantic_dimension=field;
+    w.semantic_sort=field==='period'?'name_asc':'value_desc';
+  } else {
+    w.semantic_measure=field;
+    w.semantic_measures=[field];
+    w.semantic_aggregation=field==='count'?'count':'sum';
+  }
+  w.title=label||(semanticCatalog.sources[w.semantic_source]?.measures?.[w.semantic_measure] || display(w.semantic_measure));
+  mark();state.visuals[w.id]=null;render();loadVisuals();
+}
+
+/* ── Dropzones (X-Axis and Y-Axis) ── */
+function setupDropzones(){
+  const dzX=$('pbDropzoneX'), dzY=$('pbDropzoneY');
+  [dzX,dzY].forEach(dz=>{
+    dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('dragover')});
+    dz.addEventListener('dragleave',()=>dz.classList.remove('dragover'));
+    dz.addEventListener('drop',e=>{
+      e.preventDefault();dz.classList.remove('dragover');
+      try{
+        const data=JSON.parse(e.dataTransfer.getData('text/plain'));
+        let w=active();
+        if(!w){add('chart','column');w=active()}
+        const expected=dz.dataset.dropzone==='x'?'dimension':'measure';
+        if(data.type!==expected){status(expected==='measure'?'Y-Axis accepts numeric measures only.':'X-Axis accepts categories and dates only.',true);return}
+        assignFieldToWidget(w,data.table,data.field,data.type,data.label);
+      }catch(err){}
+    });
+  });
+}
+
+function updateDropzonesUI(w){
+  const dzContainer=$('pbDropzoneContainer');
+  const xPills=$('pbDropzoneXPills'), yPills=$('pbDropzoneYPills');
+  const grainRow=$('pbGrainRow');
+
+  if(!w||w.type!=='chart'){
+    if(dzContainer)dzContainer.style.display='none';
+    return;
+  }
+
+  if(dzContainer)dzContainer.style.display='block';
+
+  if(w.key!=='custom'){
+    if(xPills)xPills.innerHTML='<span class="pb-dropzone-empty">Pre-configured chart ('+esc(display(w.key))+')</span>';
+    if(yPills)yPills.innerHTML='<span class="pb-dropzone-empty">Built-in aggregation</span>';
+    if(grainRow)grainRow.style.display='none';
+    return;
+  }
+
+  const src=w.semantic_source||'sales';
+  const dimLabel=semanticCatalog.sources[src]?.dimensions?.[w.semantic_dimension]||display(w.semantic_dimension||'period');
+  const mesLabel=semanticCatalog.sources[src]?.measures?.[w.semantic_measure]||display(w.semantic_measure||'subtotal');
+
+  if(xPills)xPills.innerHTML=`<span class="pb-dropped-pill dim">🔤 ${esc(dimLabel)}</span>`;
+  if(yPills)yPills.innerHTML=`<span class="pb-dropped-pill">🔢 ${esc(mesLabel)} (${esc((w.semantic_aggregation||'sum').toUpperCase())})</span>`;
+  if(grainRow)grainRow.style.display=w.semantic_dimension==='period'?'block':'none';
+}
+
+function updateMetricSelection(w,input){
+  const kpi=!!input.dataset.kpiMetric,field=kpi?'metric_keys':'semantic_measures',primary=kpi?'key':'semantic_measure',key=input.dataset.kpiMetric||input.dataset.chartMeasure,limit=kpi?6:4;
+  let selected=[...(w[field]||[w[primary]])];
+  selected=input.checked?[...selected.filter(k=>k!==key),key]:selected.filter(k=>k!==key);
+  if(!selected.length||selected.length>limit){
+    input.checked=!input.checked;
+    status('Choose between 1 and '+limit+' metrics.',true);
+    return;
+  }
+  w[field]=selected;
+  w[primary]=selected[0];
+  if(kpi&&!styles(w).includes(w.style))w.style='default';
+  if(!kpi)w.semantic_aggregation=w.semantic_measure==='count'?'count':w.semantic_aggregation==='count'?'sum':w.semantic_aggregation;
+  w.title=selected.map(k=>kpi?display(k):(semanticCatalog.sources[w.semantic_source||'sales']?.measures?.[k] || display(k))).join(' / ').slice(0,80);
+  mark();if(!kpi)state.visuals[w.id]=null;render();if(!kpi&&w.key==='custom')loadVisuals();
+}
+
+function funnelChart(w,rows){
+  if(rows.some(r=>Number(r.value)<0))return '<p>Funnel requires nonnegative values. Choose a bar or line chart.</p>';
+  const max=Math.max(1,...rows.map(r=>Number(r.value)||0));
+  const subHtml=w.subtitle?`<p class="pb-chart-subtitle" style="font-size:${w.subtitle_font_size||11}px;color:${esc(w.subtitle_color||'#527467')};margin:2px 0 6px;">${esc(w.subtitle)}</p>`:'';
+  return subHtml+rows.map((r,i)=>`<div class="pb-mini" style="font-size:${w.font_size||12}px;color:${esc(w.text_color||'inherit')}"><span>${esc(r.name)}</span><strong>${esc(valueDisplay(r.value,w))}</strong></div><div tabindex="0" role="button" data-bi-group="${esc(r.key||r.name)}" class="pb-funnel" style="width:${Math.max(1,r.value/max*100)}%;background:${window.BICharts.color(w,r,i,colors)}"><title>${esc(r.name)}</title></div>`).join('')+'<p class="pb-chart-note" style="font-size:'+(w.font_size||12)+'px;opacity:.8;">Values by group; not a conversion rate.</p>';
+}
+
+function dataRows(w){
+  let d=state.data;if(!d)return[];
+  if(w.key.startsWith('trend_')&&w.key!=='trend_comparison')return(d.trend||[]).map(r=>({name:r.month,value:r[w.key.slice(6)]||0}));
+  return d[w.key]||[];
+}
+function chartFormat(n,w){
+  let v=Number(n)||0,c=state.data?.base_currency||{{ base_currency|default('INR')|tojson }};
+  if(w.key==='custom'&&['count','quantity','reorder_level'].includes(w.semantic_measure))return v.toLocaleString(undefined,{maximumFractionDigits:1});
+  if(w.number_format==='full')return money(v,c);
+  let abs=Math.abs(v),scale=c==='INR'?(abs>=1e7?1e7:abs>=1e5?1e5:abs>=1e3?1e3:1):(abs>=1e9?1e9:abs>=1e6?1e6:abs>=1e3?1e3:1),suffix=c==='INR'?(scale===1e7?'Cr':scale===1e5?'L':scale===1e3?'k':''):(scale===1e9?'B':scale===1e6?'M':scale===1e3?'k':'');
+  return `${c==='INR'?'₹':c+' '}${(v/scale).toLocaleString(undefined,{maximumFractionDigits:scale===1?0:1})}${suffix}`;
+}
+function axisName(w){return w.key==='custom'?(state.visuals?.[w.id]?.axis_label||'Group'):w.key.startsWith('trend_')?'Month':w.key==='sales_countries'?'Country':w.key==='top_customers'?'Customer':w.key==='top_suppliers'?'Supplier':w.key==='stock_categories'?'Category':'Group'}
+
+function horizontalChart(w,rows){
+  const axisFontSize=Number(w.axis_font_size)||10,axisColor=esc(w.axis_color||'#557568');
+  const dataLabelFontSize=Number(w.data_label_font_size)||14,dataLabelColor=esc(w.data_label_color||w.text_color||'#163a34');
+  const subtitleFontSize=Number(w.subtitle_font_size)||11,subtitleColor=esc(w.subtitle_color||'#527467');
+  let max=Math.max(1,...rows.map(r=>Math.max(0,Number(r.value)||0))),height=Math.max(140,rows.length*30+30),left=125,right=520,top=15,step=(height-30)/rows.length;
+  let grid=w.show_axes!==false?[0,.25,.5,.75,1].map(t=>`<line x1="${left+(right-left)*t}" y1="${top}" x2="${left+(right-left)*t}" y2="${height-18}" stroke="${esc(w.grid_color||'currentColor')}" opacity="${w.show_grid===false?0:w.grid_color?1:.12}"/><text x="${left+(right-left)*t}" y="${height-3}" font-size="${axisFontSize}" fill="${axisColor}" text-anchor="middle">${esc(chartFormat(max*t,w))}</text>`).join(''):'';
+  let entries=rows.map((r,i)=>{let v=Math.max(0,Number(r.value)||0),cy=top+i*step+step/2,width=v/max*(right-left),title=`${esc(r.name)}: ${esc(valueDisplay(v,w))}`;return `${w.show_axes!==false?`<text x="${left-7}" y="${cy+3}" font-size="${axisFontSize}" fill="${axisColor}" text-anchor="end"><title>${esc(r.name)}</title>${esc(String(r.name).length>19?String(r.name).slice(0,17)+'…':r.name)}</text>`:''}<rect tabindex="0" role="button" data-bi-group="${esc(r.key||r.name)}" x="${left}" y="${cy-7}" width="${Math.max(1,width)}" height="14" rx="2" fill="${window.BICharts.color(w,r,i,colors)}"><title>${title}</title></rect>${w.show_values?`<text x="${Math.min(right+4,left+width+4)}" y="${cy+3}" font-size="${dataLabelFontSize}" fill="${dataLabelColor}">${esc(chartFormat(v,w))}</text>`:''}`}).join('');
+  return `${w.subtitle?`<p class="pb-chart-subtitle" style="font-size:${subtitleFontSize}px;color:${subtitleColor};margin:2px 0 6px;">${esc(w.subtitle)}</p>`:''}<svg class="pb-chart-svg" viewBox="0 0 600 ${height}" style="max-height:none" role="img" aria-label="${esc(w.title||display(w.key))}">${grid}${entries}</svg>${w.show_axes!==false?`<p class="pb-chart-note" style="font-size:${axisFontSize}px;color:${axisColor};">${esc(w.x_title||(w.key==='custom'?(state.visuals[w.id]?.measure_label||'Value'):'Amount ('+state.data.base_currency+')'))} by ${esc(w.y_title||axisName(w))}</p>`:''}`;
+}
+
+function singleChart(w,rows,periodTotals=false){
+  if(!periodTotals&&window.BICharts){
+    if(['pie','donut'].includes(w.style))return ring(rows,w.style==='pie',w);
+    if(w.style==='funnel')return funnelChart(w,rows);
+    if(!['scatter','waterfall','treemap'].includes(w.style))return seriesChart(w,rows,[{key:w.key,label:display(w.key)}]);
+  }
+  if(w.style==='bar'&&!periodTotals)return rows.some(r=>Number(r.value)<0)?singleChart({...w,style:'column'},rows):horizontalChart(w,rows);
+  const d=state.data,c=d.base_currency||{{ base_currency|default('INR')|tojson }},line=!periodTotals&&['line','area','spline_line','curved_area'].includes(w.style);
+  const axisFontSize=Number(w.axis_font_size)||10,axisColor=esc(w.axis_color||'#557568');
+  const dataLabelFontSize=Number(w.data_label_font_size)||14,dataLabelColor=esc(w.data_label_color||w.text_color||'#163a34');
+  const legendFontSize=Number(w.legend_font_size)||11,legendColor=esc(w.legend_color||w.text_color||'#335548');
+  const subtitleFontSize=Number(w.subtitle_font_size)||11,subtitleColor=esc(w.subtitle_color||'#527467');
+  const values=rows.map(r=>Number(r.value)||0),hi=Math.max(0,...values),lo=Math.min(0,...values),top=hi===lo?hi+Math.max(1,Math.abs(hi)*.1):hi,bottom=lo<0?lo:0,range=top-bottom||1;
+  const left=70,right=540,upper=25,lower=175,x=i=>left+(rows.length===1?(right-left)/2:i*(right-left)/(rows.length-1)),y=v=>lower-(v-bottom)/range*(lower-upper),baseline=y(0),ticks=[0,1,2,3,4];
+  const valueAxis=w.show_axes!==false?ticks.map(i=>{let v=bottom+range*i/4,yy=y(v);return `${w.show_grid!==false?`<line x1="${left}" y1="${yy}" x2="${right}" y2="${yy}" stroke="${esc(w.grid_color||'currentColor')}" opacity="${w.grid_color?1:.12}"/>`:''}<text x="${left-6}" y="${yy+3}" text-anchor="end" font-size="${axisFontSize}" fill="${axisColor}">${esc(chartFormat(v,w))}</text>`}).join(''):'';
+  const xLabels=w.show_axes!==false?rows.map((r,i)=>(i%Math.ceil(rows.length/7)===0||i===rows.length-1)?`<text x="${x(i)}" y="195" text-anchor="middle" font-size="${axisFontSize}" fill="${axisColor}"><title>${esc(r.name)}</title>${esc(String(r.name).length>14?String(r.name).slice(0,12)+'…':r.name)}</text>`:'').join(''):'';
+  const marks=rows.map((r,i)=>{let xx=x(i),yy=y(values[i]),title=`${esc(r.name)}: ${esc(valueDisplay(values[i],w))}`;if(line)return `${w.show_markers!==false?`<circle tabindex="0" role="button" data-bi-group="${esc(r.key||r.name)}" data-bi-period="${periodTotals?(i===0?'previous':'selected'): ''}" cx="${xx}" cy="${yy}" r="4" fill="var(--tone)"><title>${title}</title></circle>`:`<circle tabindex="0" role="button" data-bi-group="${esc(r.key||r.name)}" cx="${xx}" cy="${yy}" r="9" opacity="0"><title>${title}</title></circle>`}${w.show_values?`<text x="${xx}" y="${Math.max(12,yy-8)}" text-anchor="middle" font-size="${dataLabelFontSize}" fill="${dataLabelColor}">${esc(chartFormat(values[i],w))}</text>`:''}`;const width=Math.min(48,(right-left)/Math.max(rows.length,1)*.62),start=xx-width/2,rectY=Math.min(yy,baseline),height=Math.max(1,Math.abs(baseline-yy));return `<rect tabindex="0" role="button" data-bi-group="${esc(r.key||r.name)}" data-bi-period="${periodTotals?(i===0?'previous':'selected'): ''}" x="${start}" y="${rectY}" width="${width}" height="${height}" rx="2" fill="${window.BICharts.color(w,r,i,colors)}"><title>${title}</title></rect>${w.show_values?`<text x="${xx}" y="${Math.max(12,rectY-7)}" text-anchor="middle" font-size="${dataLabelFontSize}" fill="${dataLabelColor}">${esc(chartFormat(values[i],w))}</text>`:''}`}).join('');
+  const points=rows.map((r,i)=>`${x(i)},${y(values[i])}`).join(' '),shape=line?`${(w.style==='area'||w.style==='curved_area')?`<polygon points="${left},${baseline} ${points} ${right},${baseline}" fill="var(--tone)" opacity=".16"/>`:''}<polyline points="${points}" fill="none" stroke="var(--tone)" stroke-width="3"/>`:'';
+  const xTitle=esc(w.x_title|| (periodTotals?'Period':axisName(w))),yTitle=esc(w.y_title||(w.key==='custom'?(state.visuals[w.id]?.measure_label||'Value'):'Amount ('+c+')'));
+  return `${w.subtitle?`<p class="pb-chart-subtitle" style="font-size:${subtitleFontSize}px;color:${subtitleColor};margin:2px 0 6px;">${esc(w.subtitle)}</p>`:''}${periodTotals?'<p class="pb-chart-note" style="font-size:'+subtitleFontSize+'px;color:'+subtitleColor+';">Period totals · selected vs preceding equal-length period</p>':''}<svg class="pb-chart-svg" viewBox="0 0 600 225" role="img" aria-label="${esc(w.title||display(w.key))}">${valueAxis}${w.show_axes!==false?`<line x1="${left}" y1="${lower}" x2="${right}" y2="${lower}" stroke="currentColor" opacity=".5"/>`:''}${shape}${marks}${xLabels}${w.show_axes!==false?`<text x="${(left+right)/2}" y="217" text-anchor="middle" font-size="${axisFontSize+1}" fill="${axisColor}">${xTitle}</text><text transform="translate(12 ${(upper+lower)/2}) rotate(-90)" text-anchor="middle" font-size="${axisFontSize+1}" fill="${axisColor}">${yTitle}</text>`:''}</svg>${w.show_legend!==false&&periodTotals?`<div class="pb-chart-legend" style="font-size:${legendFontSize}px;color:${legendColor};"><span><i style="background:var(--tone)"></i>${esc(display(w.key.replace('trend_','')))}</span></div>`:''}`;
+}
+
+function miniLine(rows,tone,filled=false){
+  let max=Math.max(1,...rows.map(r=>Math.max(0,Number(r.value)||0))),points=rows.map((r,i)=>`${12+(rows.length===1?135:i*270/(rows.length-1))},${108-Math.max(0,r.value)/max*92}`).join(' ');
+  let poly=filled?`<polygon points="12,108 ${points} 282,108" fill="${tone}" fill-opacity=".17"/>`:'';
+  return `<svg class="pb-svg" viewBox="0 0 295 122" role="img" aria-label="Trend"><line x1="12" y1="108" x2="282" y2="108" stroke="#becfc4"/>${poly}<polyline points="${points}" fill="none" stroke="${tone}" stroke-width="3"/></svg>`;
+}
+
+function ring(rows,pie=false,w={}){
+  const m=gridMetrics(),pw=Math.max(120,(w.w||10)*m.stepX-26),ph=Math.max(70,(w.h||6)*52-56);
+  return window.BICharts.renderRing({...w,style:pie?'pie':'donut',_plot_width:pw,_plot_height:ph},rows,{esc,colors,format:v=>chartFormat(v,w)});
+}
+
+function seriesChart(w,rows,series){
+  const offset=Math.max(0,accents.indexOf(w.accent));
+  const palette=[...colors.slice(offset),...colors.slice(0,offset)];
+  const m=gridMetrics(),pw=Math.max(120,(w.w||10)*m.stepX-26),ph=Math.max(70,(w.h||6)*52-56);
+  const wWithDims={...w,_plot_width:pw,_plot_height:ph};
+  if(!window.BICharts||typeof window.BICharts.render!=='function'){
+    if(rows&&rows.length){
+      const sKey=(series&&series[0]&&series[0].key)||'value';
+      const flatRows=rows.map(r=>({name:r.name||r.key||'',value:Number(r.values?.[sKey]??r.value)||0}));
+      return singleChart({...wWithDims,style:['radar','polar_area','grouped_bar','lollipop'].includes(w.style)?'bar':w.style},flatRows);
+    }
+    return '<p class="pb-chart-note">Chart renderer is loading…</p>';
+  }
+  return window.BICharts.render(wWithDims,rows,series,{esc,colors:palette,format:(v,series)=>chartFormat(v,{...wWithDims,semantic_measure:series.key})});
+}
+
+function multi(w){
+  let d=state.data,category=w.key==='sales_category_month',keys=category?['product_sale','workshop_repair','Other']:['sales','purchases','expenses'],rows=(category?d.sales_category_month:d.trend)||[];
+  let visual=seriesChart({...w,axis_label:'Month'},rows.map(r=>({key:r.month,name:r.month,values:r})),keys.map(k=>({key:k,label:display(k),drillSeries:category})));
+  return category?visual:visual.replace(/tabindex="0" role="button" data-bi-group="[^"]*" data-bi-measure="[^"]*"/g,'');
+}
+
+function customPreview(w,result){
+  if(!result)return '<p>Loading field chart…</p>';
+  if(result.error)return `<p>${esc(result.error)}</p>`;
+  if(result.not_applicable)return '<p>This source does not apply to the selected business filter.</p>';
+  let rows=result.rows||[];
+  if(rows.length&&rows.every(r=>r.count===0))return '<p>No records for these fields and dates.</p>';
+  if(!w._oneSeries&&(result.series||[]).length>1){
+    const units=new Set(result.series.map(s=>s.value_kind));
+    if(units.size>1||['pie','donut','treemap','funnel','radar','polar_area'].includes(w.style))return '<p class="pb-chart-note">'+result.series.length+' measures · separate plots</p><div class="pb-series-plots">'+result.series.map(series=>'<section><h4>'+esc(series.label)+'</h4>'+customPreview({...w,_oneSeries:true,semantic_measure:series.key,style:['stacked_column','stacked_bar','combo'].includes(w.style)?'column':w.style},{...result,series:[series],rows:rows.map(r=>({...r,value:r.values[series.key]}))})+'</section>').join('')+'</div>';
+    return seriesChart({...w,axis_label:result.axis_label},rows,result.series);
+  }
+  if(!rows.length)return '<p>No records for these fields and dates.</p>';
+  let visual;
+  if(['line','area','bar','column','step_line','lollipop','grouped_column','stacked_column','stacked_bar','combo','radar','polar_area','spline_line','curved_area','grouped_bar'].includes(w.style))visual=seriesChart({...w,axis_label:result.axis_label},rows,result.series||[{key:w.semantic_measure,label:result.measure_label}]);
+  else if(w.style==='funnel')visual=funnelChart(w,rows);
+  else if(['pie','donut'].includes(w.style))visual=ring(rows,w.style==='pie',w);
+  else{
+    let total=rows.reduce((n,r)=>n+Math.max(0,r.value),0)||1;
+    visual=`${w.subtitle?`<p class="pb-chart-subtitle" style="font-size:${w.subtitle_font_size||11}px;color:${esc(w.subtitle_color||'#527467')};margin:2px 0 6px;">${esc(w.subtitle)}</p>`:''}<div class="pb-tile">${rows.map((r,i)=>`<span tabindex="0" role="button" data-bi-group="${esc(r.key||r.name)}" title="${esc(r.name)}: ${esc(valueDisplay(r.value,w))}" style="flex:${Math.max(1,r.value/total*100)};background:${window.BICharts.color(w,r,i,colors)}">${esc(r.name)}${w.show_values?' · '+esc(chartFormat(r.value,w)):''}</span>`).join('')}</div>`;
+  }
+  return visual.replace(/data-bi-measure="[^"]*"/g,'').replaceAll('data-bi-group=',`data-bi-measure="${esc(w.semantic_measure)}" data-bi-group=`);
+}
+
+function filterLabel(key){return {date_range:'Date Range',client_id:'Customer',employee_id:'Employee',supplier_id:'Supplier',country:'Country',product_category:'Product Category',expense_category:'Expense Category'}[key]||display(key)}
+function filterPreview(w){
+  if(w.key==='date_range')return `<div class="pb-filter"><label>From<input type="date" data-filter="from" value="${esc($('pbFrom').value)}"></label><label>To<input type="date" data-filter="to" value="${esc($('pbTo').value)}"></label></div>`;
+  const source={client_id:'clients',employee_id:'employees',supplier_id:'suppliers',country:'countries',product_category:'product_categories',expense_category:'expense_categories'}[w.key];
+  const selected=$('pbFocus').value===w.key?$('pbFocusValue').value:'';
+  return `<div class="pb-filter"><label>${esc(filterLabel(w.key))}<select data-business-filter="${esc(w.key)}"><option value="">All</option>${(filterOptions[source]||[]).map(item=>{const id=String(typeof item==='string'?item:item.id),name=typeof item==='string'?item:item.name;return `<option value="${esc(id)}" ${id===selected?'selected':''}>${esc(name)}</option>`}).join('')}</select></label></div><p class="pb-filter-help">Applies to the dashboard. One business filter at a time, alongside dates.</p>`;
+}
+
+function preview(w){
+  if(w.type==='text')return `<p style="font-size:${w.font_size||12}px;color:${esc(w.text_color||'inherit')};margin:0;line-height:1.5;">${esc(w.text||'Write a note in Widget settings.')}</p>`;
+  if(w.type==='filter')return filterPreview(w);
+  if(!state.data)return '<p>'+esc(state.dataError||'Loading preview…')+'</p>';
+  let d=state.data;
+  
+  if(w.type==='metric'&&!w._singleMetric&&(w.metric_keys||[]).length>1)
+    return '<div class="pb-kpi-set">'+w.metric_keys.map(key=>'<section class="pb-kpi-item"><div class="pb-kpi-label" style="font-size:'+(w.font_size||12)+'px;color:'+esc(w.text_color||'inherit')+'">'+esc(display(key))+'</div>'+preview({...w,key,_singleMetric:true,style:['gauge','progress'].includes(w.style)?'default':w.style})+'</section>').join('')+'</div>';
+  
+  if(w.type==='chart'&&w.key==='custom')return customPreview(w,state.visuals?.[w.id]);
+  if((d.not_applicable||[]).includes(w.key))return '<p>This visual does not apply to the selected business filter.</p>';
+  
+  if(w.type==='metric'){
+    let value=d.period[w.key]??d.live[w.key],count=['sales_invoices','active_customers','low_stock_items'].includes(w.key);
+    let formatted=value==null?'—':count?Number(value).toLocaleString():money(value,d.base_currency);
+    let pct=w.compare==='previous_period'?d.comparisons[w.key]?.change_pct:null;
+    let html=`<div class="pb-number" title="${esc(formatted)}" style="font-size:var(--pb-value-size,28px);color:var(--pb-value-color,var(--tone));">${formatted}</div>${pct==null?'':`<span class="pb-delta" style="font-size:${w.font_size||12}px;color:${pct>=0?'#177c68':'#b83d32'};">${pct>=0?'+':''}${pct}% vs preceding period</span>`}`;
+    if(w.style==='sparkline'){
+      let key={net_sales:'sales',purchase_cost:'purchases',expenses:'expenses'}[w.key];
+      html+=key?miniLine((d.trend||[]).map(r=>({name:r.month,value:r[key]})),'var(--tone)'):'<p class="pb-chart-note">Trend not available.</p>';
+    }
+    return html;
+  }
+
+  let rows=dataRows(w).slice(0,12);
+  if(w.type==='table')return rows.length?`<table class="pb-grid-table" style="font-size:${w.font_size||12}px;color:${esc(w.text_color||'inherit')}">${rows.map(r=>`<tr tabindex="0" role="button" data-bi-group="${esc(r.key||r.name)}"><td>${esc(r.name)}</td><td>${money(r.value,d.base_currency)}</td></tr>`).join('')}</table>`:'<p>No data for these dates.</p>';
+  if(w.key==='sales_category_month'||w.key==='trend_comparison')return multi(w);
+  if(!rows.length)return '<p>No data for these dates.</p>';
+  return singleChart(w,rows);
+}
+
+function backgrounds(){
+  let presets=Object.entries(labels).map(([key,name])=>`<button type="button" data-bg="${key}" aria-pressed="${state.background===key}" style="height:36px;border:1px solid #d2e0d8;border-radius:6px;cursor:pointer;font-size:11px;font-weight:750;background:${key==='canvas_green'?'#0d6555':key==='canvas_midnight'?'#152c3c':key==='canvas_gold'?'#fff2bf':key==='canvas_cream'?'#fffaf0':key==='canvas_slate'?'#d6e4e7':key==='canvas_dots'?'#f8fbf9':'#f5faf6'};color:${['canvas_green','canvas_midnight'].includes(key)?'#fff':'#124c40'}">${name}</button>`).join('');
+  let customBtn=uploadedBgImage?`<button type="button" data-bg="__custom_image__" aria-pressed="${state.background.startsWith('custom_image:')}" style="height:36px;border:1px solid #0c7864;border-radius:6px;cursor:pointer;font-size:11px;font-weight:750;background-size:cover;background-image:url('${uploadedBgImage}')">Custom</button>`:'';
+  $('pbBackgrounds').innerHTML=presets+customBtn;
+  let removeBtn=$('pbBgRemove');if(removeBtn)removeBtn.hidden=!uploadedBgImage;
+}
+function rgba(hex,opacity){let h=(hex||'#ffffff').replace('#','');return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${Math.max(0,Math.min(100,opacity??100))/100})`}
+
+function widgetPosition(w){
+  // Keep fractional grid units so placement remains responsive without snapping.
+  const step='((100% - 20px) / 24)';
+  return `position:absolute;left:calc(14px + ${step} * ${w.x});top:${14+w.y*52}px;width:calc(${step} * ${w.w} - 8px);height:${w.h*52-8}px;`;
+}
+function render(rebuildSettings=true){
+  let canvas=$('pbCanvas'),isCustomBg=state.background.startsWith('custom_image:');
+  canvas.className='pb-canvas '+(isCustomBg?'canvas_custom_image':state.background)+(state.widgets.length?'':' empty');
+  canvas.style.backgroundImage=isCustomBg?`url('${state.background.slice('custom_image:'.length)}')`:'';
+  canvas.style.height=Math.max(680,...state.widgets.map(w=>28+(w.y+w.h)*52-8))+'px';
+  $('pbCanvasCount').textContent=state.widgets.length+' Visuals';
+  canvas.innerHTML=state.widgets.map(w=>`<article class="pb-card accent_${w.accent||'teal'} ${state.selected===w.id?'selected':''}" draggable="false" data-id="${esc(w.id)}" data-kind="${w.type}" style="${widgetPosition(w)}background:${rgba(w.card_color,w.opacity)};color:${esc(w.text_color||'#163a34')};--tone:${esc(w.chart_color||colors[Math.max(0,accents.indexOf(w.accent))%colors.length])};--pb-chart-scale:${(Number(w.chart_scale)||100)/100};--pb-title-size:${Number(w.title_font_size)||13}px;--pb-title-color:${esc(w.title_color||w.text_color||'#163a34')};--pb-text-color:${esc(w.text_color||'#163a34')};--pb-value-color:${esc(w.value_color||'#0c7864')};--pb-font-size:${Number(w.font_size)||12}px;--pb-value-size:${Number(w.value_size)||28}px"><div class="pb-card-head" style="font-size:var(--pb-title-size);color:var(--pb-title-color);"><span>${esc(w.title||display(w.key))}</span><button type="button" title="Edit widget" data-edit="${esc(w.id)}">⚙</button></div><div class="pb-card-body">${preview(w)}</div><span class="pb-resize pb-resize-e" data-resize="${esc(w.id)}" data-dir="e" title="Resize width"></span><span class="pb-resize pb-resize-s" data-resize="${esc(w.id)}" data-dir="s" title="Resize height"></span><span class="pb-resize pb-resize-se" data-resize="${esc(w.id)}" data-dir="se" title="Resize"></span></article>`).join('');
+  backgrounds();
+  if(rebuildSettings!==false){
+    settings();
+    updateDropzonesUI(active());
+  }
+}
+
+function chartFormatting(w){
+  const result=state.visuals[w.id];
+  const rows=w.key==='custom'?(result?.rows||[]):dataRows(w).slice(0,12);
+  const series=w.key==='custom'?(result?.series||[{key:w.semantic_measure,label:display(w.semantic_measure||'value')}])
+    :w.key==='trend_comparison'?['sales','purchases','expenses'].map(key=>({key,label:display(key)}))
+    :w.key==='sales_category_month'?['product_sale','workshop_repair','Other'].map(key=>({key,label:display(key)})):[{key:w.key,label:display(w.key)}];
+  const perSeries=['line','area','step_line','spline_line','curved_area','radar'].includes(w.style)||series.length>1&&!['pie','donut','polar_area','treemap','funnel'].includes(w.style);
+  const entries=perSeries?series:rows;
+  return `<div class="pb-dock-section"><legend>Size, labels & colors</legend>
+    <label class="pb-field-row">Chart size (%)<input id="pbChartScale" type="number" min="50" max="150" step="5" value="${w.chart_scale||100}"></label>
+    <p class="pb-hint">Increase to enlarge the plot; resize the card to create more space. Outside labels may need a wider card.</p>
+    ${w.style==='donut'?`<label class="pb-field-row">Donut hole (%)<input id="pbDonutHole" type="number" min="20" max="85" value="${w.donut_hole||60}"></label>`:''}
+    <label class="pb-field-row">Data label position<select id="pbLabelPosition">${['auto','outside','inside','center'].map(v=>`<option value="${v}" ${(w.label_position||'auto')===v?'selected':''}>${display(v)}</option>`).join('')}</select></label>
+    <p class="pb-hint">Enable Show Data Labels / Values above. Outside is easiest to read for small slices. Lines place Inside labels below their points.</p>
+    <label class="pb-color-row">Default chart color<input type="color" id="pbChartColor" value="${esc(w.chart_color||colors[0])}"></label>
+    <details open><summary>${perSeries?'Series / line colors':'Category / slice / bar colors'}</summary>
+    ${entries.map((r,i)=>`<label class="pb-color-row"><span>${esc(r.label||r.name||r.key)}</span><input type="color" data-chart-color="${perSeries?'series_colors':'category_colors'}" data-color-key="${esc(r.key??r.name)}" value="${esc(window.BICharts.color(w,r,i,colors,perSeries))}"></label>`).join('')||'<p>Load chart data to choose individual colors.</p>'}</details>
+    <button type="button" data-reset-chart-colors="1">Reset chart colors</button></div>`;
+}
+function settings(){
+  let w=active(),root=$('pbSettings');
+  const activeEl=document.activeElement;
+  const focusInSettings=activeEl&&root&&root.contains(activeEl);
+  const activeId=focusInSettings?activeEl.id:'';
+  const selStart=focusInSettings&&typeof activeEl.selectionStart==='number'?activeEl.selectionStart:null;
+  const selEnd=focusInSettings&&typeof activeEl.selectionEnd==='number'?activeEl.selectionEnd:null;
+  if(!w){root.innerHTML='<p class="pb-hint" style="padding:10px 0;color:#54776b;font-size:12px;">Select any visual on canvas to customize its fields and styling.</p>';return}
+  let choices=styles(w);
+
+  let metricSection = '';
+  if(w.type==='metric'){
+    metricSection = `
+      <div class="pb-dock-section">
+        <legend>KPI Metric & Card Mode</legend>
+        <div class="pb-field-row">
+          <label>KPI Metric</label>
+          <select id="pbWidgetKey">
+            ${(catalogue.metric||[]).map(k=>`<option value="${k}" ${k===w.key?'selected':''}>${display(k)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="pb-field-row">
+          <label>KPI Style</label>
+          <select id="pbWidgetStyle">
+            ${(typeStyles.metric||[]).map(k=>`<option value="${k}" ${k===w.style?'selected':''}>${display(k)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="pb-field-row">
+          <label>Comparison Mode</label>
+          <select id="pbCompare">
+            <option value="previous_period" ${w.compare==='previous_period'?'selected':''}>Vs Preceding Period</option>
+            <option value="none" ${w.compare==='none'?'selected':''}>None</option>
+          </select>
+        </div>
+        <div class="pb-field-row">
+          <label>Target Value</label>
+          <input id="pbTarget" type="number" step="any" value="${w.target||0}">
+        </div>
+        <div class="pb-field-row">
+          <label>Number Formatting</label>
+          <select id="pbNumberFormat">
+            <option value="compact" ${w.number_format!=='full'?'selected':''}>Compact ({{ currency_symbol|default("₹") }}1.2L / {{ currency_symbol|default("₹") }}4.5k)</option>
+            <option value="full" ${w.number_format==='full'?'selected':''}>Full Standard ({{ currency_symbol|default("₹") }}1,20,000)</option>
+          </select>
+        </div>
+      </div>
+    `;
+  }
+
+  let chartSection = '';
+  if(w.type==='chart'){
+    const isSliceChart = ['donut','pie','treemap','polar_area'].includes(w.style);
+    chartSection = `
+      <div class="pb-dock-section">
+        <legend>Chart Options & Display</legend>
+        <div class="pb-field-row">
+          <label>Chart Style</label>
+          <select id="pbWidgetStyle">
+            ${(choices||[]).map(k=>`<option value="${k}" ${k===w.style?'selected':''}>${display(k)}</option>`).join('')}
+          </select>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;margin:6px 0;">
+          <label class="pb-check-row">
+            <input type="checkbox" id="pbShowLegend" ${w.show_legend!==false?'checked':''}>
+            <span>Show Legend</span>
+          </label>
+          <label class="pb-check-row">
+            <input type="checkbox" id="pbShowValues" ${w.show_values?'checked':''}>
+            <span>Show Data Labels / Values</span>
+          </label>
+          <label class="pb-check-row">
+            <input type="checkbox" id="pbShowAxes" ${w.show_axes!==false?'checked':''}>
+            <span>Show Axes & Titles</span>
+          </label>
+          <label class="pb-check-row">
+            <input type="checkbox" id="pbShowGrid" ${w.show_grid!==false?'checked':''}>
+            <span>Show Grid Lines</span>
+          </label>
+          <label class="pb-check-row">
+            <input type="checkbox" id="pbShowMarkers" ${w.show_markers!==false?'checked':''}>
+            <span>Show Line Point Markers</span>
+          </label>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="pb-field-row">
+            <label>Category label display</label>
+          <select id="pbAxisLabelMode">${[['wrap','Wrap to two lines'],['abbreviate','Abbreviate long names'],['truncate','Shorten with ellipsis']].map(([key,label])=>`<option value="${key}" ${(w.axis_label_mode||'wrap')===key?'selected':''}>${label}</option>`).join('')}</select>
+          <small>Full names remain in tooltips and category legends.</small>
+          <label>X-Axis Title</label>
+            <input id="pbXTitle" maxlength="40" placeholder="Auto" value="${esc(w.x_title||'')}">
+          </div>
+          <div class="pb-field-row">
+            <label>Y-Axis Title</label>
+            <input id="pbYTitle" maxlength="40" placeholder="Auto" value="${esc(w.y_title||'')}">
+          </div>
+        </div>
+
+        <div class="pb-field-row" style="margin-top:4px;">
+          <label>Number Formatting</label>
+          <select id="pbNumberFormat">
+            <option value="compact" ${w.number_format!=='full'?'selected':''}>Compact ({{ currency_symbol|default("₹") }}1.2L / {{ currency_symbol|default("₹") }}4.5k)</option>
+            <option value="full" ${w.number_format==='full'?'selected':''}>Full Standard ({{ currency_symbol|default("₹") }}1,20,000)</option>
+          </select>
+        </div>
+
+        ${isSliceChart ? `
+        <div class="pb-field-row">
+          <label>Slice Labels</label>
+          <select id="pbLabelMode">
+            <option value="percent" ${w.label_mode==='percent'?'selected':''}>Percentage (%)</option>
+            <option value="value" ${w.label_mode==='value'?'selected':''}>Value</option>
+            <option value="both" ${w.label_mode==='both'?'selected':''}>Both (% & Value)</option>
+            ${['category','category_value','category_percent'].map(k=>`<option value="${k}" ${w.label_mode===k?'selected':''}>${display(k)}</option>`).join('')}
+          </select>
+        </div>
+        ` : ''}
+      </div>
+      ${chartFormatting(w)}
+    `;
+  }
+
+  let textSection = '';
+  if(w.type==='text'){
+    textSection = `
+      <div class="pb-dock-section">
+        <legend>Text Content</legend>
+        <div class="pb-field-row">
+          <label>Note / Text</label>
+          <textarea id="pbText" rows="3">${esc(w.text||'')}</textarea>
+        </div>
+      </div>
+    `;
+  }
+
+  let tableSection = '';
+  if(w.type==='table'){
+    tableSection = `
+      <div class="pb-dock-section">
+        <legend>Table Style</legend>
+        <div class="pb-field-row">
+          <label>Table Value Color</label>
+          <div class="pb-color-ctrl"><input id="pbValueColor" type="color" value="${esc(w.value_color||'#0c7864')}"><span>${esc(w.value_color||'#0c7864')}</span></div>
+        </div>
+        <div class="pb-field-row">
+          <label>Layout Style</label>
+          <select id="pbWidgetStyle">
+            ${(typeStyles.table||[]).map(k=>`<option value="${k}" ${k===w.style?'selected':''}>${display(k)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    `;
+  }
+
+  let typographySection = `
+    <div class="pb-dock-section">
+      <legend>Typography & Sizing</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="pb-field-row">
+          <label>Title Size (px)</label>
+          <input id="pbTitleFontSize" type="number" min="10" max="32" value="${w.title_font_size||13}">
+        </div>
+        <div class="pb-field-row">
+          <label>Title Color</label>
+          <div class="pb-color-ctrl">
+            <input id="pbTitleColor" type="color" value="${esc(w.title_color||'#163a34')}">
+            <span>${esc(w.title_color||'#163a34')}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="pb-field-row">
+          <label>Subtitle Size</label>
+          <input id="pbSubtitleFontSize" type="number" min="9" max="24" value="${w.subtitle_font_size||11}">
+        </div>
+        <div class="pb-field-row">
+          <label>Subtitle Color</label>
+          <div class="pb-color-ctrl">
+            <input id="pbSubtitleColor" type="color" value="${esc(w.subtitle_color||'#527467')}">
+            <span>${esc(w.subtitle_color||'#527467')}</span>
+          </div>
+        </div>
+      </div>
+
+      ${w.type==='metric' ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="pb-field-row">
+          <label>KPI Value Size</label>
+          <input id="pbValueSize" type="number" min="16" max="64" value="${w.value_size||28}">
+        </div>
+        <div class="pb-field-row">
+          <label>KPI Value Color</label>
+          <div class="pb-color-ctrl">
+            <input id="pbValueColor" type="color" value="${esc(w.value_color||'#0c7864')}">
+            <span>${esc(w.value_color||'#0c7864')}</span>
+          </div>
+        </div>
+      </div>
+      ` : ''}
+
+      ${w.type==='chart' ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="pb-field-row">
+          <label>Axis Font Size</label>
+          <input id="pbAxisFontSize" type="number" min="8" max="18" value="${w.axis_font_size||10}">
+        </div>
+        <div class="pb-field-row">
+          <label>Grid Line Color</label>
+          <div class="pb-color-ctrl">
+            <input id="pbGridColor" type="color" value="${esc(w.grid_color||'#dce5e1')}">
+            <span>${esc(w.grid_color||'#dce5e1')}</span>
+          </div>
+          <label>Axis Color</label>
+          <div class="pb-color-ctrl">
+            <input id="pbAxisColor" type="color" value="${esc(w.axis_color||'#557568')}">
+            <span>${esc(w.axis_color||'#557568')}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="pb-field-row">
+          <label>Data Label Size</label>
+          <input id="pbDataLabelFontSize" type="number" min="8" max="32" value="${w.data_label_font_size||14}">
+        </div>
+        <div class="pb-field-row">
+          <label>Data Label Color</label>
+          <div class="pb-color-ctrl">
+            <input id="pbDataLabelColor" type="color" value="${esc(w.data_label_color||'#163a34')}">
+            <span>${esc(w.data_label_color||'#163a34')}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="pb-field-row">
+          <label>Legend Size</label>
+          <input id="pbLegendFontSize" type="number" min="8" max="18" value="${w.legend_font_size||11}">
+        </div>
+        <div class="pb-field-row">
+          <label>Legend Color</label>
+          <div class="pb-color-ctrl">
+            <input id="pbLegendColor" type="color" value="${esc(w.legend_color||'#335548')}">
+            <span>${esc(w.legend_color||'#335548')}</span>
+          </div>
+        </div>
+      </div>
+      ` : ''}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="pb-field-row">
+          <label>General Font Size</label>
+          <input id="pbFontSize" type="number" min="9" max="24" value="${w.font_size||12}">
+        </div>
+        <div class="pb-field-row">
+          <label>General Text Color</label>
+          <div class="pb-color-ctrl">
+            <input id="pbTextColor" type="color" value="${esc(w.text_color||'#163a34')}">
+            <span>${esc(w.text_color||'#163a34')}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  root.innerHTML=`
+    <div class="pb-dock-section">
+      <legend>Widget Header</legend>
+      <div class="pb-field-row">
+        <label>Widget Title</label>
+        <input id="pbWidgetTitle" maxlength="80" value="${esc(w.title)}">
+      </div>
+      <div class="pb-field-row">
+        <label>Subtitle / Description</label>
+        <input id="pbSubtitle" maxlength="80" value="${esc(w.subtitle||'')}">
+      </div>
+    </div>
+
+    ${metricSection}
+    ${chartSection}
+    ${textSection}
+    ${tableSection}
+    ${typographySection}
+
+    <!-- Hidden compatibility controls for tests & events -->
+    <div style="display:none;">
+      <select id="pbWidgetType">${Object.keys(catalogue).map(k=>`<option value="${k}" ${k===w.type?'selected':''}>${display(k)}</option>`).join('')}</select>
+      ${w.type!=='metric' ? `<select id="pbWidgetKey">${(catalogue[w.type]||[]).map(k=>`<option value="${k}" ${k===w.key?'selected':''}>${w.type==='filter'?filterLabel(k):display(k)}</option>`).join('')}</select>` : ''}
+      <select id="pbSemanticSource">${Object.entries(semanticCatalog.sources||{}).map(([k,v])=>`<option value="${k}" ${w.semantic_source===k?'selected':''}>${esc(v.label)}</option>`).join('')}</select>
+      <select id="pbSemanticMeasure">${Object.entries(semanticCatalog.sources[w.semantic_source||'sales']?.measures||{}).map(([k,v])=>`<option value="${k}" ${w.semantic_measure===k?'selected':''}>${esc(v)}</option>`).join('')}</select>
+      <select id="pbSemanticDimension">${Object.entries(semanticCatalog.sources[w.semantic_source||'sales']?.dimensions||{}).map(([k,v])=>`<option value="${k}" ${w.semantic_dimension===k?'selected':''}>${esc(v)}</option>`).join('')}</select>
+    </div>
+
+    <div class="pb-dock-section">
+      <legend>Card & Container Appearance</legend>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="pb-field-row">
+          <label>Card Color</label>
+          <div class="pb-color-ctrl">
+            <input id="pbCardColor" type="color" value="${esc(w.card_color||'#ffffff')}">
+            <span>${esc(w.card_color||'#ffffff')}</span>
+          </div>
+        </div>
+        <div class="pb-field-row">
+          <label>Accent</label>
+          <select id="pbAccent">
+            ${accents.map(k=>`<option value="${k}" ${k===w.accent?'selected':''}>${display(k)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="pb-field-row" style="margin-top:6px;">
+        <label>Card Opacity: <strong id="pbOpacityValue" style="color:#0c7864;">${w.opacity??100}%</strong></label>
+        <input id="pbOpacity" type="range" min="0" max="100" step="1" value="${w.opacity??100}">
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+      <button class="pb-btn pb-btn-danger" type="button" data-remove="1" style="width:100%;justify-content:center;">🗑 Remove Visual</button>
+    </div>
+  `;
+  if(activeId){
+    const nextEl=$(activeId);
+    if(nextEl){
+      try{
+        nextEl.focus({preventScroll:true});
+        if(selStart!==null&&selEnd!==null&&typeof nextEl.setSelectionRange==='function')nextEl.setSelectionRange(selStart,selEnd);
+      }catch(_e){}
+    }
+  }
+}
+
+$('pbSettings').addEventListener('input',e=>{
+  let w=active();if(!w)return;
+  let id=e.target.id;
+  if(id==='pbOpacity'){
+    w.opacity=Number(e.target.value);
+    $('pbOpacityValue').textContent=w.opacity+'%';
+    let card=[...$('pbCanvas').querySelectorAll('[data-id]')].find(el=>el.dataset.id===w.id);
+    if(card)card.style.background=rgba(w.card_color,w.opacity);
+    mark();
+  } else if(id==='pbCardColor'){
+    w.card_color=e.target.value;
+    let swatch=e.target.nextElementSibling;if(swatch)swatch.textContent=w.card_color;
+    let card=[...$('pbCanvas').querySelectorAll('[data-id]')].find(el=>el.dataset.id===w.id);
+    if(card)card.style.background=rgba(w.card_color,w.opacity);
+    mark();
+  } else if(id==='pbTitleColor'){
+    w.title_color=e.target.value;
+    let swatch=e.target.nextElementSibling;if(swatch)swatch.textContent=w.title_color;
+    mark();render(false);
+  } else if(id==='pbSubtitleColor'){
+    w.subtitle_color=e.target.value;
+    let swatch=e.target.nextElementSibling;if(swatch)swatch.textContent=w.subtitle_color;
+    mark();render(false);
+  } else if(id==='pbValueColor'){
+    w.value_color=e.target.value;
+    let swatch=e.target.nextElementSibling;if(swatch)swatch.textContent=w.value_color;
+    mark();render(false);
+  } else if(id==='pbTextColor'){
+    w.text_color=e.target.value;
+    let swatch=e.target.nextElementSibling;if(swatch)swatch.textContent=w.text_color;
+    mark();render(false);
+  } else if(id==='pbGridColor'){
+    w.grid_color=e.target.value;
+    let swatch=e.target.nextElementSibling;if(swatch)swatch.textContent=w.grid_color;
+    mark();render(false);
+  } else if(id==='pbAxisColor'){
+    w.axis_color=e.target.value;
+    let swatch=e.target.nextElementSibling;if(swatch)swatch.textContent=w.axis_color;
+    mark();render(false);
+  } else if(id==='pbDataLabelColor'){
+    w.data_label_color=e.target.value;
+    let swatch=e.target.nextElementSibling;if(swatch)swatch.textContent=w.data_label_color;
+    mark();render(false);
+  } else if(id==='pbLegendColor'){
+    w.legend_color=e.target.value;
+    let swatch=e.target.nextElementSibling;if(swatch)swatch.textContent=w.legend_color;
+    mark();render(false);
+  } else if(id==='pbWidgetTitle'){
+    w.title=e.target.value.slice(0,80);
+    mark();render(false);
+  } else if(id==='pbSubtitle'){
+    w.subtitle=e.target.value.slice(0,80);
+    mark();render(false);
+  } else if(id==='pbText'){
+    w.text=e.target.value;
+    mark();render(false);
+  } else if(id==='pbXTitle'){
+    w.x_title=e.target.value.slice(0,40);
+    mark();render(false);
+  } else if(id==='pbYTitle'){
+    w.y_title=e.target.value.slice(0,40);
+    mark();render(false);
+  } else if(id==='pbTarget'){
+    w.target=Number(e.target.value)||0;
+    mark();render(false);
+  } else if(id==='pbTitleFontSize'){
+    w.title_font_size=Number(e.target.value)||13;
+    mark();render(false);
+  } else if(id==='pbSubtitleFontSize'){
+    w.subtitle_font_size=Number(e.target.value)||11;
+    mark();render(false);
+  } else if(id==='pbValueSize'){
+    w.value_size=Number(e.target.value)||28;
+    mark();render(false);
+  } else if(id==='pbFontSize'){
+    w.font_size=Number(e.target.value)||12;
+    mark();render(false);
+  } else if(id==='pbAxisFontSize'){
+    w.axis_font_size=Number(e.target.value)||10;
+    mark();render(false);
+  } else if(id==='pbDataLabelFontSize'){
+    w.data_label_font_size=Number(e.target.value)||14;
+    mark();render(false);
+  } else if(id==='pbLegendFontSize'){
+    w.legend_font_size=Number(e.target.value)||11;
+    mark();render(false);
+  } else if(id==='pbChartScale'){
+    const val=Number(e.target.value);
+    if(val>=30&&val<=200){w.chart_scale=val;mark();render(false);}
+  } else if(id==='pbDonutHole'){
+    const val=Number(e.target.value);
+    if(val>=10&&val<=90){w.donut_hole=val;mark();render(false);}
+  }
+});
+
+$('pbSettings').addEventListener('change',e=>{
+  let w=active();if(!w)return;
+  let id=e.target.id;
+  const formatting={pbChartScale:'chart_scale',pbDonutHole:'donut_hole',pbLabelPosition:'label_position',pbChartColor:'chart_color'};
+  if(formatting[id]||e.target.dataset.chartColor){
+    if(e.target.dataset.chartColor){const field=e.target.dataset.chartColor;w[field]={...(w[field]||{}),[e.target.dataset.colorKey]:e.target.value};}
+    else if(id==='pbLabelPosition'||id==='pbChartColor')w[formatting[id]]=e.target.value;
+    else {if(!e.target.checkValidity())return;w[formatting[id]]=Number(e.target.value);}
+    mark();render(false);return;
+  }
+  if(e.target.dataset.kpiMetric||e.target.dataset.chartMeasure){updateMetricSelection(w,e.target);return}
+  if(id==='pbShowLegend')w.show_legend=e.target.checked;
+  else if(id==='pbShowValues')w.show_values=e.target.checked;
+  else if(id==='pbShowAxes')w.show_axes=e.target.checked;
+  else if(id==='pbShowGrid')w.show_grid=e.target.checked;
+  else if(id==='pbShowMarkers')w.show_markers=e.target.checked;
+  else if(id==='pbNumberFormat')w.number_format=e.target.value;
+  else if(id==='pbAxisLabelMode')w.axis_label_mode=e.target.value;
+  else if(id==='pbLabelMode')w.label_mode=e.target.value;
+  else if(id==='pbCompare')w.compare=e.target.value;
+  else if(id==='pbWidgetTitle'){w.title=e.target.value.slice(0,80);mark();render(false);return;}
+  else if(id==='pbSubtitle'){w.subtitle=e.target.value.slice(0,80);mark();render(false);return;}
+  else if(id==='pbWidgetType'){
+    delete w.metric_keys;delete w.semantic_measures;
+    w.type=e.target.value;w.key=catalogue[w.type][0];
+    w.style=w.type==='chart'?chartStyles[w.key][0]:typeStyles[w.type][0];
+    w.title=display(w.key);
+  }else if(id==='pbWidgetKey'){
+    w.key=e.target.value;w.title=w.type==='filter'?filterLabel(w.key):display(w.key);
+    if(w.type==='metric')w.metric_keys=[w.key];
+    if(!styles(w).includes(w.style))w.style=styles(w)[0];
+  }else if(id==='pbWidgetStyle'){
+    w.style=e.target.value;
+  }else if(id==='pbSemanticSource'){
+    w.semantic_source=e.target.value;
+    w.semantic_measure={sales:'subtotal',sales_items:'subtotal',purchase:'subtotal',purchase_items:'subtotal',expenses:'amount',stock:'value',finance:'debit',hr:'salary'}[w.semantic_source]||'subtotal';
+    w.semantic_dimension=w.semantic_source==='stock'?'category':'period';
+    w.semantic_measures=[w.semantic_measure];
+    w.semantic_aggregation='sum';
+    w.semantic_sort=w.semantic_dimension==='period'?'name_asc':'value_desc';
+  }else if(id==='pbSemanticMeasure'){
+    w.semantic_measure=e.target.value;
+    w.semantic_measures=[w.semantic_measure,...(w.semantic_measures||[]).slice(1).filter(k=>k!==w.semantic_measure)].slice(0,4);
+    w.semantic_aggregation=w.semantic_measure==='count'?'count':'sum';
+  }else if(id==='pbSemanticDimension'){w.semantic_dimension=e.target.value;w.semantic_sort=w.semantic_dimension==='period'?'name_asc':'value_desc'}
+  else if(id==='pbSemanticGrain')w.semantic_grain=e.target.value;
+  else if(id==='pbSemanticAggregation')w.semantic_aggregation=e.target.value;
+  else if(id==='pbSemanticSort')w.semantic_sort=e.target.value;
+  else if(id==='pbSemanticLimit')w.semantic_limit=Number(e.target.value);
+  else if(id==='pbAccent')w.accent=e.target.value;
+  else return;
+
+  if(id==='pbSemanticSource'||id==='pbSemanticMeasure')w.title=(w.semantic_measures||[w.semantic_measure]).map(k=>semanticCatalog.sources[w.semantic_source]?.measures?.[k]||k).join(' / ').slice(0,80);
+  mark();
+  if(w.key==='custom')state.visuals[w.id]=null;
+  render();
+  if(w.key==='custom')loadVisuals();
+});
+
+$('pbSettings').addEventListener('click',e=>{
+  let w=active();if(!w)return;
+  if(e.target.dataset.resetChartColors){delete w.chart_color;delete w.category_colors;delete w.series_colors;delete w.data_label_color;mark();render();return}
+  if(e.target.dataset.remove){
+    state.widgets=state.widgets.filter(x=>x.id!==w.id);
+    state.selected=null;delete state.visuals[w.id];mark();render();
+  }
+});
+
+$('pbSemanticGrain').addEventListener('change',e=>{
+  let w=active();if(!w)return;
+  w.semantic_grain=e.target.value;
+  mark();state.visuals[w.id]=null;render();loadVisuals();
+});
+$('pbSemanticAggregation').addEventListener('change',e=>{
+  let w=active();if(!w)return;
+  w.semantic_aggregation=e.target.value;
+  mark();state.visuals[w.id]=null;render();loadVisuals();
+});
+$('pbSemanticSort').addEventListener('change',e=>{
+  let w=active();if(!w)return;
+  w.semantic_sort=e.target.value;
+  mark();state.visuals[w.id]=null;render();loadVisuals();
+});
+$('pbSemanticLimit').addEventListener('change',e=>{
+  let w=active();if(!w)return;
+  w.semantic_limit=Number(e.target.value);
+  mark();state.visuals[w.id]=null;render();loadVisuals();
+});
+
+$('pbBackgrounds').addEventListener('click',e=>{
+  let b=e.target.closest('[data-bg]');if(!b)return;
+  if(b.dataset.bg==='__custom_image__'){
+    if(uploadedBgImage){state.background='custom_image:'+uploadedBgImage;mark();render()}
+    return;
+  }
+  state.background=b.dataset.bg;mark();render();
+});
+
+$('pbBgUpload').addEventListener('change',e=>{
+  let file=e.target.files[0];if(!file)return;
+  let reader=new FileReader();
+  reader.onload=()=>{
+    let img=new Image();
+    img.onload=()=>{
+      let maxDim=1600,scale=Math.min(1,maxDim/Math.max(img.width,img.height));
+      let cw=Math.max(1,Math.round(img.width*scale)),ch=Math.max(1,Math.round(img.height*scale));
+      let c=document.createElement('canvas');c.width=cw;c.height=ch;
+      c.getContext('2d').drawImage(img,0,0,cw,ch);
+      uploadedBgImage=c.toDataURL('image/jpeg',0.82);
+      state.background='custom_image:'+uploadedBgImage;
+      mark();render();
+    };
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+$('pbBgRemove').addEventListener('click',()=>{
+  uploadedBgImage=null;
+  if(state.background.startsWith('custom_image:')){state.background='canvas_light'}
+  mark();render();
+});
+
+function filterQuery(){
+  let q=new URLSearchParams({from_date:$('pbFrom').value,to_date:$('pbTo').value}),focus=$('pbFocus').value,value=$('pbFocusValue').value;
+  if(focus&&value)q.set(focus,value);
+  return q;
+}
+
+function chooseFilter(){
+  let focus=$('pbFocus').value,field=$('pbFocusValue'),source={employee_id:'employees',country:'countries',client_id:'clients',supplier_id:'suppliers',product_category:'product_categories',expense_category:'expense_categories'}[focus],items=source?filterOptions[source]||[]:[];
+  field.disabled=!focus;
+  field.innerHTML='<option value="">All</option>'+items.map(item=>`<option value="${esc(typeof item==='string'?item:item.id)}">${esc(typeof item==='string'?item:item.name)}</option>`).join('');
+}
+
+async function loadFilterOptions(){
+  try{filterOptions=await api('/api/bi/v1/filter-options');chooseFilter();render()}catch(err){}
+}
+$('pbFocus').addEventListener('change',()=>{chooseFilter();mark();loadData()});
+$('pbFocusValue').addEventListener('change',()=>{mark();loadData()});
+
+function closeDrill(){$('pbDrill').hidden=true}
+$('pbDrillClose').addEventListener('click',closeDrill);
+$('pbDrill').addEventListener('click',e=>{if(e.target===$('pbDrill'))closeDrill()});
+
+async function drillPoint(w,point){
+  let q=filterQuery();
+  if(w.key==='custom'){
+    const measure=point.dataset.biMeasure||w.semantic_measure;
+    semanticFields(q,{...w,semantic_measure:measure,semantic_measures:[measure]});
+  }else q.set('chart',w.key);
+  q.set('group',point.dataset.biGroup);
+  $('pbDrill').hidden=false;$('pbDrillTitle').textContent=w.title||display(w.key);
+  $('pbDrillSummary').textContent='Loading source records…';$('pbDrillRows').innerHTML='';
+  try{
+    let data=await api((w.key==='custom'?'/api/bi/v1/builder/visual/drill?':'/api/bi/v1/builder/drill?')+q);
+    $('pbDrillTitle').textContent=`${data.measure_label||w.title||display(w.key)} · ${point.dataset.biGroup}`;
+    $('pbDrillSummary').textContent=`${data.count} records · Total: ${data.value_kind==='number'?Number(data.total).toLocaleString():money(data.total,data.currency)}`;
+    $('pbDrillRows').innerHTML=data.rows.length?data.rows.map(r=>`<tr><td style="padding:6px;border-bottom:1px solid #edf4f0;">${esc(r.date||'Current')}</td><td style="padding:6px;border-bottom:1px solid #edf4f0;">${esc(r.number)}</td><td style="padding:6px;border-bottom:1px solid #edf4f0;">${esc(r.party)}</td><td style="padding:6px;border-bottom:1px solid #edf4f0;text-align:right;font-weight:700;">${esc(data.value_kind==='number'?Number(r.amount).toLocaleString():money(r.amount,data.currency))}</td></tr>`).join(''):'<tr><td colspan="4" style="padding:10px;">No source records.</td></tr>';
+  }catch(err){$('pbDrillSummary').textContent=err.message}
+}
+
+$('pbCanvas').addEventListener('change',e=>{
+  const key=e.target.dataset.businessFilter,date=e.target.dataset.filter;
+  if(date){$(date==='from'?'pbFrom':'pbTo').value=e.target.value;mark();loadData();return}
+  if(!key)return;
+  const value=e.target.value;
+  if(!value&&$('pbFocus').value!==key)return;
+  $('pbFocus').value=value?key:'';chooseFilter();$('pbFocusValue').value=value;
+  mark();loadData();
+});
+
+$('pbCanvas').addEventListener('click',e=>{
+  if(suppressClick||e.target.closest('input,select,textarea,label'))return;
+  let node=e.target.closest('[data-id]');if(!node)return;
+  let point=e.target.closest('[data-bi-group]'),w=state.widgets.find(item=>item.id===node.dataset.id);
+  if(point&&w){e.stopPropagation();drillPoint(w,point);return}
+  state.selected=node.dataset.id;render();switchDockTab('dropzones');
+});
+
+function gridMetrics(){
+  let rect=$('pbCanvas').getBoundingClientRect(),stepX=($('pbCanvas').clientWidth-28-23*8)/24+8;
+  return {rect,stepX,stepY:52,cellWidth:stepX-8};
+}
+function pointAt(left,top){
+  let m=gridMetrics();
+  return [Math.max(0,Math.min(23,(left-m.rect.left-$('pbCanvas').clientLeft-14)/m.stepX)),Math.max(0,Math.min(400,(top-m.rect.top-$('pbCanvas').clientTop-14)/m.stepY))];
+}
+function removePreview(){
+  if(drag?.ghost)drag.ghost.remove();if(drag?.guide)drag.guide.remove();drag=null;
+  if(resize?.ghost)resize.ghost.remove();if(resize?.guide)resize.guide.remove();resize=null;
+}
+function guideFor(info,probe,x,y){
+  let m=gridMetrics(),placed={...probe};if(!place(placed,x,y,false))return;
+  info.snap={x:placed.x,y:placed.y,w:placed.w,h:placed.h};
+  let guide=info.guide;
+  if(!guide){guide=document.createElement('div');guide.className='pb-drop-guide';$('pbCanvas').appendChild(guide);info.guide=guide}
+  guide.style.left=(14+placed.x*m.stepX)+'px';guide.style.top=(14+placed.y*m.stepY)+'px';
+  guide.style.width=(placed.w*m.cellWidth+(placed.w-1)*8)+'px';guide.style.height=(placed.h*44+(placed.h-1)*8)+'px';
+}
+function makeGhost(source,e,width,height,offsetX,offsetY){
+  let ghost=source.cloneNode(true);ghost.removeAttribute('id');ghost.classList.add('pb-drag-ghost');
+  ghost.style.position='fixed';
+  ghost.style.width=width+'px';ghost.style.height=height+'px';
+  ghost.style.left=(e.clientX-offsetX)+'px';ghost.style.top=(e.clientY-offsetY)+'px';
+  ghost.style.gridColumn='auto';ghost.style.gridRow='auto';
+  document.body.appendChild(ghost);return ghost;
+}
+
+function beginMove(e,widget,source,type,style){
+  if(e.button!==0)return;e.preventDefault();
+  let box=source.getBoundingClientRect(),offsetX=widget?e.clientX-box.left:25,offsetY=widget?e.clientY-box.top:22;
+  drag={id:widget?.id,type,style,startX:e.clientX,startY:e.clientY,offsetX,offsetY,moved:false};
+  drag.ghost=makeGhost(source,e,widget?box.width:180,widget?box.height:90,offsetX,offsetY);
+  source.style.opacity=widget?'.35':'';drag.source=source;
+}
+
+$('pbCanvas').addEventListener('pointerdown',e=>{
+  let handle=e.target.closest('[data-resize]');
+  if(handle){
+    let w=state.widgets.find(v=>v.id===handle.dataset.resize);if(!w)return;
+    e.preventDefault();e.stopPropagation();
+    let source=handle.closest('[data-id]'),box=source.getBoundingClientRect();
+    resize={id:w.id,dir:handle.dataset.dir||'se',startX:e.clientX,startY:e.clientY,old:{...w},width:box.width,height:box.height,moved:false};
+    resize.ghost=makeGhost(source,e,box.width,box.height,e.clientX-box.left,e.clientY-box.top);
+    resize.ghost.style.left=box.left+'px';resize.ghost.style.top=box.top+'px';
+    source.style.opacity='.35';resize.source=source;return;
+  }
+  let card=e.target.closest('.pb-card');
+  if(card&&!e.target.closest('input,select,textarea,button,[data-bi-group]')){
+    let w=state.widgets.find(v=>v.id===card.dataset.id);
+    if(w)beginMove(e,w,card);
+  }
+});
+
+let suppressClick=false;
+document.querySelectorAll('[data-add]').forEach(b=>{
+  b.addEventListener('pointerdown',e=>beginMove(e,null,b,b.dataset.add,b.dataset.style));
+  b.addEventListener('click',()=>{if(suppressClick)return;add(b.dataset.add,b.dataset.style)});
+});
+
+function updatePointer(e){
+  if(drag){
+    let dx=e.clientX-drag.startX,dy=e.clientY-drag.startY;if(Math.hypot(dx,dy)>5)drag.moved=true;
+    drag.ghost.style.left=(e.clientX-drag.offsetX)+'px';drag.ghost.style.top=(e.clientY-drag.offsetY)+'px';
+    let w=drag.id?state.widgets.find(v=>v.id===drag.id):fresh(drag.type,drag.style),m=gridMetrics();
+    if(e.clientX>=m.rect.left&&e.clientX<=m.rect.right&&e.clientY>=m.rect.top&&e.clientY<=m.rect.bottom){
+      let [x,y]=pointAt(e.clientX-drag.offsetX,e.clientY-drag.offsetY);guideFor(drag,w,x,y);
+    }else if(drag.guide){drag.guide.remove();drag.guide=null;drag.snap=null}
+  }
+  if(resize){
+    let dx=e.clientX-resize.startX,dy=e.clientY-resize.startY;if(Math.hypot(dx,dy)>3)resize.moved=true;
+    let w=state.widgets.find(v=>v.id===resize.id),m=gridMetrics();
+    if(w){
+      let probe={...w,
+        w:resize.dir.includes('e')?Math.max(1,Math.min(24-w.x,resize.old.w+(dx/m.stepX))):w.w,
+        h:resize.dir.includes('s')?Math.max(1,Math.min(10,resize.old.h+(dy/m.stepY))):w.h
+      };
+      guideFor(resize,probe,w.x,w.y);
+      resize.ghost.style.width=Math.max(34,probe.w*m.cellWidth+(probe.w-1)*8)+'px';
+      resize.ghost.style.height=Math.max(42,probe.h*44+(probe.h-1)*8)+'px';
+    }
+  }
+}
+document.addEventListener('pointermove',updatePointer);
+
+document.addEventListener('pointerup',e=>{
+  updatePointer(e);
+  if(drag){
+    let info=drag,source=info.source,snap=info.snap;if(source)source.style.opacity='';
+    if(info.moved){
+      suppressClick=true;setTimeout(()=>suppressClick=false,0);
+      if(snap){
+        if(info.type)add(info.type,info.style,snap.x,snap.y);
+        else{
+          let w=state.widgets.find(v=>v.id===info.id),old=w&&{...w};
+          if(w){
+            if(!place(w,snap.x,snap.y,false)){Object.assign(w,old);status('No room at that position',true)}
+            else{state.selected=w.id;mark()}
+            render();
+          }
+        }
+      }
+    }
+    removePreview();return;
+  }
+  if(resize){
+    let info=resize,w=state.widgets.find(v=>v.id===info.id),old=info.old;
+    if(info.source)info.source.style.opacity='';
+    if(info.moved&&w){
+      suppressClick=true;setTimeout(()=>suppressClick=false,0);
+      if(info.snap){Object.assign(w,info.snap);mark()}
+      state.selected=w.id;render();
+    }
+    removePreview();
+  }
+});
+
+document.addEventListener('pointercancel',()=>{
+  if(drag?.source)drag.source.style.opacity='';if(resize?.source)resize.source.style.opacity='';removePreview();
+});
+
+function blank(name='Untitled dashboard'){
+  $('pbSaveFlash').hidden=true;
+  ++dashboardRequest;++visualRequest;
+  state={id:null,revision:null,widgets:[],background:'canvas_light',selected:null,data:state.data,visuals:{},dirty:false};
+  $('pbTitle').value=name;$('pbVisibility').value='private';$('pbSaved').value='';
+  status('Blank canvas');render();
+}
+
+async function api(path,method='GET',body){
+  let options={method,credentials:'same-origin',headers:{Accept:'application/json'}};
+  if(body){options.headers['Content-Type']='application/json';options.headers['X-BI-CSRF']=csrf;options.body=JSON.stringify(body)}
+  let response=await fetch(path,options),result=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(result.error||`Request failed (${response.status})`);
+  return result;
+}
+
+async function saved(){
+  let data=await api('/api/bi/v1/builder/dashboards');
+  $('pbSaved').innerHTML='<option value="">New dashboard (unsaved)</option>'+data.dashboards.map(r=>`<option value="${r.id}">${esc(r.title)}</option>`).join('');
+  $('pbSaved').value=state.id||'';
+}
+
+async function open(id){
+  $('pbSaveFlash').hidden=true;
+  if(!id){blank();return}
+  let requestId=++dashboardRequest;++dataRequest;++visualRequest;
+  status('Loading dashboard…');
+  let row;
+  try{row=await api('/api/bi/v1/builder/dashboards/'+encodeURIComponent(id))}
+  catch(err){if(requestId===dashboardRequest)$('pbSaved').value=state.id||'';throw err}
+  if(requestId!==dashboardRequest)return;
+  state.data=null;state.dataError=null;state.id=row.id;state.revision=row.revision;
+  state.widgets=row.widgets;state.visuals={};state.background=row.background||'canvas_light';
+  if(state.background.startsWith('custom_image:'))uploadedBgImage=state.background.slice('custom_image:'.length);
+  state.selected=null;state.dirty=false;
+  $('pbTitle').value=row.title;$('pbVisibility').value=row.visibility;$('pbSaved').value=String(row.id);
+  let f=row.filters||{};$('pbFrom').value=f.from_date||$('pbFrom').defaultValue;$('pbTo').value=f.to_date||$('pbTo').defaultValue;
+  await filterReady;
+  if(requestId!==dashboardRequest)return;
+  let focus=Object.keys(f).find(k=>!['from_date','to_date'].includes(k))||'';
+  $('pbFocus').value=focus;chooseFilter();
+  if(focus){
+    let value=String(f[focus]);
+    if(![...$('pbFocusValue').options].some(o=>o.value===value))$('pbFocusValue').add(new Option(value,value));
+    $('pbFocusValue').value=value;
+  }
+  status('Loaded '+row.title);render();await loadData();
+}
+
+$('pbSaved').addEventListener('change',e=>{if(state.dirty&&!confirm('Discard unsaved changes?')){e.target.value=state.id||'';return}open(e.target.value).catch(err=>status(err.message,true))});
+$('pbNew').addEventListener('click',()=>{if(state.dirty&&!confirm('Discard unsaved changes?'))return;blank()});
+$('pbSample').addEventListener('click',()=>{if(state.dirty&&!confirm('Discard unsaved changes?'))return;blank('Executive sample');state.widgets=example();mark();render()});
+$('pbDuplicate').addEventListener('click',()=>{let widgets=state.widgets.map(w=>({...w,id:'w_'+Math.random().toString(36).slice(2,11)})),background=state.background,name=($('pbTitle').value+' (copy)').slice(0,100);blank(name);state.widgets=widgets;state.background=background;mark();render();loadVisuals()});
+$('pbTitle').addEventListener('input',mark);$('pbVisibility').addEventListener('change',mark);
+
+$('pbSave').addEventListener('click',async()=>{
+  if(!$('pbTitle').value.trim()){status('Enter a dashboard name before saving.',true);$('pbTitle').focus();return}
+  $('pbSaveFlash').hidden=true;
+  if(String($('pbSaved').value||'')!==String(state.id||'')){status('Wait for the selected dashboard to finish loading before saving.',true);return}
+  const button=$('pbSave'),savingState=state,savingDashboard=dashboardRequest;button.disabled=true;
+  try{
+    let payload={title:$('pbTitle').value.trim(),visibility:$('pbVisibility').value,widgets:state.widgets,background:state.background,grid_columns:24,filters:Object.fromEntries(filterQuery()),revision:state.revision};
+    const savedContent=JSON.stringify(payload);
+    let row=await api('/api/bi/v1/builder/dashboards'+(state.id?'/'+state.id:''),state.id?'PUT':'POST',payload);
+    if(state!==savingState||dashboardRequest!==savingDashboard){await saved();return}
+    const currentContent=JSON.stringify({...payload,title:$('pbTitle').value.trim(),visibility:$('pbVisibility').value,widgets:state.widgets,background:state.background,filters:Object.fromEntries(filterQuery())});
+    state.id=row.id;state.revision=row.revision;state.dirty=currentContent!==savedContent;
+    await saved();if(state!==savingState||dashboardRequest!==savingDashboard)return;status(state.dirty?'Saved earlier version · newer edits are unsaved':'Saved your changes to '+row.title);
+    if(!state.dirty){$('pbSaveFlash').textContent='Saved your changes to “'+row.title+'”.';$('pbSaveFlash').hidden=false;}
+  }catch(err){status(err.message,true)}finally{button.disabled=false}
+});
+
+$('pbDelete').addEventListener('click',async()=>{
+  if(!state.id){blank();return}
+  if(!confirm('Delete this dashboard?'))return;
+  try{await api('/api/bi/v1/builder/dashboards/'+state.id,'DELETE',{revision:state.revision});blank();await saved();status('Dashboard deleted')}catch(err){status(err.message,true)}
+});
+
+function semanticFields(q,w){
+  for(const key of ['semantic_source','semantic_measure','semantic_dimension','semantic_grain','semantic_aggregation','semantic_sort','semantic_limit'])q.set(key,w[key]??semanticCatalog.defaults[key]);
+  for(const m of w.semantic_measures||[w.semantic_measure||semanticCatalog.defaults.semantic_measure])q.append('semantic_measures',m);
+}
+
+async function loadVisuals(){
+  let requestId=++visualRequest,widgets=state.widgets.filter(w=>w.type==='chart'&&w.key==='custom');
+  if(!state.data||!widgets.length)return;
+  let results=await Promise.all(widgets.map(async w=>{
+    let q=filterQuery();semanticFields(q,w);
+    try{return [w.id,await api('/api/bi/v1/builder/visual?'+q)]}catch(err){return [w.id,{error:err.message}]}
+  }));
+  if(requestId!==visualRequest)return;
+  for(const [id,result] of results)state.visuals[id]=result;
+  render();
+}
+
+async function loadData(){
+  let requestId=++dataRequest;++visualRequest;
+  state.data=null;state.visuals={};state.dataError=null;render();
+  if($('pbFrom').value>$('pbTo').value){state.dataError='From date must be before To date';render();status(state.dataError,true);return}
+  try{
+    status('Loading data…');
+    let params=filterQuery();
+    let response=await api('/api/bi/v1/builder/data?'+params);
+    if(requestId!==dataRequest)return;
+    state.data=response;state.visuals={};
+    await loadVisuals();
+    if(requestId!==dataRequest)return;
+    render();
+    status(state.dirty?'Preview updated · unsaved layout':'Preview updated');
+  }catch(err){
+    if(requestId!==dataRequest)return;
+    state.data=null;state.dataError=err.message;render();status(err.message,true);
+  }
+}
+
+$('pbRefresh').addEventListener('click',loadData);
+$('pbFrom').addEventListener('change',()=>{mark();loadData()});
+$('pbTo').addEventListener('change',()=>{mark();loadData()});
+render();renderDataExplorer();setupDropzones();saved().catch(err=>status(err.message,true));
+const filterReady=loadFilterOptions();loadData();
+window.addEventListener('beforeunload',e=>{if(state.dirty){e.preventDefault();e.returnValue=''}});
+})();
+</script>
+{% endblock %}

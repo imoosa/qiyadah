@@ -1,0 +1,14 @@
+<div class="nav-section">
+  <div class="nav-section-title">Supply Chain Management</div>
+  <a href="{{ url_for('supply_chain_workspace') }}" data-order-tab="dashboard" class="nav-item {% if active == 'supply_chain' %}active{% endif %}"><span class="nav-icon">📦</span><span>Supply Chain Dashboard</span></a>
+</div>
+{% for section in supply_navigation %}
+<div class="nav-section">
+  <div class="nav-section-title">{{ section.heading }}</div>
+  {% for link in section.links %}<a href="{{ link.href }}" class="nav-item {% if link.active %}active{% endif %}" {% if link.active %}aria-current="page"{% endif %}><span class="nav-icon">·</span><span>{{ link.label }}</span></a>{% endfor %}
+</div>
+{% endfor %}
+<div class="nav-section">
+  {% if can('finance','view') %}<a href="{{ url_for('finance_workspace') }}" class="nav-item"><span class="nav-icon">↗</span><span>Core Finance</span></a>{% endif %}
+  <a href="{{ url_for('apps_hub') }}" class="nav-item"><span class="nav-icon">↗</span><span>All Workspaces</span></a>
+</div>

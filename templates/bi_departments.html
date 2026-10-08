@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+{% block title %}Department Intelligence | Qiyadah{% endblock %}
+{% block page_title %}Department Intelligence{% endblock %}
+{% block extra_style %}
+<style>
+.dbi{max-width:1480px;margin:auto;padding:8px 12px 40px;font-family:var(--font,'Plus Jakarta Sans',sans-serif);color:var(--text-body,#1E293B)}
+.dbi-hero{background:linear-gradient(135deg,var(--bg-sidebar,#012926),#011A18);border:1px solid rgba(245,158,11,.35);border-radius:20px;padding:26px 30px;color:#fff;display:flex;justify-content:space-between;gap:15px;align-items:center}
+.dbi-hero small{color:var(--primary,#F59E0B);font-weight:800;letter-spacing:.1em;text-transform:uppercase;font-family:var(--font)}
+.dbi-hero h1{margin:6px 0;font-size:29px;font-weight:800;font-family:var(--font)}
+.dbi-hero p{margin:0;color:rgba(255,255,255,.78);font-family:var(--font)}
+.dbi-hero a{color:var(--primary,#F59E0B);text-decoration:none;font-weight:600;font-family:var(--font)}
+
+/* Connected Module Banner */
+.dbi-module-connector {
+  background: linear-gradient(135deg, rgba(254, 243, 199, 0.45) 0%, rgba(255, 255, 255, 0.95) 100%);
+  border: 1.5px solid rgba(245, 158, 11, 0.4);
+  border-left: 5px solid var(--primary, #F59E0B);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin: 16px 0 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+.dbi-connector-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dbi-connector-badge {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #b45309;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.dbi-connector-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+}
+.dbi-connector-desc {
+  font-size: 12.5px;
+  color: #64748b;
+  max-width: 650px;
+}
+.dbi-connector-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.dbi-connector-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.dbi-connector-btn.primary {
+  background: #012926;
+  color: #ffffff;
+  border: 1.5px solid #012926;
+}
+.dbi-connector-btn.primary:hover {
+  background: #034843;
+  color: #ffffff;
+}
+.dbi-connector-btn.outline {
+  background: #ffffff;
+  color: #012926;
+  border: 1.5px solid var(--border-color, #E2E8F0);
+}
+.dbi-connector-btn.outline:hover {
+  background: #f8fafc;
+  border-color: #012926;
+}
+
+.dbi-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+.dbi-tabs button{background:var(--bg-card,#fff);border:1.5px solid var(--border-color,#E2E8F0);color:var(--text-body,#1E293B);border-radius:8px;padding:9px 14px;cursor:pointer;font-family:var(--font,'Plus Jakarta Sans',sans-serif);font-size:13px;font-weight:600;transition:all .15s}
+.dbi-tabs button:hover{background:var(--gray-100,#F1F5F9)}
+.dbi-tabs button[aria-selected="true"]{background:var(--primary,#F59E0B);color:#fff;border-color:var(--primary,#F59E0B)}
+.dbi-filter{display:flex;gap:11px;align-items:end;flex-wrap:wrap;background:var(--bg-card,#fff);border:1px solid var(--border-color,#E2E8F0);border-radius:13px;padding:14px;margin-bottom:15px;box-shadow:var(--shadow-card)}
+.dbi-filter label{display:grid;gap:5px;font-size:12px;font-weight:700;color:var(--text-body,#1E293B);font-family:var(--font)}
+.dbi-filter input{border:1.5px solid var(--border-color,#E2E8F0);border-radius:8px;padding:8px 12px;background:var(--bg-input,#fff);color:var(--text-body,#1E293B);font-family:var(--font);font-size:13px}
+.dbi-filter button{background:var(--primary,#F59E0B);color:#fff;border:0;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:var(--font,'Plus Jakarta Sans',sans-serif);font-size:13px;font-weight:600;transition:all .15s}
+.dbi-filter button:hover{background:var(--primary-dark,#D97706);color:#fff}
+.dbi-filter button:disabled{opacity:.55}
+.dbi-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin:15px 0}
+.dbi-card,.dbi-panel{border:1px solid var(--border-color,#E2E8F0);background:var(--bg-card,#fff);border-radius:15px;padding:17px;min-width:0;box-shadow:var(--shadow-card)}
+.dbi-card{border-top:3px solid var(--primary,#F59E0B)}
+.dbi-card small{color:var(--text-muted,#64748B);font-size:12px;font-weight:600;font-family:var(--font)}
+.dbi-card strong{font-size:23px;font-weight:800;color:var(--text-body,#1E293B);display:block;margin:9px 0;font-family:var(--font);overflow-wrap:anywhere}
+.dbi-card em{font-size:11px;color:var(--text-muted,#64748B);font-style:normal;font-family:var(--font)}
+.dbi-charts,.dbi-tables{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:15px 0}
+.dbi-panel h2{font-size:17px;font-weight:700;color:var(--text-body,#1E293B);margin:0 0 14px;font-family:var(--font)}
+.dbi-bars{list-style:none;padding:0;margin:0;font-family:var(--font)}
+.dbi-bars li{padding:5px 0}
+.dbi-bar-head{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--text-body,#1E293B)}
+.dbi-bar-head strong{white-space:nowrap}
+.dbi-track{height:7px;background:var(--gray-100,#F1F5F9);border-radius:8px;overflow:hidden;margin-top:5px}
+.dbi-fill{height:100%;background:var(--primary,#F59E0B);border-radius:8px}
+.dbi-empty{color:var(--text-muted,#64748B);font-size:13px;font-family:var(--font)}
+.dbi-scroll{overflow:auto;max-height:460px}
+.dbi-table{width:100%;border-collapse:collapse;min-width:370px;font-size:12px;font-family:var(--font)}
+.dbi-table th,.dbi-table td{padding:9px;border-bottom:1px solid var(--border-color,#E2E8F0);text-align:left;color:var(--text-body,#1E293B)}
+.dbi-table th{position:sticky;top:0;background:var(--bg-table-alt,#F8FAFC);color:var(--text-muted,#64748B);font-weight:700}
+.dbi-explore-link{color:var(--primary-dark,#D97706);font-weight:600;text-decoration:none;font-family:var(--font)}
+.dbi-note{background:var(--warning-light,#FEF3C7);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:12px;margin:9px 0;color:var(--primary-dark,#D97706);font-size:13px;font-family:var(--font)}
+.dbi-error{color:var(--danger,#DC2626);background:var(--danger-light,#FEE2E2);border-color:var(--danger,#DC2626)}
+@media(max-width:1000px){.dbi-cards{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:720px){.dbi-hero{display:block}.dbi-charts,.dbi-tables,.dbi-cards{grid-template-columns:1fr}.dbi-hero h1{font-size:23px}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dbi">
+  <header class="dbi-hero">
+    <div>
+      <small>Qiyadah · Business Intelligence</small>
+      <h1>Department intelligence</h1>
+      <p>Explore canonical transactions by business function, connected to your primary ERP modules.</p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <a href="{{ url_for('bi_intelligence') }}" style="background:rgba(255,255,255,0.12);padding:9px 16px;border-radius:8px;color:#fff;text-decoration:none;font-weight:600;font-size:13px;border:1px solid rgba(255,255,255,0.28);">🧠 BI Workspace</a>
+      <a href="{{ url_for('bi_dashboard') }}" style="background:var(--primary,#F59E0B);padding:9px 16px;border-radius:8px;color:#fff;text-decoration:none;font-weight:600;font-size:13px;">📊 BI Dashboard</a>
+      <a href="{{ url_for('bi_builder') }}" style="background:rgba(255,255,255,0.12);padding:9px 16px;border-radius:8px;color:#fff;text-decoration:none;font-weight:600;font-size:13px;border:1px solid rgba(255,255,255,0.28);">⚙ Studio Builder</a>
+      <a href="{{ url_for('bi_executive') }}" style="color:var(--primary,#F59E0B);text-decoration:none;font-weight:600;font-size:13px;">Executive overview →</a>
+    </div>
+  </header>
+
+  <!-- Department Navigation Tabs -->
+  <nav class="dbi-tabs" id="dbiTabs" aria-label="BI departments"></nav>
+
+  <!-- Connected Module Banner -->
+  <div class="dbi-module-connector" id="dbiModuleConnector">
+    <div class="dbi-connector-left">
+      <div class="dbi-connector-badge" id="dbiConnectorBadge"><span>💳</span> <span>Connected Module</span></div>
+      <div class="dbi-connector-title" id="dbiConnectorTitle">Finance & Accounting</div>
+      <div class="dbi-connector-desc" id="dbiConnectorDesc">P&L waterfall, gross profit, net earnings, operating expenses and liquidity.</div>
+    </div>
+    <div class="dbi-connector-actions">
+      <a id="dbiModuleBtn" class="dbi-connector-btn primary" href="{{ url_for('bi_dashboard', module='core') }}">
+        <span>📊</span> <span id="dbiModuleBtnText">Open Finance in BI Dashboard</span> →
+      </a>
+      <a id="dbiWorkspaceBtn" class="dbi-connector-btn outline" href="{{ url_for('finance_workspace') }}">
+        <span>↗</span> <span id="dbiWorkspaceBtnText">Core Finance Workspace</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Date Range Filter -->
+  <form class="dbi-filter" id="dbiForm">
+    <label>From<input name="from_date" type="date" required value="{{ today_str[:7] if today_str else '2026-10' }}-01"></label>
+    <label>To<input name="to_date" type="date" required value="{{ today_str if today_str else '2026-10-07' }}"></label>
+    <button id="dbiApply" type="submit">Apply dates</button>
+    <span id="dbiRange" class="dbi-empty" aria-live="polite"></span>
+  </form>
+
+  <p><a id="dbiExplorer" class="dbi-explore-link" href="{{ url_for('bi_explore') }}">Explore underlying records →</a></p>
+
+  <div id="dbiMessage" role="status" aria-live="polite"></div>
+  <div id="dbiCards" class="dbi-cards"></div>
+  <div id="dbiCharts" class="dbi-charts"></div>
+  <div id="dbiTables" class="dbi-tables"></div>
+  <div id="dbiNotes"></div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+(() => {
+  const tabs = {
+    sales: 'Sales',
+    customers: 'Customers',
+    purchases: 'Purchases',
+    suppliers: 'Suppliers',
+    inventory: 'Inventory',
+    finance: 'Finance',
+    tax: 'Tax',
+    geography: 'Geography',
+    branches: 'Branches'
+  };
+
+  // Explicit mapping from department section to corresponding BI module and workspace
+  const MODULE_MAPPING = {
+    sales: {
+      moduleKey: 'crm',
+      moduleName: 'CRM & Pipeline',
+      icon: '🎯',
+      badge: 'Connected Module: CRM & Pipeline',
+      desc: 'Opportunity stages, conversion funnels, quotations and deal acquisition.',
+      workspaceUrl: '/crm/workspace',
+      workspaceName: 'CRM Workspace'
+    },
+    customers: {
+      moduleKey: 'crm',
+      moduleName: 'CRM & Customers',
+      icon: '👥',
+      badge: 'Connected Module: CRM & Pipeline',
+      desc: 'Customer lifetime activity, account relationships, and repeated client revenue.',
+      workspaceUrl: '/clients',
+      workspaceName: 'Customer Directory'
+    },
+    geography: {
+      moduleKey: 'crm',
+      moduleName: 'CRM & Territory Sales',
+      icon: '🌍',
+      badge: 'Connected Module: CRM & Pipeline',
+      desc: 'Regional customer footprints, country and state sales distribution.',
+      workspaceUrl: '/clients',
+      workspaceName: 'Customer Geographies'
+    },
+    purchases: {
+      moduleKey: 'orderflow',
+      moduleName: 'Supply Chain & Procurement',
+      icon: '📦',
+      badge: 'Connected Module: Supply Chain',
+      desc: 'Purchase order fulfillment, vendor invoices, cost of goods and procurement timelines.',
+      workspaceUrl: '/purchase/invoices',
+      workspaceName: 'Purchase Invoices'
+    },
+    suppliers: {
+      moduleKey: 'orderflow',
+      moduleName: 'Supply Chain & Vendors',
+      icon: '🚚',
+      badge: 'Connected Module: Supply Chain',
+      desc: 'Supplier spend concentration, vendor accounts, and purchase order tracking.',
+      workspaceUrl: '/suppliers',
+      workspaceName: 'Supplier Master'
+    },
+    inventory: {
+      moduleKey: 'orderflow',
+      moduleName: 'Supply Chain & Inventory',
+      icon: '📦',
+      badge: 'Connected Module: Supply Chain',
+      desc: 'Stock item valuation, low stock warnings, reorder thresholds and category catalogs.',
+      workspaceUrl: '/supply-chain/workspace',
+      workspaceName: 'Supply Chain Workspace'
+    },
+    finance: {
+      moduleKey: 'core',
+      moduleName: 'Finance & Accounting',
+      icon: '💳',
+      badge: 'Connected Module: Finance & Accounting',
+      desc: 'Executive P&L waterfall, gross profit, net earnings, operating expenses and liquidity.',
+      workspaceUrl: '/finance/workspace',
+      workspaceName: 'Core Finance Workspace'
+    },
+    tax: {
+      moduleKey: 'core',
+      moduleName: 'Finance & GST / Tax',
+      icon: '⚖️',
+      badge: 'Connected Module: Finance & Accounting',
+      desc: 'Output tax liabilities, input tax credits, GST regimes and statutory compliance.',
+      workspaceUrl: '/gst/portal',
+      workspaceName: 'GST & E-Invoice Portal'
+    },
+    branches: {
+      moduleKey: 'all',
+      moduleName: 'Executive BI Overview',
+      icon: '🌐',
+      badge: 'Connected Module: Executive BI',
+      desc: 'Multi-entity corporate consolidation and executive KPI indicators.',
+      workspaceUrl: '/bi-executive',
+      workspaceName: 'Executive Overview'
+    }
+  };
+
+  const moduleToSection = {
+    core: 'finance',
+    crm: 'sales',
+    orderflow: 'inventory',
+    repair: 'sales',
+    hr: 'finance'
+  };
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const reqSection = urlParams.get('section') || urlParams.get('department');
+  const reqModule = urlParams.get('module');
+
+  let active = 'sales';
+  if (reqSection && tabs[reqSection]) {
+    active = reqSection;
+  } else if (reqModule && moduleToSection[reqModule]) {
+    active = moduleToSection[reqModule];
+  } else if (location.hash && tabs[location.hash.slice(1)]) {
+    active = location.hash.slice(1);
+  }
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const form = $('dbiForm');
+
+  if (urlParams.get('from_date')) {
+    form.elements.from_date.value = urlParams.get('from_date');
+  }
+  if (urlParams.get('to_date')) {
+    form.elements.to_date.value = urlParams.get('to_date');
+  }
+
+  const money = (v, c) => new Intl.NumberFormat(undefined, { style: 'currency', currency: c || {{ base_currency|default('INR')|tojson }}, maximumFractionDigits: 0 }).format(Number(v) || 0);
+  const format = (v, kind, c) => kind === 'money' ? money(v, c) : Number(v || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+  function updateConnector() {
+    const meta = MODULE_MAPPING[active] || MODULE_MAPPING.finance;
+    const from = form.elements.from_date.value;
+    const to = form.elements.to_date.value;
+    const query = new URLSearchParams({
+      module: meta.moduleKey,
+      from_date: from,
+      to_date: to
+    });
+
+    const badgeEl = $('dbiConnectorBadge');
+    const titleEl = $('dbiConnectorTitle');
+    const descEl = $('dbiConnectorDesc');
+    const moduleBtn = $('dbiModuleBtn');
+    const workspaceBtn = $('dbiWorkspaceBtn');
+    const moduleText = $('dbiModuleBtnText');
+    const workspaceText = $('dbiWorkspaceBtnText');
+
+    if (badgeEl) badgeEl.innerHTML = `<span>${meta.icon}</span> <span>${meta.badge}</span>`;
+    if (titleEl) titleEl.textContent = meta.moduleName;
+    if (descEl) descEl.textContent = meta.desc;
+    if (moduleBtn) moduleBtn.href = `/bi-dashboard?` + query.toString();
+    if (moduleText) moduleText.textContent = `Open in BI Dashboard (${meta.moduleName})`;
+    if (workspaceBtn) workspaceBtn.href = meta.workspaceUrl;
+    if (workspaceText) workspaceText.textContent = meta.workspaceName;
+  }
+
+  function tabUI() {
+    let map = { sales: 'customer', customers: 'customer', purchases: 'purchase', suppliers: 'purchase', inventory: 'inventory', finance: 'customer', tax: 'customer', geography: 'geo', branches: 'geo' };
+    let p = new URLSearchParams({ view: map[active], from_date: form.elements.from_date.value, to_date: form.elements.to_date.value });
+    $('dbiExplorer').href = '/bi-explore?' + p;
+    $('dbiTabs').innerHTML = Object.entries(tabs).map(([key, label]) => {
+      const meta = MODULE_MAPPING[key];
+      return `<button type="button" data-tab="${key}" aria-selected="${active === key}"><span>${meta ? meta.icon : ''}</span> ${label}</button>`;
+    }).join('');
+    updateConnector();
+  }
+
+  $('dbiTabs').addEventListener('click', e => {
+    let b = e.target.closest('[data-tab]');
+    if (!b) return;
+    active = b.dataset.tab;
+    location.hash = active;
+    tabUI();
+    load();
+  });
+
+  function explorerURL(title, label) {
+    let view = 'customer', seed = '';
+    if (title === 'Sales by country') { view = 'geo'; seed = label; }
+    else if (title === 'Top customers · net sales') { view = 'customer'; seed = label; }
+    else if (title === 'Top suppliers · purchases') { view = 'purchase'; seed = label; }
+    else if (title === 'Stock value by category') { view = 'inventory'; seed = label; }
+    else if (title === 'Purchases by month') { view = 'purchase'; }
+    else if (title === 'Sales by state') { view = 'geo'; }
+    else if (title === 'Top invoice line items · taxable value') { view = 'product'; }
+    let p = new URLSearchParams({ view, from_date: form.elements.from_date.value, to_date: form.elements.to_date.value });
+    if (seed) p.set('seed', seed);
+    return '/bi-explore?' + p;
+  }
+
+  function draw(d) {
+    let c = d.currency;
+    $('dbiCards').innerHTML = (d.cards || []).map(x => `<article class="dbi-card"><small>${esc(x.label)}</small><strong>${format(x.value, x.kind, c)}</strong>${x.note ? `<em>${esc(x.note)}</em>` : ''}</article>`).join('');
+    $('dbiCharts').innerHTML = (d.charts || []).map(chart => {
+      let max = Math.max(1, ...chart.rows.map(r => Math.max(0, Number(r.value) || 0)));
+      return `<section class="dbi-panel"><h2>${esc(chart.title)}</h2>${chart.rows.length ? `<ul class="dbi-bars">${chart.rows.map(r => `<li><div class="dbi-bar-head"><a class="dbi-explore-link" href="${esc(explorerURL(chart.title, r.name))}">${esc(r.name)} ↗</a><strong>${money(r.value, c)}</strong></div><div class="dbi-track"><div class="dbi-fill" style="width:${Math.min(100, Math.max(0, Number(r.value) || 0) / max * 100)}%"></div></div></li>`).join('')}</ul>` : '<p class="dbi-empty">No records for this period.</p>'}</section>`;
+    }).join('');
+    $('dbiTables').innerHTML = (d.tables || []).map(t => `<section class="dbi-panel"><h2>${esc(t.title)}</h2><div class="dbi-scroll"><table class="dbi-table"><thead><tr>${t.columns.map(x => `<th>${esc(x)}</th>`).join('')}</tr></thead><tbody>${t.rows.length ? t.rows.map(row => `<tr>${row.map(x => `<td>${esc(x)}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${t.columns.length}">No records for this period.</td></tr>`}</tbody></table></div></section>`).join('');
+    $('dbiNotes').innerHTML = (d.notes || []).map(note => `<p class="dbi-note">${esc(note)}</p>`).join('');
+    $('dbiRange').textContent = `${d.filters.from_date} – ${d.filters.to_date} · ${c}`;
+    updateConnector();
+  }
+
+  async function load() {
+    tabUI();
+    let from = form.elements.from_date.value, to = form.elements.to_date.value;
+    if (from > to) {
+      $('dbiMessage').className = 'dbi-note dbi-error';
+      $('dbiMessage').textContent = 'From date must be on or before To date.';
+      return;
+    }
+    let btn = $('dbiApply');
+    btn.disabled = true;
+    $('dbiMessage').className = 'dbi-empty';
+    $('dbiMessage').textContent = 'Loading ' + tabs[active] + '…';
+    try {
+      let url = '/api/bi/v1/departments/' + encodeURIComponent(active) + '?' + new URLSearchParams({ from_date: from, to_date: to });
+      let response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+      if (!response.ok) {
+        let body = await response.json().catch(() => ({}));
+        throw Error(body.error || (response.status === 403 ? 'You cannot access this department.' : 'Request failed (' + response.status + ')'));
+      }
+      draw(await response.json());
+      $('dbiMessage').textContent = '';
+    } catch(e) {
+      $('dbiCards').replaceChildren();
+      $('dbiCharts').replaceChildren();
+      $('dbiTables').replaceChildren();
+      $('dbiNotes').replaceChildren();
+      $('dbiMessage').className = 'dbi-note dbi-error';
+      $('dbiMessage').textContent = e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    load();
+  });
+
+  window.addEventListener('hashchange', () => {
+    let key = location.hash.slice(1);
+    if (tabs[key] && key !== active) {
+      active = key;
+      tabUI();
+      load();
+    }
+  });
+
+  tabUI();
+  load();
+})();
+</script>
+{% endblock %}

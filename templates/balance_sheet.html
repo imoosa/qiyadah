@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% block title %}Balance Sheet{% endblock %}{% block page_title %}Balance Sheet{% endblock %}
+{% block extra_style %}
+<style>
+.r-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.r-head h2{margin:0;font-size:22px;font-weight:800;color:var(--gray-900)}
+.r-sub{font-size:12px;color:var(--gray-500);margin-top:4px}
+.r-filter,.r-card{background:#fff;border:1px solid var(--gray-100);border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.r-filter{padding:14px 16px;margin-bottom:16px}
+.r-filter form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.r-filter label{font-size:10.5px;font-weight:700;color:var(--gray-600);display:block;margin-bottom:4px}
+.r-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.r-kpi{padding:15px}.r-kpi .l{font-size:10px;text-transform:uppercase;color:var(--gray-500);font-weight:700}.r-kpi .v{font-size:20px;font-weight:800;color:var(--gray-900);margin-top:5px}
+.r-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.r-title{padding:13px 16px;background:var(--gray-50);border-bottom:1px solid var(--gray-100);font-weight:800}
+.r-table{width:100%;border-collapse:collapse}.r-table td,.r-table th{padding:10px 14px;border-bottom:1px solid var(--gray-100);font-size:12.5px}.r-table th{text-align:left;background:#012926;color:#F59E0B;font-size:10.5px;text-transform:uppercase}.num{text-align:right!important;font-variant-numeric:tabular-nums}.total{font-weight:800;background:var(--gray-50)}
+.note{padding:10px 13px;border-radius:9px;background:#fffbeb;color:#92400e;font-size:11.5px;margin-bottom:15px}
+@media(max-width:900px){.r-kpis{grid-template-columns:1fr 1fr}.r-grid{grid-template-columns:1fr}}@media(max-width:560px){.r-kpis{grid-template-columns:1fr}.r-table-wrap{overflow:auto}}
+@media print{.r-filter,.btn,.sidebar,.topbar,.bottom-nav{display:none!important}.main{margin:0!important}.r-card{box-shadow:none}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="r-head"><div><h2>⚖️ Balance Sheet</h2><div class="r-sub">As on {{ as_on_date.strftime('%d %b %Y') }}</div></div><button class="btn btn-primary" onclick="window.print()">🖨️ Print</button></div>
+<div class="note">Current basis: {{ report_basis }}. Equity is taken from equity accounts plus cumulative posted earnings.</div>
+<div class="r-filter"><form method="get"><div><label>As on date</label><input type="date" name="as_on_date" value="{{ as_on_date.isoformat() }}"></div><button class="btn btn-primary">Apply</button></form></div>
+<div class="r-kpis"><div class="r-card r-kpi"><div class="l">Total Assets</div><div class="v">{{ '%.2f'|format(total_assets) }}</div></div><div class="r-card r-kpi"><div class="l">Liabilities</div><div class="v">{{ '%.2f'|format(total_liabilities) }}</div></div><div class="r-card r-kpi"><div class="l">Equity</div><div class="v">{{ '%.2f'|format(estimated_equity) }}</div></div><div class="r-card r-kpi"><div class="l">Liabilities + Equity</div><div class="v">{{ '%.2f'|format(total_liabilities_equity) }}</div></div></div>
+<div class="r-grid"><div class="r-card"><div class="r-title">Assets</div><table class="r-table">{% for n,v in assets.items() %}<tr><td>{{ n }}</td><td class="num">{{ '%.2f'|format(v) }}</td></tr>{% endfor %}<tr class="total"><td>Total Assets</td><td class="num">{{ '%.2f'|format(total_assets) }}</td></tr></table></div><div class="r-card"><div class="r-title">Liabilities & Equity</div><table class="r-table">{% for n,v in liabilities.items() %}<tr><td>{{ n }}</td><td class="num">{{ '%.2f'|format(v) }}</td></tr>{% endfor %}<tr><td>Equity</td><td class="num">{{ '%.2f'|format(estimated_equity) }}</td></tr><tr class="total"><td>Total Liabilities & Equity</td><td class="num">{{ '%.2f'|format(total_liabilities_equity) }}</td></tr></table></div></div>
+{% endblock %}

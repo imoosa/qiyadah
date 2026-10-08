@@ -1,0 +1,62 @@
+<div class="nav-section">
+  <div class="nav-section-title">HR & PAYROLL</div>
+  {% if can_manage_hr_access is defined and can_manage_hr_access() %}<a href="{{ url_for('hr_user_access') }}" class="nav-item {% if active=='hr_user_access' %}active{% endif %}"><span class="nav-icon">🔑</span><span>HR Users &amp; Access</span></a>{% endif %}
+  <a href="{{ url_for('hr_dashboard') }}" class="nav-item {% if active=='hr_dashboard' %}active{% endif %}"><span class="nav-icon">👥</span><span>HR Dashboard</span></a>
+</div>
+<div class="nav-section">
+  <div class="nav-section-title">PEOPLE</div>
+  {% if can('hr_employees','view') %}<a href="{{ url_for('hr_employees') }}" class="nav-item {% if active=='hr_employees' %}active{% endif %}"><span class="nav-icon">🪪</span><span>Employees</span></a>{% endif %}
+  {% if can('hr_masters','view') %}<a href="{{ url_for('hr_departments') }}" class="nav-item {% if active=='hr_departments' %}active{% endif %}"><span class="nav-icon">🏢</span><span>Departments</span></a>
+  <a href="{{ url_for('hr_designations') }}" class="nav-item {% if active=='hr_designations' %}active{% endif %}"><span class="nav-icon">🎯</span><span>Designations</span></a>{% endif %}
+</div>
+<div class="nav-section">
+  <div class="nav-section-title">TIME & ATTENDANCE</div>
+  {% if can('hr_attendance','view') %}<a href="{{ url_for('hr_attendance') }}" class="nav-item {% if active=='hr_attendance' %}active{% endif %}"><span class="nav-icon">🕘</span><span>Attendance</span></a>{% endif %}
+  {% if can('hr_shifts','view') %}<a href="{{ url_for('hr_shifts') }}" class="nav-item {% if active=='hr_shifts' %}active{% endif %}"><span class="nav-icon">🔄</span><span>Shifts & Rosters</span></a>{% endif %}
+  {% if can('hr_holidays','view') %}<a href="{{ url_for('hr_holidays') }}" class="nav-item {% if active=='hr_holidays' %}active{% endif %}"><span class="nav-icon">📅</span><span>Holidays</span></a>{% endif %}
+</div>
+<div class="nav-section">
+  <div class="nav-section-title">LEAVE & OVERTIME</div>
+  {% if can('hr_leave','view') %}<a href="{{ url_for('hr_leaves') }}" class="nav-item {% if active=='hr_leaves' %}active{% endif %}"><span class="nav-icon">🏖️</span><span>Leave Requests</span></a>
+  <a href="{{ url_for('hr_leave_balances') }}" class="nav-item {% if active=='hr_leave_balances' %}active{% endif %}"><span class="nav-icon">📊</span><span>Leave Balances</span></a>
+  <a href="{{ url_for('hr_leave_types') }}" class="nav-item {% if active=='hr_leave_types' %}active{% endif %}"><span class="nav-icon">⚙️</span><span>Leave Types</span></a>{% endif %}
+  {% if can('hr_overtime','view') %}<a href="{{ url_for('hr_overtime') }}" class="nav-item {% if active=='hr_overtime' %}active{% endif %}"><span class="nav-icon">⏱️</span><span>Overtime Approval</span></a>{% endif %}
+</div>
+<div class="nav-section"><div class="nav-section-title">PAYROLL SETUP</div>
+{% if can('hr_salary','view') %}<a href="{{ url_for('hr_salary_components') }}" class="nav-item {% if active=='hr_salary_components' %}active{% endif %}"><span class="nav-icon">{{ currency_symbol|default("₹") }}</span><span>Salary Components</span></a>
+<a href="{{ url_for('hr_salary_structures') }}" class="nav-item {% if active=='hr_salary_structures' %}active{% endif %}"><span class="nav-icon">🧾</span><span>Salary Structures</span></a>
+<a href="{{ url_for('hr_salary_assignments') }}" class="nav-item {% if active=='hr_salary_assignments' %}active{% endif %}"><span class="nav-icon">👤</span><span>Employee Salary</span></a>{% endif %}</div>
+<div class="nav-section"><div class="nav-section-title">PAYROLL</div>
+{% if can('hr_payroll','view') %}<a href="{{ url_for('hr_payroll') }}" class="nav-item {% if active=='hr_payroll' %}active{% endif %}"><span class="nav-icon">💳</span><span>Payroll Run</span></a>{% endif %}
+{% if can('hr_loans','view') %}<a href="{{ url_for('hr_loans') }}" class="nav-item {% if active=='hr_loans' %}active{% endif %}"><span class="nav-icon">🏦</span><span>Loans & Advances</span></a>{% endif %}
+{% if can('hr_claims','view') %}<a href="{{ url_for('hr_expense_claims') }}" class="nav-item {% if active=='hr_expense_claims' %}active{% endif %}"><span class="nav-icon">🧾</span><span>Expense Claims</span></a>{% endif %}
+{% if can('hr_statutory','view') %}<a href="{{ url_for('hr_statutory') }}" class="nav-item {% if active=='hr_statutory' %}active{% endif %}"><span class="nav-icon">⚖️</span><span>Statutory Rules</span></a>
+<a href="{{ url_for('hr_employee_statutory') }}" class="nav-item {% if active=='hr_employee_statutory' %}active{% endif %}"><span class="nav-icon">🧮</span><span>Employee Statutory</span></a>{% endif %}
+</div>
+<div class="nav-section"><div class="nav-section-title">WORKSPACE</div>
+<a href="{{ url_for('apps_hub') }}" class="nav-item"><span class="nav-icon">▦</span><span>All Workspaces</span></a></div>
+<div class="nav-section-title">SELF SERVICE</div>
+<a href="{{ url_for('hr_my_dashboard') }}" class="nav-item {% if active=='hr_my_dashboard' %}active{% endif %}"><span class="nav-icon">👤</span><span>My HR</span></a>
+<a href="{{ url_for('hr_my_attendance') }}" class="nav-item {% if active=='hr_my_attendance' %}active{% endif %}"><span class="nav-icon">🕒</span><span>My Attendance</span></a>
+<a href="{{ url_for('hr_my_leaves') }}" class="nav-item {% if active=='hr_my_leaves' %}active{% endif %}"><span class="nav-icon">🌴</span><span>My Leave</span></a>
+<a href="{{ url_for('hr_my_payslips') }}" class="nav-item {% if active=='hr_my_payslips' %}active{% endif %}"><span class="nav-icon">📄</span><span>My Payslips</span></a>
+<a href="{{ url_for('hr_my_claims') }}" class="nav-item {% if active=='hr_my_claims' %}active{% endif %}"><span class="nav-icon">🧾</span><span>My Claims</span></a>
+<a href="{{ url_for('hr_my_loans') }}" class="nav-item {% if active=='hr_my_loans' %}active{% endif %}"><span class="nav-icon">🏦</span><span>My Loans</span></a>
+<a href="{{ url_for('hr_my_profile') }}" class="nav-item {% if active=='hr_my_profile' %}active{% endif %}"><span class="nav-icon">⚙️</span><span>My Profile</span></a>
+<a href="{{ url_for('hr_manager_dashboard') }}" class="nav-item {% if active=='hr_manager_dashboard' %}active{% endif %}"><span class="nav-icon">✅</span><span>Manager Approvals</span></a>
+
+<div class="nav-section-title">TALENT</div>
+<a href="{{ url_for('hr_recruitment') }}" class="nav-item {% if active=='hr_recruitment' %}active{% endif %}"><span class="nav-icon">🎯</span><span>Recruitment</span></a>
+<a href="{{ url_for('hr_onboarding') }}" class="nav-item {% if active=='hr_onboarding' %}active{% endif %}"><span class="nav-icon">🚀</span><span>Onboarding</span></a>
+<a href="{{ url_for('hr_performance') }}" class="nav-item {% if active=='hr_performance' %}active{% endif %}"><span class="nav-icon">⭐</span><span>Performance</span></a>
+<div class="nav-section-title">EMPLOYEE MANAGEMENT</div>
+<a href="{{ url_for('hr_assets') }}" class="nav-item {% if active=='hr_assets' %}active{% endif %}"><span class="nav-icon">💻</span><span>Employee Assets</span></a>
+<a href="{{ url_for('hr_movements') }}" class="nav-item {% if active=='hr_movements' %}active{% endif %}"><span class="nav-icon">🔄</span><span>Transfers & Promotions</span></a>
+<a href="{{ url_for('hr_exits') }}" class="nav-item {% if active=='hr_exits' %}active{% endif %}"><span class="nav-icon">🚪</span><span>Exit Management</span></a>
+
+<div class="nav-section-title">REPORTS & INTELLIGENCE</div>
+<a href="{{ url_for('hr_reports') }}" class="nav-item {% if active=='hr_reports' %}active{% endif %}"><span class="nav-icon">📑</span><span>HR Reports</span></a>
+<a href="{{ url_for('hr_payroll_report') }}" class="nav-item"><span class="nav-icon">💰</span><span>Payroll Reports</span></a>
+<a href="{{ url_for('hr_salary_register') }}" class="nav-item"><span class="nav-icon">📋</span><span>Salary Register</span></a>
+<a href="{{ url_for('hr_statutory_report') }}" class="nav-item"><span class="nav-icon">🏛️</span><span>Statutory Reports</span></a>
+<a href="{{ url_for('hr_bi_intelligence') }}" class="nav-item {% if active=='hr_bi' %}active{% endif %}"><span class="nav-icon">📊</span><span>HR Intelligence</span></a>

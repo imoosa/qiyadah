@@ -1,0 +1,620 @@
+{% extends "base.html" %}
+{% block title %}Backup & Restore{% endblock %}
+{% block page_title %}Backup & Restore{% endblock %}
+
+{% block extra_style %}
+<style>
+  /* ── Modal overlay ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(15,23,42,0.55); backdrop-filter: blur(3px);
+    z-index: 500; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+    width: 100%; max-width: 520px; margin: 20px;
+    animation: modalIn .18s ease;
+  }
+  .modal-box.modal-sm { max-width: 420px; }
+  @keyframes modalIn { from { opacity:0; transform:translateY(-14px); } to { opacity:1; transform:translateY(0); } }
+
+  .modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .modal-header-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .modal-header-icon.blue  { background: var(--primary-light); }
+  .modal-header-icon.amber { background: #FEF3C7; }
+  .modal-title-text h3 { font-size: 15px; font-weight: 700; color: var(--gray-900); }
+  .modal-title-text p  { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+  .modal-close {
+    margin-left: auto; background: none; border: none;
+    font-size: 20px; color: var(--gray-400); cursor: pointer; line-height: 1;
+    padding: 4px 8px; border-radius: 6px;
+  }
+  .modal-close:hover { background: var(--gray-100); color: var(--gray-700); }
+  .modal-body { padding: 20px 24px; }
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--gray-100);
+    display: flex; justify-content: flex-end; gap: 10px;
+  }
+
+  /* ── Warning alert ── */
+  .alert-warn {
+    background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 10px;
+    padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13px; color: #92400E; margin-bottom: 16px;
+  }
+  .alert-warn-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .alert-danger {
+    background: #FEE2E2; border: 1px solid #FECACA; border-radius: 10px;
+    padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13px; color: #7F1D1D; margin-bottom: 16px;
+  }
+
+  /* ── Stat cards ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: #fff; border: 1px solid var(--gray-100); border-radius: 14px;
+    padding: 18px 20px; display: flex; align-items: center; gap: 14px;
+  }
+  .stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .stat-icon.blue   { background: var(--primary-light); }
+  .stat-icon.green  { background: var(--success-light); }
+  .stat-icon.amber  { background: #FEF3C7; }
+  .stat-label { font-size: 11px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .stat-value { font-size: 20px; font-weight: 800; color: var(--gray-900); margin-top: 2px; }
+
+  /* ── Action bar ── */
+  .action-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+  }
+  .action-bar h2 { font-size: 16px; font-weight: 700; color: var(--gray-800); }
+
+  /* ── Table ── */
+  .backup-table { border-radius: 14px; overflow: hidden; border: 1px solid var(--gray-100); }
+  .backup-table table { margin: 0; }
+  .backup-table th { background: var(--gray-50); font-size: 11px; }
+  .backup-table td { vertical-align: middle; }
+  .backup-id { font-family: monospace; font-size: 12px; color: var(--primary); background: var(--primary-light); padding: 3px 8px; border-radius: 6px; }
+
+  /* ── Empty state ── */
+  .empty-state { text-align: center; padding: 60px 20px; }
+  .empty-state-icon { font-size: 48px; margin-bottom: 14px; }
+  .empty-state h3 { font-size: 16px; font-weight: 700; color: var(--gray-700); margin-bottom: 6px; }
+  .empty-state p  { font-size: 13px; color: var(--gray-500); margin-bottom: 20px; }
+
+  /* ── Checkbox ── */
+  .check-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--gray-100); }
+  .check-row:last-child { border-bottom: none; }
+  .check-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; }
+  .check-row label { font-size: 13px; font-weight: 500; color: var(--gray-700); margin: 0; cursor: pointer; }
+  .check-row small { font-size: 11px; color: var(--gray-400); display: block; margin-top: 1px; }
+
+  /* ── Action buttons in table ── */
+  .tbl-actions { display: flex; gap: 6px; align-items: center; }
+  .tbl-btn {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid var(--gray-200); background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; cursor: pointer; text-decoration: none; transition: all .15s;
+  }
+  .tbl-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
+  .tbl-btn.danger:hover { background: var(--danger-light); border-color: #FECACA; }
+  .tbl-btn.warn:hover   { background: #FEF3C7; border-color: #FDE68A; }
+
+  /* ── Status badges ── */
+  .status-completed { background: var(--success-light); color: var(--success); }
+  .status-pending   { background: #FEF3C7; color: var(--warning); }
+
+  /* ── Toggle hidden section ── */
+  .cloud-fields { display: none; margin-top: 12px; }
+  .cloud-fields.visible { display: block; }
+
+  @media(max-width:768px) { .stat-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Stat Cards -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-icon blue">💾</div>
+    <div>
+      <div class="stat-label">Total Backups</div>
+      <div class="stat-value">{{ backups|length }}</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green">✅</div>
+    <div>
+      <div class="stat-label">Completed</div>
+      <div class="stat-value">{{ backups|selectattr('status','equalto','completed')|list|length }}</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon amber">📦</div>
+    <div>
+      <div class="stat-label">Total Size</div>
+      <div class="stat-value">{{ "%.1f"|format(backups|sum(attribute='file_size_mb')) }} MB</div>
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Action bar -->
+<div class="action-bar">
+  <h2>📋 Available Backups</h2>
+  <div style="display:flex;gap:10px;">
+    <button class="btn btn-ghost" onclick="openModal('scheduleModal')">⏰ Schedule</button>
+    <button class="btn btn-primary" onclick="openModal('createModal')">💾 Create Backup</button>
+    
+  </div>
+</div>
+
+<!-- Upload & Restore Backup Section -->
+<div class="card" style="margin-top: 24px;">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--gray-100);">
+        <h2 style="font-size:16px;font-weight:700;color:var(--gray-800);">📤 Upload & Restore Backup</h2>
+    </div>
+    <div class="card-body" style="padding:20px;">
+        <form id="uploadBackupForm" method="POST" action="{{ url_for('upload_backup') }}" 
+              enctype="multipart/form-data" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <div class="form-group" style="flex:1;min-width:200px;margin:0;">
+                <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Select Backup File (.zip)</label>
+                <input type="file" name="backup_file" accept=".zip" required
+                       style="display:block;width:100%;padding:8px 12px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;">
+            </div>
+            <button type="submit" class="btn btn-danger" style="white-space:nowrap;padding:10px 24px;"
+                    onclick="return confirm('⚠️ This will REPLACE ALL current company data with the backup file. Are you sure you want to continue?');">
+                📤 Upload & Restore
+            </button>
+        </form>
+        <div style="margin-top:12px;font-size:12px;color:var(--gray-500);display:flex;align-items:center;gap:8px;">
+            <span style="color:#DC2626;font-weight:700;">⚠️</span>
+            <span>This will overwrite ALL current data. Upload a backup .zip file to restore.</span>
+        </div>
+    </div>
+</div>
+
+<!-- Backups Table -->
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if backups %}
+    <div class="table-wrap backup-table">
+      <table>
+        <!-- In the backup table section -->
+<thead>
+  <tr>
+    <th>Backup ID</th>
+    <th>Date & Time</th>
+    <th>Date Range</th>
+    <th>Size</th>
+    <th>Status</th>
+    <th>Last Restored</th>
+    <th>Actions</th>
+  </tr>
+</thead>
+<tbody>
+  {% for backup in backups %}
+  <tr>
+    <td><span class="backup-id">{{ backup.backup_id }}</span></td>
+    <td style="font-size:13px;">{{ backup.backup_date.strftime('%d %b %Y, %H:%M') }}</td>
+    <td style="font-size:13px;">
+      {% if backup.backup_from_date or backup.backup_to_date %}
+        {% if backup.backup_from_date and backup.backup_to_date %}
+          {{ backup.backup_from_date.strftime('%d %b %Y') }} → {{ backup.backup_to_date.strftime('%d %b %Y') }}
+        {% elif backup.backup_from_date %}
+          From {{ backup.backup_from_date.strftime('%d %b %Y') }}
+        {% elif backup.backup_to_date %}
+          Until {{ backup.backup_to_date.strftime('%d %b %Y') }}
+        {% endif %}
+      {% else %}
+        <span style="color:var(--gray-400);">Full Backup</span>
+      {% endif %}
+    </td>
+    <td style="font-size:13px;">{{ "%.2f"|format(backup.file_size_mb) }} MB</td>
+    <td>
+      <span class="badge {% if backup.status == 'completed' %}status-completed{% else %}status-pending{% endif %}">
+        {% if backup.status == 'completed' %}✔ Completed{% else %}⏳ {{ backup.status|title }}{% endif %}
+      </span>
+    </td>
+    <td style="font-size:13px;">
+      {% if backup.restore_date %}{{ backup.restore_date.strftime('%d %b %Y') }}{% else %}<span style="color:var(--gray-400);">—</span>{% endif %}
+    </td>
+    <td>
+      <div class="tbl-actions">
+        <a href="{{ url_for('download_backup', backup_id=backup.backup_id) }}"
+           class="tbl-btn" title="Download">⬇️</a>
+        <button class="tbl-btn warn" title="Restore"
+          onclick="openRestore('{{ backup.backup_id }}', '{{ backup.backup_date.strftime('%d %b %Y %H:%M') }}')">↩️</button>
+        <button class="tbl-btn" title="Upload to Cloud"
+          onclick="openCloudUpload('{{ backup.backup_id }}')">☁️</button>
+        <form method="POST" action="{{ url_for('delete_backup_record', backup_id=backup.backup_id) }}"
+              onsubmit="return confirm('Delete this backup permanently?');" style="margin:0;">
+          <button type="submit" class="tbl-btn danger" title="Delete">🗑️</button>
+        </form>
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+</tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">💾</div>
+      <h3>No backups yet</h3>
+      <p>Create your first backup to protect your company data.</p>
+      <button class="btn btn-primary" onclick="openModal('createModal')">💾 Create First Backup</button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+
+<!-- In the create backup modal, add date range pickers -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal-box">
+    <form method="POST" action="{{ url_for('create_backup') }}">
+      <div class="modal-header">
+        <div class="modal-header-icon blue">💾</div>
+        <div class="modal-title-text">
+          <h3>Create New Backup</h3>
+          <p>Snapshot your company data with optional date range</p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeModal('createModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Date Range Section -->
+        <div style="background: var(--gray-50); border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+            <span style="font-size: 14px;">📅</span>
+            <span style="font-size: 13px; font-weight: 600; color: var(--gray-700);">Date Range (Optional)</span>
+            <span style="font-size: 11px; color: var(--gray-400);">Leave blank for full backup</span>
+          </div>
+          <div class="grid-2">
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 11px; font-weight: 600; color: var(--gray-500);">From Date</label>
+              <input type="date" name="from_date" id="backupFromDate" 
+                     value="{{ (today_ist() - timedelta(days=30)).isoformat() if today_ist else '' }}"
+                     style="width: 100%; padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px;">
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 11px; font-weight: 600; color: var(--gray-500);">To Date</label>
+              <input type="date" name="to_date" id="backupToDate" 
+                     value="{{ today_ist().isoformat() if today_ist else '' }}"
+                     style="width: 100%; padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px;">
+            </div>
+          </div>
+          <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('today')">Today</button>
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('week')">Last 7 Days</button>
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('month')">Last 30 Days</button>
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('quarter')">Last 90 Days</button>
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('year')">Last Year</button>
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('all')">All Time</button>
+          </div>
+        </div>
+
+        <div class="check-row">
+          <input type="checkbox" id="incAttach" name="include_attachments" value="true" checked>
+          <label for="incAttach">
+            Include attachments
+            <small>Invoices, documents and uploaded files</small>
+          </label>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="uploadCloud" name="upload_to_cloud" value="true"
+                 onchange="toggleSection('createCloudFields', this.checked)">
+          <label for="uploadCloud">
+            Upload to cloud storage
+            <small>Send backup to S3, GCS or FTP after creation</small>
+          </label>
+        </div>
+
+        <div class="cloud-fields" id="createCloudFields">
+          <div class="form-group" style="margin-top:8px;">
+            <label>Cloud Destination</label>
+            <select name="cloud_destination" onchange="switchCloudForm('createCloud', this.value)">
+              {% for key, name in backup_destinations.items() %}
+              <option value="{{ key }}">{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <!-- S3 -->
+          <div id="createCloud-s3">
+            <div class="grid-2">
+              <div class="form-group"><label>Access Key ID</label><input type="text" name="access_key" placeholder="AKIA..."></div>
+              <div class="form-group"><label>Secret Access Key</label><input type="password" name="secret_key" placeholder="••••••••"></div>
+            </div>
+            <div class="grid-2">
+              <div class="form-group"><label>Bucket Name</label><input type="text" name="bucket" placeholder="my-backup-bucket"></div>
+              <div class="form-group"><label>Region</label><input type="text" name="region" value="us-east-1"></div>
+            </div>
+          </div>
+          <!-- GCS -->
+          <div id="createCloud-gcs" style="display:none;">
+            <div class="form-group"><label>Service Account JSON Key</label><input type="text" name="credentials_file" placeholder="Path to credentials.json"></div>
+            <div class="form-group"><label>Bucket Name</label><input type="text" name="gcs_bucket" placeholder="my-gcs-bucket"></div>
+          </div>
+          <!-- FTP -->
+          <div id="createCloud-ftp" style="display:none;">
+            <div class="grid-2">
+              <div class="form-group"><label>Host</label><input type="text" name="host" placeholder="ftp.example.com"></div>
+              <div class="form-group"><label>Port</label><input type="number" name="port" value="22"></div>
+            </div>
+            <div class="grid-2">
+              <div class="form-group"><label>Username</label><input type="text" name="username"></div>
+              <div class="form-group"><label>Password</label><input type="password" name="password"></div>
+            </div>
+            <div class="form-group"><label>Remote Path</label><input type="text" name="path" value="/"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('createModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">💾 Create Backup</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     MODAL: Restore Backup
+════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="restoreModal">
+  <div class="modal-box modal-sm">
+    <form method="POST" id="restoreForm" action="">
+      <div class="modal-header">
+        <div class="modal-header-icon amber">↩️</div>
+        <div class="modal-title-text">
+          <h3>Restore Backup</h3>
+          <p>This will overwrite all current data</p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeModal('restoreModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert-warn">
+          <span class="alert-warn-icon">⚠️</span>
+          <div><strong>Irreversible action.</strong> Restoring will replace all current company data with the selected backup. Make sure you have a recent backup before proceeding.</div>
+        </div>
+        <p style="font-size:13px;color:var(--gray-700);">
+          Restore from backup <strong id="restoreIdLabel" style="color:var(--primary);"></strong>
+          created on <strong id="restoreDateLabel"></strong>?
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('restoreModal')">Cancel</button>
+        <button type="submit" class="btn btn-danger">↩️ Yes, Restore</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     MODAL: Upload to Cloud
+════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="cloudModal">
+  <div class="modal-box">
+    <form method="POST" id="cloudForm" action="">
+      <div class="modal-header">
+        <div class="modal-header-icon blue">☁️</div>
+        <div class="modal-title-text">
+          <h3>Upload Backup to Cloud</h3>
+          <p>Send this backup to your cloud storage</p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeModal('cloudModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="backup_id" id="cloudBackupId">
+        <div class="form-group">
+          <label>Cloud Destination</label>
+          <select name="destination" id="cloudDest" onchange="switchCloudForm('cloudSection', this.value)">
+            {% for key, name in backup_destinations.items() %}
+            <option value="{{ key }}">{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <!-- S3 -->
+        <div id="cloudSection-s3">
+          <div class="grid-2">
+            <div class="form-group"><label>Access Key ID</label><input type="text" name="access_key" placeholder="AKIA..."></div>
+            <div class="form-group"><label>Secret Access Key</label><input type="password" name="secret_key" placeholder="••••••••"></div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group"><label>Bucket Name</label><input type="text" name="bucket" placeholder="my-backup-bucket"></div>
+            <div class="form-group"><label>Region</label><input type="text" name="region" value="us-east-1"></div>
+          </div>
+        </div>
+        <!-- GCS -->
+        <div id="cloudSection-gcs" style="display:none;">
+          <div class="form-group"><label>Service Account JSON Key</label><input type="text" name="credentials_file" placeholder="Path to credentials.json"></div>
+          <div class="form-group"><label>Bucket Name</label><input type="text" name="gcs_bucket" placeholder="my-gcs-bucket"></div>
+        </div>
+        <!-- FTP -->
+        <div id="cloudSection-ftp" style="display:none;">
+          <div class="grid-2">
+            <div class="form-group"><label>Host</label><input type="text" name="host" placeholder="ftp.example.com"></div>
+            <div class="form-group"><label>Port</label><input type="number" name="port" value="22"></div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group"><label>Username</label><input type="text" name="username"></div>
+            <div class="form-group"><label>Password</label><input type="password" name="password"></div>
+          </div>
+          <div class="form-group"><label>Remote Path</label><input type="text" name="path" value="/"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('cloudModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">☁️ Upload to Cloud</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     MODAL: Schedule Backup
+════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="scheduleModal">
+  <div class="modal-box">
+    <form method="POST" action="{{ url_for('schedule_backup') }}">
+      <div class="modal-header">
+        <div class="modal-header-icon blue">⏰</div>
+        <div class="modal-title-text">
+          <h3>Schedule Automatic Backups</h3>
+          <p>Set up recurring backups for your company</p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeModal('scheduleModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Frequency</label>
+            <select name="frequency">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Time of Day</label>
+            <input type="time" name="time_of_day" value="02:00">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Retention (days)</label>
+          <input type="number" name="retention_days" value="30" min="1" max="365">
+          <small style="font-size:11px;color:var(--gray-400);display:block;margin-top:4px;">Backups older than this will be auto-deleted</small>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="schedCloud" name="upload_to_cloud" value="true">
+          <label for="schedCloud">
+            Auto-upload to cloud after each backup
+            <small>Uses your last saved cloud credentials</small>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('scheduleModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">⏰ Save Schedule</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_script %}
+<script>
+/* ── Date range shortcuts ── */
+  function setDateRange(range) {
+    const today = new Date();
+    const fromDate = document.getElementById('backupFromDate');
+    const toDate = document.getElementById('backupToDate');
+    
+    const formatDate = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    switch(range) {
+      case 'today':
+        fromDate.value = formatDate(today);
+        toDate.value = formatDate(today);
+        break;
+      case 'week':
+        const weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 7);
+        fromDate.value = formatDate(weekAgo);
+        toDate.value = formatDate(today);
+        break;
+      case 'month':
+        const monthAgo = new Date(today);
+        monthAgo.setDate(today.getDate() - 30);
+        fromDate.value = formatDate(monthAgo);
+        toDate.value = formatDate(today);
+        break;
+      case 'quarter':
+        const quarterAgo = new Date(today);
+        quarterAgo.setDate(today.getDate() - 90);
+        fromDate.value = formatDate(quarterAgo);
+        toDate.value = formatDate(today);
+        break;
+      case 'year':
+        const yearAgo = new Date(today);
+        yearAgo.setFullYear(today.getFullYear() - 1);
+        fromDate.value = formatDate(yearAgo);
+        toDate.value = formatDate(today);
+        break;
+      case 'all':
+      default:
+        fromDate.value = '';
+        toDate.value = '';
+        break;
+    }
+  }
+
+
+  /* ── Modal helpers ── */
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  // Close on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      if (e.target === el) closeModal(el.id);
+    });
+  });
+
+  /* ── Restore modal ── */
+  function openRestore(backupId, backupDate) {
+    document.getElementById('restoreIdLabel').textContent = backupId;
+    document.getElementById('restoreDateLabel').textContent = backupDate;
+    document.getElementById('restoreForm').action = '/backup/restore/' + backupId;
+    openModal('restoreModal');
+  }
+
+  /* ── Cloud upload modal ── */
+  function openCloudUpload(backupId) {
+    document.getElementById('cloudBackupId').value = backupId;
+    document.getElementById('cloudForm').action = '/backup/upload-to-cloud/' + backupId;
+    openModal('cloudModal');
+  }
+
+  /* ── Toggle cloud fields in create modal ── */
+  function toggleSection(sectionId, show) {
+    var el = document.getElementById(sectionId);
+    if (show) el.classList.add('visible');
+    else el.classList.remove('visible');
+  }
+
+  /* ── Switch cloud provider fields ── */
+  function switchCloudForm(prefix, dest) {
+    ['s3','gcs','ftp'].forEach(function(p) {
+      var el = document.getElementById(prefix + '-' + p);
+      if (el) el.style.display = (p === dest) ? 'block' : 'none';
+    });
+  }
+</script>
+{% endblock %}

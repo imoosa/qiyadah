@@ -1,0 +1,417 @@
+<div class="supply-operations">
+
+
+      <!-- 1. DASHBOARD VIEW -->
+      <div class="view-pane active" id="pane-dashboard">
+        <div class="scm-section-head"><div><span class="scm-stage-number">LATEST ACTIVITY</span><h2>Recent orders</h2><p>Follow up on the latest production and sales records</p></div><button class="btn btn-primary" onclick="openNewOrderModal()">+ Production order</button></div>
+        <!-- Recent Production Orders -->
+        <div class="card-box">
+          <div class="card-box-header">
+            <h3 style="font-size:15px; font-weight:800;">Recent Manufacturing Orders</h3>
+            <button class="btn btn-ghost" style="font-size:12px; padding:5px 12px;" onclick="switchTab('orders')">View All Production Orders →</button>
+          </div>
+          <table class="q-table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Client / Customer</th>
+                <th>Specification</th>
+                <th>Status</th>
+                <th>Amount ({{ currency_symbol|default("₹") }})</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="recentOrdersBody">
+              <tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-muted);">Loading orders...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Recent Sales Orders -->
+        <div class="card-box" {% if not can('sales_orders', 'view') %}style="display:none"{% endif %}>
+          <div class="card-box-header">
+            <h3 style="font-size:15px; font-weight:800;">Recent Sales Orders (SO)</h3>
+            <button class="btn btn-ghost" style="font-size:12px; padding:5px 12px;" onclick="switchTab('sales-orders')">View All Sales Orders →</button>
+          </div>
+          <table class="q-table">
+            <thead>
+              <tr>
+                <th>SO #</th>
+                <th>Customer / Client</th>
+                <th>Date</th>
+                <th>Items Scope</th>
+                <th>Total ({{ currency_symbol|default("₹") }})</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="recentSoBody">
+              <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-muted);">Loading sales orders...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 2. PRODUCTION ORDERS LIST VIEW -->
+      <div class="view-pane" id="pane-orders">
+        <div class="card-box">
+          <div class="card-box-header">
+            <div class="search-row">
+              <input type="text" class="q-input" id="orderSearch" placeholder="🔍 Search Order ID, client, specification..." oninput="loadOrders()">
+              <select class="q-input" id="statusFilter" onchange="loadOrders()">
+                <option value="all">All Statuses</option>
+                {% for s in status_flow %}
+                <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+              </select>
+              <select class="q-input" id="priorityFilter" onchange="loadOrders()">
+                <option value="all">All Priorities</option>
+                <option value="low">Low</option>
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="openNewOrderModal()">+ New Production Order</button>
+          </div>
+
+          <table class="q-table">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Customer</th>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Amount Due</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Partner</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+              <tr><td colspan="9" style="text-align:center; padding:28px; color:var(--text-muted);">Loading orders...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 3. WORKFLOW BOARD (KANBAN) -->
+      <div class="view-pane" id="pane-workflow">
+        <div class="kanban-row" id="kanbanBoard">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- 4. SALES ORDERS VIEW -->
+      <div class="view-pane" id="pane-sales-orders">
+        <div class="card-box">
+          <div class="card-box-header">
+            <div class="search-row">
+              <input type="text" class="q-input" id="soSearch" placeholder="🔍 Search SO #, Client, Reference..." oninput="loadSalesOrders()">
+              <select class="q-input" id="soStatusFilter" onchange="loadSalesOrders()">
+                <option value="all">All SO Statuses</option>
+                <option value="Draft">Draft</option>
+                <option value="Confirmed">Confirmed</option>
+                <option value="Approved for Production">Approved for Production</option>
+                <option value="Invoiced">Invoiced</option>
+                <option value="Partially Delivered">Partially Delivered</option>
+                <option value="Delivered">Delivered</option>
+                <option value="Cancelled">Cancelled</option>
+              </select>
+            </div>
+            {% if can('sales_orders', 'create') %}<button class="btn btn-primary" onclick="openNewSalesOrderModal()">+ Create Sales Order</button>{% endif %}
+          </div>
+
+          <table class="q-table">
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Client / Customer</th>
+                <th>Order Date</th>
+                <th>Delivery Date</th>
+                <th>Items Scope</th>
+                <th>Grand Total ({{ currency_symbol|default("₹") }})</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="salesOrdersTableBody">
+              <tr><td colspan="8" style="text-align:center; padding:28px; color:var(--text-muted);">Loading sales orders...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 5. CLIENTS MASTER VIEW -->
+      <div class="view-pane" id="pane-clients">
+        <div class="card-box">
+          <div class="card-box-header">
+            <div class="search-row">
+              <input type="text" class="q-input" id="clientMasterSearch" placeholder="🔍 Search clients by name, phone, city, {{ tax_id_label|default("Tax ID") }}..." oninput="loadClientsMaster()">
+            </div>
+            {% if can('clients', 'create') %}<button class="btn btn-primary" onclick="openNewClientModal()">+ New Client</button>{% endif %}
+          </div>
+
+          <table class="q-table">
+            <thead>
+              <tr>
+                <th>Client Name</th>
+                <th>Contact Person</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>City</th>
+                <th>{{ tax_id_label|default("Tax ID") }}</th>
+                <th>Sales Orders</th>
+                <th>Mfg Orders</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="clientsTableBody">
+              <tr><td colspan="9" style="text-align:center; padding:28px; color:var(--text-muted);">Loading clients...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    
+  <div class="modal-overlay" id="newOrderModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>Create Manufacturing Order</h3>
+        <button onclick="closeModal('newOrderModal')" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+      </div>
+      <form onsubmit="submitNewOrder(event)">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Select Existing Client (or enter below)</label>
+            <select class="q-input" id="new-client-select" onchange="onSelectClientForOrder(this)">
+              <option value="">-- Choose Client --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Customer Name *</label>
+            <input type="text" class="q-input" id="new-client-name" required placeholder="Sterling Enterprises">
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" class="q-input" id="new-client-phone" placeholder="+91 9876543210">
+          </div>
+          <div class="form-group full">
+            <label>Item Description & Specification *</label>
+            <textarea class="q-input" id="new-item-desc" rows="3" required placeholder="e.g. 50x Industrial Control Panel enclosure, IP65"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Quantity</label>
+            <input type="number" class="q-input" id="new-quantity" value="1" min="1" oninput="calcTotal()">
+          </div>
+          <div class="form-group">
+            <label>Unit Price ({{ currency_symbol|default("₹") }})</label>
+            <input type="number" step="any" class="q-input" id="new-unit-price" value="0" oninput="calcTotal()">
+          </div>
+          <div class="form-group">
+            <label>Total Amount ({{ currency_symbol|default("₹") }})</label>
+            <input type="number" step="any" class="q-input" id="new-amount-due" value="0">
+          </div>
+          <div class="form-group">
+            <label>Advance Received ({{ currency_symbol|default("₹") }})</label>
+            <input type="number" step="any" class="q-input" id="new-amount-paid" value="0">
+          </div>
+          <div class="form-group">
+            <label>Priority</label>
+            <select class="q-input" id="new-priority">
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Partner / Facility</label>
+            <input type="text" class="q-input" id="new-partner" placeholder="Internal or Partner name">
+          </div>
+          <div class="form-group full">
+            <label>Notes</label>
+            <textarea class="q-input" id="new-notes" rows="2" placeholder="Special requirements or delivery instructions"></textarea>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('newOrderModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Create Order</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Create Sales Order Modal -->
+  <div class="modal-overlay" id="newSalesOrderModal">
+    <div class="modal-box" style="max-width:760px;">
+      <div class="modal-head">
+        <h3>Create Sales Order (SO)</h3>
+        <button onclick="closeModal('newSalesOrderModal')" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+      </div>
+      <form onsubmit="submitNewSalesOrder(event)">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Select Customer Account *</label>
+            <select class="q-input" id="so-client-select" required onchange="onSelectClientForSO(this)">
+              <option value="">-- Choose Client --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Customer Name</label>
+            <input type="text" class="q-input" id="so-client-name" required placeholder="Customer / Company Name">
+          </div>
+          <div class="form-group">
+            <label>Client Phone</label>
+            <input type="text" class="q-input" id="so-client-phone" placeholder="+91 9876543210">
+          </div>
+          <div class="form-group">
+            <label>Order Date</label>
+            <input type="date" class="q-input" id="so-order-date" required>
+          </div>
+          <div class="form-group">
+            <label>Expected Delivery Date</label>
+            <input type="date" class="q-input" id="so-delivery-date">
+          </div>
+          <div class="form-group">
+            <label>Reference / PO #</label>
+            <input type="text" class="q-input" id="so-reference-no" placeholder="PO-2026-001">
+          </div>
+          <div class="form-group">
+            <label>Initial Status</label>
+            <select class="q-input" id="so-status">
+              <option value="Draft">Draft</option>
+              <option value="Confirmed">Confirmed</option>
+            </select>
+          </div>
+
+          <!-- Line Items Table -->
+          <div class="form-group full" style="margin-top:10px;">
+            <label style="font-size:12px; font-weight:800;">Order Items & Pricing</label>
+            <div id="soItemsContainer" style="margin-top:6px;">
+              <!-- Dynamic Rows -->
+            </div>
+            <button type="button" class="btn btn-ghost" style="font-size:11.5px; padding:4px 10px; margin-top:8px;" onclick="addSoItemRow()">+ Add Item Row</button>
+          </div>
+
+          <div class="form-group full" style="background:var(--bg-body); padding:12px 16px; border-radius:8px; border:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Computed Breakdown</div>
+              <div style="font-size:12px; color:var(--text-body); margin-top:2px;" id="soBreakdownText">Subtotal: {{ currency_symbol|default("₹") }}0 · Taxes: {{ currency_symbol|default("₹") }}0</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Grand Total</div>
+              <div style="font-size:20px; font-weight:800; color:var(--primary);" id="soGrandTotalText">{{ currency_symbol|default("₹") }}0</div>
+            </div>
+          </div>
+
+          <div class="form-group full">
+            <label>Terms & Conditions / Scope</label>
+            <textarea class="q-input" id="so-terms" rows="2" placeholder="Standard payment terms, warranty, or delivery instructions"></textarea>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('newSalesOrderModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Generate Sales Order</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Sales Order Details Modal -->
+  <div class="modal-overlay" id="soDetailsModal">
+    <div class="modal-box" style="max-width:760px;">
+      <div class="modal-head">
+        <h3 id="so-detail-title">Sales Order Details</h3>
+        <button onclick="closeModal('soDetailsModal')" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+      </div>
+      <div id="soDetailsContent">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Client Modal -->
+  <div class="modal-overlay" id="newClientModal">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3>New Customer Account</h3>
+        <button onclick="closeModal('newClientModal')" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+      </div>
+      <form onsubmit="submitNewClient(event)">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Client / Company Name *</label>
+            <input type="text" class="q-input" id="cli-name" required placeholder="Sterling Enterprises">
+          </div>
+          <div class="form-group">
+            <label>Contact Person</label>
+            <input type="text" class="q-input" id="cli-contact" placeholder="Rajesh Sharma">
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="text" class="q-input" id="cli-phone" placeholder="+91 9876543210">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" class="q-input" id="cli-email" placeholder="sales@sterling.com">
+          </div>
+          <div class="form-group">
+            <label>City</label>
+            <input type="text" class="q-input" id="cli-city" placeholder="Mumbai">
+          </div>
+          <div class="form-group">
+            <label>{{ tax_id_label|default("Tax ID") }}</label>
+            <input type="text" class="q-input" id="cli-gst" placeholder="27AAAAA0000A1Z5">
+          </div>
+          <div class="form-group">
+            <label>Credit Limit ({{ currency_symbol|default("₹") }})</label>
+            <input type="number" step="any" class="q-input" id="cli-credit" value="0">
+          </div>
+          <div class="form-group full">
+            <label>Address</label>
+            <input type="text" class="q-input" id="cli-address" placeholder="Factory address or Billing address">
+          </div>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button type="button" class="btn btn-ghost" onclick="closeModal('newClientModal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Client</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Client 360 / Profile Modal -->
+  <div class="modal-overlay" id="clientProfileModal">
+    <div class="modal-box" style="max-width:760px;">
+      <div class="modal-head">
+        <h3 id="cli-prof-title">Client Account Cockpit</h3>
+        <button onclick="closeModal('clientProfileModal')" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+      </div>
+      <div id="clientProfileContent">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Detail & Transition Modal -->
+  <div class="modal-overlay" id="orderDetailModal">
+    <div class="modal-box" style="max-width:700px;">
+      <div class="modal-head">
+        <h3 id="det-order-title">Order Details</h3>
+        <button onclick="closeModal('orderDetailModal')" style="background:none; border:none; font-size:20px; cursor:pointer; color:var(--text-muted);">&times;</button>
+      </div>
+      <div id="orderDetailContent">
+        <!-- Loaded via JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Datalist for Product Items -->
+  <datalist id="productList">
+    <!-- Populated via JS -->
+  </datalist>
+
+</div>

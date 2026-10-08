@@ -1,0 +1,11 @@
+<section class="plan-comparison" id="plans">
+  <div style="margin-bottom:20px"><span style="font-size:11px;letter-spacing:1.5px;color:var(--text-muted)">PLANS FOR YOUR BUSINESS</span><h2 style="margin:8px 0">Choose the right Qiyadah plan</h2><p style="font-size:13px;color:var(--text-muted)">Supply Chain Management is included in Qiyadah Supply and Qiyadah Unified. Three-year subscriptions are billed upfront.</p></div>
+  <div style="overflow:auto;border:1px solid var(--border-color,#e2e8f0);border-radius:14px"><table style="width:100%;border-collapse:collapse;min-width:780px">
+    <thead><tr><th>Plan includes</th>{% for key,p in public_plans.items() %}<th>{{ p.name }}</th>{% endfor %}</tr></thead>
+    <tbody><tr><th>Main modules</th>{% for key,p in public_plans.items() %}<td>{{ p.features }}</td>{% endfor %}</tr><tr><th>Main modules</th>{% for key,p in public_plans.items() %}<td>{{ p.features }}</td>{% endfor %}</tr>{% for label,field in [('Users','max_users'),('Companies','max_companies'),('Branches','max_branches')] %}<tr><th>{{ label }}</th>{% for key,p in public_plans.items() %}<td>{{ p[field] }}</td>{% endfor %}</tr>{% endfor %}
+    <tr><th>1 year</th>{% for key,p in public_plans.items() %}<td>₹{{ '{:,}'.format(p.price_1yr|int) }}</td>{% endfor %}</tr>
+    <tr><th>3-year rate</th>{% for key,p in public_plans.items() %}<td><strong>₹{{ '{:,}'.format(p.annual_3yr) }}/yr</strong><br><small>₹{{ '{:,}'.format(p.price_3yr|int) }} billed once</small></td>{% endfor %}</tr>
+    </tbody></table></div>
+  <p style="font-size:12px;color:var(--text-muted);margin-top:12px">BI Intelligence is included in every plan. Users, companies and branches are account allowances. Private custom plans are assigned by Qiyadah support.</p>
+</section>
+<style>.plan-comparison{margin-top:40px}.plan-comparison th,.plan-comparison td{padding:18px 16px;text-align:left;border-bottom:1px solid var(--border-color,#e2e8f0);font-size:13px}.plan-comparison thead{background:rgba(13,148,136,.08)}.plan-comparison tbody th{color:var(--text-muted);font-weight:500}.plan-comparison small{display:inline-block;margin-top:6px;color:var(--text-muted);font-size:11px}</style>

@@ -1,0 +1,4162 @@
+<!DOCTYPE html>
+{% macro safe_url(ep, default="#") %}{{ url_for(ep) if (url_for.__globals__ is defined and "current_app" in url_for.__globals__ and ep in url_for.__globals__["current_app"].view_functions) else default }}{% endmacro %}
+{% if user is not defined %}{% set user = {} %}{% endif %}
+{% if can is not defined %}{% macro can(m, a='view') %}{% endmacro %}{% endif %}
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{% endblock %} · {{ company.company_name if company else 'Qiyadah' }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='qiyadah_icon.png') }}?v=2">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <meta name="theme-color" content="#0d47a1">
+  <style>
+    /* ── DARK THEME VARIABLES ── */
+    :root {
+      --primary: #F59E0B;
+      --primary-light: #FEF3C7;
+      --primary-dark: #D97706;
+      --primary-glow: rgba(245, 158, 11, 0.12);
+      --success: #059669;
+      --success-light: #D1FAE5;
+      --danger: #DC2626;
+      --danger-light: #FEE2E2;
+      --warning: #D97706;
+      --warning-light: #FEF3C7;
+      --accent: #F59E0B;
+      --accent-light: #FEF3C7;
+
+      /* Light theme colors */
+      --gray-50: #F8FAFC;
+      --gray-100: #F1F5F9;
+      --gray-200: #E2E8F0;
+      --gray-300: #CBD5E1;
+      --gray-400: #94A3B8;
+      --gray-500: #64748B;
+      --gray-600: #475569;
+      --gray-700: #334155;
+      --gray-800: #1E293B;
+      --gray-900: #0F172A;
+
+      --font: 'Plus Jakarta Sans', sans-serif;
+      --sidebar-w: 265px;
+      --sidebar-collapsed-w: 60px;
+      --topbar-h: 70px;
+      --radius: 14px;
+
+      /* Light theme backgrounds & text */
+      --bg-body: #F8FAFC;
+      --bg-card: #ffffff;
+      --bg-input: #ffffff;
+      --text-body: #1E293B;
+      --text-muted: #64748B;
+      --border-color: #E2E8F0;
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, .05);
+      --bg-topbar: #ffffff;
+      --bg-sidebar: #012926;
+      --text-sidebar: #ffffff;
+      --bg-hover: rgba(255, 255, 255, 0.06);
+      --bg-active: rgba(245, 158, 11, 0.2);
+      --bg-dropdown: #ffffff;
+      --bg-modal: #ffffff;
+      --bg-table-alt: #F8FAFC;
+      --bg-input-disabled: #F1F5F9;
+      --shadow-dropdown: 0 8px 32px rgba(0, 0, 0, 0.13);
+      --border-light: rgba(255, 255, 255, 0.06);
+    }
+
+    /* ── DARK THEME ── Pure black/dark aesthetic */
+    body.dark-theme {
+      /* Dark backgrounds - deep blacks with subtle variations */
+      --bg-body: #0A0A0A;
+      --bg-card: #1A1A1A;
+      --bg-input: #1A1A1A;
+      --bg-topbar: #0D0D0D;
+      --bg-sidebar: #0D0D0D;
+      --bg-dropdown: #1A1A1A;
+      --bg-modal: #1A1A1A;
+      --bg-table-alt: #141414;
+      --bg-input-disabled: #141414;
+
+      /* Text - pure white and light grays for readability */
+      --text-body: #E8E8E8;
+      --text-muted: #A0A0A0;
+      --border-color: #2A2A2A;
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, .5);
+      --shadow-dropdown: 0 8px 32px rgba(0, 0, 0, .6);
+
+      /* Gray overrides for dark */
+      --gray-50: #141414;
+      --gray-100: #1A1A1A;
+      --gray-200: #2A2A2A;
+      --gray-300: #3A3A3A;
+      --gray-400: #6A6A6A;
+      --gray-500: #8A8A8A;
+      --gray-600: #A0A0A0;
+      --gray-700: #C0C0C0;
+      --gray-800: #D8D8D8;
+      --gray-900: #F0F0F0;
+
+      /* Sidebar stays dark green but slightly darker */
+      --bg-sidebar: #011A18;
+      --bg-hover: rgba(255, 255, 255, 0.05);
+      --bg-active: rgba(245, 158, 11, 0.2);
+      --border-light: rgba(255, 255, 255, 0.04);
+    }
+
+    /* Comprehensive dark theme overrides for all cards, components & legacy widgets */
+    body.dark-theme .card,
+    body.dark-theme .section-card,
+    body.dark-theme .stat-card,
+    body.dark-theme .meta-card,
+    body.dark-theme .kpi-tile,
+    body.dark-theme .chart-card,
+    body.dark-theme .pe-card,
+    body.dark-theme .pn-card,
+    body.dark-theme .pl-card,
+    body.dark-theme .table-card,
+    body.dark-theme .filter-bar,
+    body.dark-theme .modal-content,
+    body.dark-theme .psize-modal,
+    body.dark-theme .custom-card,
+    body.dark-theme .perf-entry-panel,
+    body.dark-theme .details-card {
+      background-color: var(--bg-card) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-body) !important;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    body.dark-theme .kpi-tile .kpi-val,
+    body.dark-theme .stat-card .stat-val,
+    body.dark-theme .section-title,
+    body.dark-theme h1,
+    body.dark-theme h2,
+    body.dark-theme h3,
+    body.dark-theme h4,
+    body.dark-theme h5 {
+      color: var(--text-body) !important;
+    }
+
+    body.dark-theme .filter-bar input,
+    body.dark-theme .filter-bar select,
+    body.dark-theme .filter-bar button.preset-btn {
+      background: var(--bg-input) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-body) !important;
+    }
+
+    body.dark-theme .filter-bar button.preset-btn.active {
+      background: var(--primary) !important;
+      color: #fff !important;
+      border-color: var(--primary) !important;
+    }
+
+    body.dark-theme table thead th {
+      background: var(--bg-table-alt) !important;
+      color: var(--text-muted) !important;
+      border-color: var(--border-color) !important;
+    }
+
+    body.dark-theme table tbody td {
+      border-color: var(--border-color) !important;
+      color: var(--text-body) !important;
+    }
+
+    body.dark-theme table tbody tr:hover {
+      background: var(--gray-50) !important;
+    }
+
+    body.dark-theme input,
+    body.dark-theme select,
+    body.dark-theme textarea {
+      background-color: var(--bg-input) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-body) !important;
+    }
+
+    body.dark-theme input:focus,
+    body.dark-theme select:focus,
+    body.dark-theme textarea:focus {
+      border-color: var(--primary) !important;
+    }
+
+    body.dark-theme input[readonly],
+    body.dark-theme input:disabled,
+    body.dark-theme select:disabled {
+      background-color: var(--bg-input-disabled) !important;
+      color: var(--text-muted) !important;
+    }
+
+    body.dark-theme .btn-ghost {
+      background: var(--bg-card) !important;
+      border-color: var(--border-color) !important;
+      color: var(--text-body) !important;
+    }
+
+    body.dark-theme .btn-ghost:hover {
+      background: var(--gray-100) !important;
+    }
+
+    body.dark-theme .banner-warning,
+    body.dark-theme div[style*="background:#FFFBEB"],
+    body.dark-theme div[style*="background: #FFFBEB"] {
+      background: rgba(245, 158, 11, 0.12) !important;
+      border-color: rgba(245, 158, 11, 0.3) !important;
+      color: #FBBF24 !important;
+    }
+
+    @media print {
+      .sidebar {
+        display: none !important;
+      }
+
+      .topbar {
+        display: none !important;
+      }
+
+      .main {
+        margin-left: 0 !important;
+        padding: 0 !important;
+      }
+
+      .content {
+        padding: 0 !important;
+      }
+
+      .logo-loader-overlay,
+      .ai-fab,
+      .ai-panel,
+      .mobile-backdrop,
+      .app-modal-overlay {
+        display: none !important;
+      }
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-body);
+      color: var(--text-body);
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    /* ── SIDEBAR ── */
+    {% if use_bi_navigation %}
+    .sidebar, #sidebar, .sidebar-toggle-btn, .mobile-backdrop, #hamburgerBtn {
+      display: none !important;
+    }
+    .main, .main.collapsed {
+      margin-left: 0 !important;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    {% endif %}
+    .sidebar {
+      transition: width .22s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .sidebar.collapsed {
+      width: var(--sidebar-collapsed-w);
+      overflow: hidden;
+    }
+
+    .sidebar.collapsed .sidebar-logo-text,
+    .sidebar.collapsed .sidebar-logo-sub,
+    .sidebar.collapsed .company-pill,
+    .sidebar.collapsed .nav-section-title,
+    .sidebar.collapsed .nav-item span:last-child,
+    .sidebar.collapsed .sidebar-foot a span:last-child {
+      display: none;
+    }
+
+    .sidebar.collapsed .sidebar-logo {
+      justify-content: center;
+    }
+
+    .sidebar.collapsed .sidebar-header {
+      padding: 16px 10px;
+    }
+
+    .sidebar.collapsed .nav-item {
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .sidebar.collapsed .nav-icon {
+      font-size: 18px;
+    }
+
+    .sidebar.collapsed .sidebar-foot a {
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .sidebar-toggle-btn {
+      position: fixed;
+      top: 50%;
+      left: calc(var(--sidebar-w) - 15px);
+      transform: translateY(-50%);
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 4px 10px rgba(0, 0, 0, .08);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bg-sidebar);
+      z-index: 150;
+      padding: 0;
+      transition: left .22s cubic-bezier(.4, 0, .2, 1), background .15s, border-color .15s, box-shadow .15s, transform .15s;
+    }
+
+    .sidebar-toggle-btn svg {
+      width: 14px;
+      height: 14px;
+      transition: transform .22s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .sidebar-toggle-btn.is-collapsed svg {
+      transform: rotate(180deg);
+    }
+
+    #sidebar.collapsed+.sidebar-toggle-btn {
+      left: calc(var(--sidebar-collapsed-w) - 15px);
+    }
+
+    body.dark-theme .sidebar-toggle-btn {
+      background: #1A1A1A;
+      border-color: #3A3A3A;
+      color: #E2E8F0;
+    }
+
+    .sidebar-toggle-btn:hover {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(245, 158, 11, .35), 0 6px 16px rgba(245, 158, 11, .25);
+      transform: translateY(-50%) scale(1.08);
+    }
+
+    .main {
+      transition: margin-left .22s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .main.collapsed {
+      margin-left: var(--sidebar-collapsed-w);
+    }
+
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-sidebar);
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 transparent;
+    }
+
+    .sidebar::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+
+    .sidebar-header {
+      padding: 22px 20px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      min-height: 48px;
+    }
+
+    .sidebar-qiyadah-brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .sidebar-qiyadah-icon {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+      flex: 0 0 42px;
+      display: block;
+    }
+
+    .sidebar-qiyadah-word {
+      width: 132px;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .sidebar.collapsed .sidebar-qiyadah-brand {
+      justify-content: center;
+      width: 100%;
+    }
+
+    .sidebar.collapsed .sidebar-qiyadah-icon {
+      width: 40px;
+      height: 40px;
+      flex-basis: 40px;
+    }
+
+    .sidebar.collapsed .sidebar-qiyadah-word {
+      display: none;
+    }
+
+    .company-pill {
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+
+    .company-pill-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .company-pill-plan {
+      display: inline-block;
+      margin-top: 5px;
+      background: linear-gradient(90deg, #0D9488, #F59E0B);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 14px 12px;
+    }
+
+    .nav-section {
+      margin-bottom: 8px;
+    }
+
+    .nav-section-title {
+      font-size: 9.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1.1px;
+      color: rgba(255, 255, 255, 0.45);
+      padding: 10px 12px 5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .nav-section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: #f59e0b;
+      opacity: 0.75;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.82);
+      text-decoration: none;
+      margin-bottom: 2px;
+      border: 1px solid transparent;
+      transition: all .2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.12);
+      transform: translateX(3px);
+    }
+
+    .nav-item.active {
+      background: linear-gradient(90deg, rgba(245, 158, 11, 0.22) 0%, rgba(1, 41, 38, 0.35) 100%);
+      border-color: rgba(245, 158, 11, 0.45);
+      color: #fde68a;
+      font-weight: 700;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .nav-item.active .nav-icon {
+      color: #f59e0b;
+      transform: scale(1.15);
+    }
+
+    .nav-icon {
+      font-size: 15px;
+      flex-shrink: 0;
+      transition: transform .2s ease;
+    }
+
+    /* The icon itself gets a tiny lift on hover so the interaction feels alive */
+    .sidebar.collapsed .nav-item .nav-icon,
+    .sidebar.collapsed .sidebar-foot a .nav-icon {
+      transition: transform .22s cubic-bezier(.34, 1.56, .64, 1);
+    }
+
+    .sidebar.collapsed .nav-item:hover .nav-icon,
+    .sidebar.collapsed .sidebar-foot a:hover .nav-icon {
+      transform: scale(1.12);
+    }
+
+    /* Rollout label: a single fixed-position element (see JS below), NOT a
+       pseudo-element on the nav item. .sidebar.collapsed has overflow:hidden
+       (needed to clip the text labels during the width transition), which
+       would clip any ::after positioned outside the 60px rail — so this has
+       to live outside the sidebar's DOM/stacking context entirely. */
+    #navRollout {
+      position: fixed;
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      background: linear-gradient(135deg, #0E3A36, #072421);
+      color: #fff;
+      padding: 0 18px 0 14px;
+      border-radius: 0 10px 10px 0;
+      border-left: 3px solid #F59E0B;
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: .15px;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 6px 0 18px rgba(0, 0, 0, 0.28);
+      opacity: 0;
+      visibility: hidden;
+      transform: scaleX(.4);
+      transform-origin: left center;
+      transition: transform .28s cubic-bezier(.16, 1, .3, 1), opacity .18s ease, visibility 0s linear .28s;
+    }
+
+    #navRollout.show {
+      opacity: 1;
+      visibility: visible;
+      transform: scaleX(1);
+      transition: transform .28s cubic-bezier(.16, 1, .3, 1), opacity .12s ease;
+    }
+
+    #navRollout.is-active {
+      background: linear-gradient(135deg, #F59E0B, #D97706);
+      color: #1A1206;
+      border-left-color: transparent;
+    }
+
+    /* On mobile the collapsed sidebar reverts to full text, so no rollout needed there */
+    @media (max-width: 991px) {
+      #navRollout {
+        display: none !important;
+      }
+    }
+
+    .sidebar-foot {
+      padding: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .sidebar-foot a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all .15s;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .sidebar-foot a:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+    }
+
+    .logout-btn {
+      color: #f87171;
+    }
+
+    .logout-btn:hover {
+      background: rgba(220, 38, 38, 0.15);
+      color: #ef4444;
+    }
+
+    /* ── TOPBAR (EXECUTIVE BRAND STYLE) ── */
+    .topbar {
+      height: var(--topbar-h);
+      background: #012926;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      padding: 0 28px;
+      gap: 16px;
+      color: #FFFFFF;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: background 0.3s ease, border-color 0.3s ease;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    body.dark-theme .topbar {
+      background: #011A18;
+      border-bottom-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .topbar-brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .topbar-brand-logo-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: inherit;
+      flex-shrink: 0;
+    }
+
+    .topbar-brand-icon {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3));
+    }
+
+    .topbar-brand-word {
+      height: 18px;
+      object-fit: contain;
+      filter: brightness(1.2);
+    }
+
+    .topbar-brand-divider {
+      width: 1px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.16);
+      flex-shrink: 0;
+    }
+
+    .topbar-company-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      padding: 5px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      min-width: 0;
+    }
+
+    .topbar-company-pill:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    .topbar-company-pill-details {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.2;
+      min-width: 0;
+    }
+
+    .topbar-company-badge-name {
+      font-weight: 750;
+      font-size: 13px;
+      color: #FFFFFF;
+      max-width: 240px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .topbar-company-badge-branch {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.65);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .topbar-company-badge-tag {
+      font-size: 9px;
+      font-weight: 800;
+      color: #F59E0B;
+      letter-spacing: 0.6px;
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      padding: 2px 7px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .topbar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .topbar-owner-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245, 158, 11, 0.16);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #FBBF24;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+
+    .apps-hub-top-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: #FFFFFF !important;
+      padding: 6px 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .apps-hub-top-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+      color: #FFFFFF !important;
+    }
+
+    .topbar-welcome {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 40px;
+      padding: 6px 16px 6px 10px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      user-select: none;
+      color: #FFFFFF;
+    }
+
+    .topbar-welcome:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+
+    .topbar-welcome-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #0D9488, #F59E0B);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    .topbar-welcome-text {
+      line-height: 1.2;
+    }
+
+    .topbar-welcome-name {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    .topbar-welcome-greeting {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .theme-toggle-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.07);
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .theme-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+
+    .hamburger-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #FFFFFF;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    @media (max-width: 900px) {
+      .hamburger-btn {
+        display: inline-flex;
+      }
+      .topbar-company-badge-name {
+        max-width: 140px;
+      }
+    }
+    @media (max-width: 640px) {
+      .topbar {
+        padding: 0 16px;
+      }
+      .topbar-brand-word {
+        display: none;
+      }
+      .topbar-welcome-text {
+        display: none;
+      }
+      .apps-hub-top-btn span:last-child {
+        display: none;
+      }
+    }
+
+    .topbar-user-wrap {
+      position: relative;
+    }
+
+    .topbar-welcome {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .topbar-welcome-caret {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-left: 4px;
+      transition: transform .2s;
+    }
+
+    .topbar-user-wrap.open .topbar-welcome-caret {
+      transform: rotate(180deg);
+    }
+
+    .user-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      min-width: 230px;
+      background: var(--bg-dropdown);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      box-shadow: var(--shadow-dropdown);
+      z-index: 200;
+      overflow: hidden;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    .topbar-user-wrap.open .user-dropdown {
+      display: block;
+    }
+
+    .user-dropdown-header {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border-color);
+      background: linear-gradient(135deg, #F0FDFA 0%, #FEF3C7 100%);
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    body.dark-theme .user-dropdown-header {
+      background: linear-gradient(135deg, #1A2A2A 0%, #2A1A0A 100%);
+    }
+
+    .user-dropdown-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-body);
+    }
+
+    .user-dropdown-email {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .user-dropdown-role {
+      display: inline-block;
+      margin-top: 6px;
+      background: linear-gradient(90deg, #0D9488, #F59E0B);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .user-dropdown-body {
+      padding: 8px;
+    }
+
+    .user-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all .15s;
+      cursor: pointer;
+      color: var(--text-body);
+    }
+
+    .user-dropdown-item.switch-item {
+      color: var(--primary);
+    }
+
+    .user-dropdown-item.switch-item:hover {
+      background: var(--primary-light);
+    }
+
+    body.dark-theme .user-dropdown-item.switch-item:hover {
+      background: rgba(245, 158, 11, 0.15);
+    }
+
+    .user-dropdown-item.logout-item {
+      color: var(--danger);
+    }
+
+    .user-dropdown-item.logout-item:hover {
+      background: var(--danger-light);
+    }
+
+    body.dark-theme .user-dropdown-item.logout-item:hover {
+      background: rgba(220, 38, 38, 0.15);
+    }
+
+    /* ── THEME TOGGLE ── */
+    .theme-toggle-btn {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border-color);
+      border-radius: 50%;
+      width: 38px;
+      height: 38px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.25s ease;
+      color: var(--text-body);
+      flex-shrink: 0;
+    }
+
+    .theme-toggle-btn:hover {
+      border-color: var(--primary);
+      transform: rotate(20deg) scale(1.05);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
+    }
+
+    body.dark-theme .theme-toggle-btn {
+      border-color: #3A3A3A;
+    }
+
+    body.dark-theme .theme-toggle-btn:hover {
+      border-color: var(--primary);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+    }
+
+    /* ── COMMON COMPONENTS ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: all .15s;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+
+    .btn-success:hover {
+      background: #047857;
+    }
+
+    .btn-ghost {
+      background: var(--bg-card);
+      color: var(--text-body);
+      border: 1.5px solid var(--border-color);
+    }
+
+    .btn-ghost:hover {
+      background: var(--gray-100);
+    }
+
+    body.dark-theme .btn-ghost:hover {
+      background: #2A2A2A;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .hamburger-btn {
+      display: none;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-card);
+      margin-bottom: 20px;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    .card-body {
+      padding: 20px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      padding: 11px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text-muted);
+      background: var(--bg-table-alt);
+      text-align: left;
+      transition: background 0.3s ease, color 0.3s ease;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 13px 16px;
+      font-size: 13.5px;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-body);
+      transition: border-color 0.3s ease, color 0.3s ease;
+    }
+
+    tbody tr:hover {
+      background: var(--gray-50);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: var(--success-light);
+      color: var(--success);
+    }
+
+    .badge-warning {
+      background: var(--warning-light);
+      color: var(--warning);
+    }
+
+    .badge-danger {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    .badge-primary {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    body.dark-theme .badge-success {
+      background: rgba(5, 150, 105, 0.2);
+      color: #34D399;
+    }
+
+    body.dark-theme .badge-warning {
+      background: rgba(217, 119, 6, 0.2);
+      color: #FBBF24;
+    }
+
+    body.dark-theme .badge-danger {
+      background: rgba(220, 38, 38, 0.2);
+      color: #F87171;
+    }
+
+    body.dark-theme .badge-primary {
+      background: rgba(245, 158, 11, 0.2);
+      color: #FBBF24;
+    }
+
+    .flash {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .flash-success {
+      background: var(--success-light);
+      color: var(--success);
+    }
+
+    .flash-error,
+    .flash-danger {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    .flash-warning {
+      background: var(--warning-light);
+      color: var(--warning);
+    }
+
+    .flash-info {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    body.dark-theme .flash-success {
+      background: rgba(5, 150, 105, 0.15);
+      color: #34D399;
+    }
+
+    body.dark-theme .flash-error,
+    body.dark-theme .flash-danger {
+      background: rgba(220, 38, 38, 0.15);
+      color: #F87171;
+    }
+
+    body.dark-theme .flash-warning {
+      background: rgba(217, 119, 6, 0.15);
+      color: #FBBF24;
+    }
+
+    body.dark-theme .flash-info {
+      background: rgba(245, 158, 11, 0.15);
+      color: #FBBF24;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-body);
+      margin-bottom: 5px;
+      transition: color 0.3s ease;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1.5px solid var(--border-color);
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 13.5px;
+      outline: none;
+      transition: border .15s, background 0.3s ease, color 0.3s ease;
+      background: var(--bg-input);
+      color: var(--text-body);
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--primary);
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    input:disabled,
+    select:disabled,
+    textarea:disabled {
+      background: var(--bg-input-disabled);
+      opacity: 0.7;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .page-header {
+      margin-bottom: 24px;
+    }
+
+    .page-header h2 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: var(--text-body);
+    }
+
+    .page-header p {
+      color: var(--text-muted);
+    }
+
+    /* ── CORE LAYOUT ── */
+    html,
+    body {
+      height: 100%;
+    }
+
+    .wrapper {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-height: 100vh;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      flex-shrink: 0;
+    }
+
+    .content {
+      padding: 28px;
+      flex: 1;
+    }
+
+    @media(max-width:768px) {
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+        width: min(280px, 82vw);
+        z-index: 200;
+      }
+
+      .sidebar.mobile-open {
+        transform: translateX(0);
+      }
+
+      .sidebar-nav {
+        padding-bottom: 74px;
+      }
+
+      .sidebar.collapsed {
+        width: min(280px, 82vw);
+      }
+
+      .sidebar.collapsed .sidebar-logo-text,
+      .sidebar.collapsed .sidebar-logo-sub,
+      .sidebar.collapsed .company-pill,
+      .sidebar.collapsed .nav-section-title,
+      .sidebar.collapsed .nav-item span:last-child,
+      .sidebar.collapsed .sidebar-foot a span:last-child {
+        display: revert;
+      }
+
+      .sidebar.collapsed .nav-item {
+        justify-content: flex-start;
+        padding: 9px 12px;
+      }
+
+      .sidebar-toggle-btn {
+        display: none;
+      }
+
+      .mobile-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, .6);
+        z-index: 150;
+      }
+
+      .mobile-backdrop.open {
+        display: block;
+      }
+
+      .main,
+      .main.collapsed {
+        margin-left: 0;
+      }
+
+      .hamburger-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        border: 1.5px solid var(--border-color);
+        background: var(--bg-card);
+        font-size: 18px;
+        cursor: pointer;
+        flex-shrink: 0;
+        color: var(--text-body);
+      }
+
+      .topbar {
+        padding: 0 14px;
+        gap: 10px;
+      }
+
+      .topbar-company-name {
+        font-size: 14px;
+      }
+
+      .topbar-company-logo {
+        height: 32px;
+        width: 32px;
+      }
+
+      .topbar-welcome {
+        padding: 6px;
+        gap: 0;
+        background: none;
+        border: none;
+      }
+
+      .topbar-welcome-text,
+      .topbar-welcome-caret {
+        display: none;
+      }
+
+      .user-dropdown {
+        right: -10px;
+        min-width: 210px;
+      }
+
+      .content {
+        padding: 14px;
+        padding-bottom: 96px;
+      }
+
+      .table-wrap,
+      .responsive-table-container,
+      .stmt-table-wrap,
+      .items-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .page-header,
+      .section-header,
+      .filter-bar,
+      .action-bar,
+      .btn-group {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+      }
+
+      .grid-2,
+      .grid-3,
+      .grid-4,
+      .grid-5,
+      .form-grid,
+      .stats-grid,
+      .filter-grid,
+      .kpi-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+      }
+
+      .card,
+      .section-card,
+      .stat-card,
+      .kpi-tile {
+        padding: 14px !important;
+        margin-bottom: 14px !important;
+      }
+
+      .page-header h2 {
+        font-size: 20px;
+      }
+
+      table {
+        font-size: 12.5px;
+      }
+
+      th,
+      td {
+        padding: 9px 10px;
+      }
+
+      .theme-toggle-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 14px;
+      }
+
+      .bottom-nav {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 62px;
+        background: var(--bg-topbar);
+        border-top: 1px solid var(--border-color);
+        box-shadow: 0 -2px 12px rgba(0, 0, 0, .08);
+        z-index: 250;
+        padding-bottom: env(safe-area-inset-bottom, 0);
+      }
+
+      .bn-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        text-decoration: none;
+        color: var(--text-muted);
+        font-size: 10.5px;
+        font-weight: 600;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: var(--font);
+        padding: 6px 2px;
+      }
+
+      .bn-item .bn-icon {
+        font-size: 19px;
+        line-height: 1;
+      }
+
+      .bn-item.active {
+        color: var(--primary);
+      }
+
+      .bn-fab-slot {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      .bn-fab {
+        position: absolute;
+        top: -24px;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 35%, #03423d, #011d1b);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        border: 2.5px solid #F1F5F9;
+        box-shadow: 0 0 0 3px #94A3B8, 0 0 16px rgba(226, 232, 240, 0.85), 0 8px 20px rgba(0, 0, 0, 0.4);
+        transition: transform .2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow .2s ease;
+      }
+
+      .bn-fab-logo {
+        width: 28px;
+        height: 28px;
+        object-fit: contain;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+      }
+
+      .bn-fab:active,
+      .bn-fab:hover {
+        transform: scale(1.08);
+        box-shadow: 0 0 0 3.5px #E2E8F0, 0 0 24px rgba(255, 255, 255, 0.95), 0 10px 25px rgba(0, 0, 0, 0.5);
+      }
+
+      body.dark-theme .bn-fab {
+        background: radial-gradient(circle at 35% 35%, #1e293b, #090d16);
+        border-color: #F8FAFC;
+        box-shadow: 0 0 0 3px #94A3B8, 0 0 18px rgba(226, 232, 240, 0.7), 0 8px 22px rgba(0, 0, 0, 0.6);
+      }
+
+      /* keep the AI chat bubble above the bottom nav on mobile */
+      .ai-fab {
+        bottom: 78px !important;
+      }
+    }
+
+    @media(min-width:769px) {
+      .bottom-nav {
+        display: none;
+      }
+    }
+
+    @media(max-width:420px) {
+      .topbar-company-name {
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+
+    /* ── MODAL ── */
+    .app-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity .18s ease, visibility .18s ease;
+      padding: 16px;
+      backdrop-filter: blur(4px);
+    }
+
+    .app-modal-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .app-modal {
+      background: var(--bg-modal);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      transform: translateY(-12px) scale(.97);
+      opacity: 0;
+      transition: transform .18s ease, opacity .18s ease;
+      overflow: hidden;
+      transition: background 0.3s ease;
+    }
+
+    .app-modal-overlay.open .app-modal {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    .app-modal-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin: 22px auto 0;
+    }
+
+    .app-modal[data-type="info"] .app-modal-icon {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+    }
+
+    .app-modal[data-type="success"] .app-modal-icon {
+      background: var(--success-light);
+      color: var(--success);
+    }
+
+    .app-modal[data-type="danger"] .app-modal-icon {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    .app-modal[data-type="warning"] .app-modal-icon {
+      background: var(--warning-light);
+      color: var(--warning);
+    }
+
+    body.dark-theme .app-modal[data-type="info"] .app-modal-icon {
+      background: rgba(245, 158, 11, 0.2);
+      color: #FBBF24;
+    }
+
+    body.dark-theme .app-modal[data-type="success"] .app-modal-icon {
+      background: rgba(5, 150, 105, 0.2);
+      color: #34D399;
+    }
+
+    body.dark-theme .app-modal[data-type="danger"] .app-modal-icon {
+      background: rgba(220, 38, 38, 0.2);
+      color: #F87171;
+    }
+
+    body.dark-theme .app-modal[data-type="warning"] .app-modal-icon {
+      background: rgba(217, 119, 6, 0.2);
+      color: #FBBF24;
+    }
+
+    .app-modal-body {
+      padding: 14px 24px 24px;
+      text-align: center;
+    }
+
+    .app-modal-message {
+      font-size: 14px;
+      color: var(--text-body);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    .app-modal-input {
+      margin-top: 14px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border-color);
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 13.5px;
+      color: var(--text-body);
+      outline: none;
+      transition: border .15s;
+      text-align: left;
+      background: var(--bg-input);
+    }
+
+    .app-modal-input:focus {
+      border-color: var(--primary);
+    }
+
+    .app-modal-actions {
+      display: flex;
+      gap: 10px;
+      padding: 0 20px 20px;
+    }
+
+    .app-modal-btn {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: none;
+      font-family: var(--font);
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: filter .15s;
+    }
+
+    .app-modal-btn:hover {
+      filter: brightness(0.94);
+    }
+
+    .app-modal-btn.confirm {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .app-modal[data-type="danger"] .app-modal-btn.confirm {
+      background: var(--danger);
+    }
+
+    .app-modal-btn.cancel {
+      background: var(--gray-100);
+      color: var(--text-body);
+    }
+
+    body.dark-theme .app-modal-btn.cancel {
+      background: #2A2A2A;
+      color: #E8E8E8;
+    }
+
+    .logo-loader-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg-body);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: background 0.3s ease;
+    }
+
+    .logo-loader {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .logo-loader .bar {
+      width: 6px;
+      border-radius: 4px;
+      background: #fff;
+      animation: bar-pulse 1.1s ease-in-out infinite;
+    }
+
+    .logo-loader .bar:nth-child(1) {
+      height: 15px;
+      animation-delay: 0s;
+    }
+
+    .logo-loader .bar:nth-child(2) {
+      height: 23px;
+      animation-delay: .12s;
+    }
+
+    .logo-loader .bar:nth-child(3) {
+      height: 30px;
+      animation-delay: .24s;
+    }
+
+    .logo-loader .bar:nth-child(4) {
+      height: 20px;
+      animation-delay: .36s;
+    }
+
+    @keyframes bar-pulse {
+
+      0%,
+      100% {
+        transform: scaleY(.4);
+      }
+
+      50% {
+        transform: scaleY(1);
+      }
+    }
+
+    @media print {
+
+      .sidebar,
+      .topbar,
+      .bottom-nav,
+      nav.bottom-nav,
+      .bn-fab-slot,
+      #bnMoreBtn,
+      #installNexaBtn,
+      header,
+      .app-header,
+      .mobile-backdrop,
+      .logo-loader-overlay,
+      .ai-fab,
+      .ai-panel,
+      .app-modal-overlay,
+      .no-print,
+      .print-toolbar,
+      .print-btn-group {
+        display: none !important;
+        visibility: hidden !important;
+      }
+
+      .main {
+        margin-left: 0 !important;
+        padding: 0 !important;
+      }
+
+      .content {
+        padding: 0 !important;
+      }
+
+      /* Print area ko full page dikhao */
+      #printArea {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      #printArea .invoice-print {
+        border: 1.5px solid #000 !important;
+        padding: 6mm !important;
+        min-height: 277mm !important;
+        max-height: 290mm !important;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+        margin: 0 auto !important;
+        width: 210mm !important;
+        max-width: 210mm !important;
+      }
+    }
+  </style>
+
+  {% block extra_style %}{% endblock %}
+</head>
+
+<body>
+  <div class="logo-loader-overlay" id="logoLoaderOverlay">
+    <div class="logo-loader">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
+  </div>
+  <div class="wrapper">
+    <div class="mobile-backdrop" id="mobileBackdrop"></div>
+
+    <!-- ── SIDEBAR ── -->
+    {% if not use_bi_navigation %}
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <div class="sidebar-qiyadah-brand" aria-label="Qiyadah">
+            <img src="{{ url_for('static', filename='qiyadah_icon.png') }}" alt="Qiyadah logo"
+              class="sidebar-qiyadah-icon">
+            <img src="{{ url_for('static', filename='qiyadah-word.png') }}" alt="QIYADAH" class="sidebar-qiyadah-word">
+          </div>
+        </div>
+      </div>
+      <button id="installNexaBtn" style="display:none;" class="btn btn-primary">
+        Install App
+      </button>
+
+      <nav class="sidebar-nav">
+        {% if use_administration_navigation %}
+          {% include '_administration_navigation.html' %}
+        {% elif use_hr_navigation %}
+          {% include '_hr_navigation.html' %}
+        {% elif use_bi_navigation %}
+          {% include '_bi_navigation.html' %}
+        {% elif use_finance_navigation %}
+          {% include '_finance_navigation.html' %}
+        {% elif use_supply_navigation %}
+          {% include '_supply_navigation.html' %}
+        {% else %}
+        {% if can('finance', 'view') and (module_access is not defined or module_access('core')) %}
+        <a href="{{ safe_url('finance_workspace', '#') }}" class="nav-item {% if active == 'finance' %}active{% endif %}">
+          <span class="nav-icon">📒</span><span>Core Finance</span>
+        </a>
+        {% endif %}
+        {% if can_supply_chain %}<a href="{{ safe_url('supply_chain_workspace', '#') }}" class="nav-item"><span class="nav-icon">📦</span><span>Supply Chain Management</span></a>{% endif %}
+        <!-- BI Intelligence -->
+        {% if can('analytics', 'view') %}
+        <a href="{{ safe_url('bi_intelligence', '#') }}"
+          class="nav-item {% if active in ['bi_intelligence', 'bi_dashboard', 'reports_dashboard'] %}active{% endif %}">
+          <span class="nav-icon">🧠</span>
+          <span>BI Intelligence</span>
+        </a>
+        {% endif %}
+
+
+        <!-- Sales Section -->
+        <div class="nav-section">
+          <div class="nav-section-title">Sales</div>
+          {% if can('estimates', 'view') %}
+          <a href="{{ url_for('estimate_list') }}" class="nav-item {% if active == 'estimates' %}active{% endif %}">
+            <span class="nav-icon">📝</span><span>Estimates / Quotes</span>
+          </a>
+          {% endif %}
+          {% if can('sales_orders', 'view') %}
+          <a href="{{ url_for('sales_order_list') }}"
+            class="nav-item {% if active == 'sales_orders' %}active{% endif %}">
+            <span class="nav-icon">📋</span><span>Sales Orders</span>
+          </a>
+          {% endif %}
+          {% if can('delivery_challans', 'view') %}
+          <a href="{{ safe_url('delivery_challan_list', '#') }}"
+            class="nav-item {% if active == 'delivery_challans' %}active{% endif %}">
+            <span class="nav-icon">🚚</span><span>Delivery Challans</span>
+          </a>
+          {% endif %}
+          {% if can('customer_invoices', 'view') %}
+          <a href="{{ safe_url('customer_invoice_list', '#') }}"
+            class="nav-item {% if active == 'customer_invoices' %}active{% endif %}">
+            <span class="nav-icon">📑</span><span>Sales Invoices</span>
+          </a>
+          <a href="{{ url_for('repair_bills_view') }}"
+            class="nav-item {% if active == 'repair_bills' %}active{% endif %}">
+            <span class="nav-icon">🔧</span><span>Repair Bills</span>
+          </a>
+          {% endif %}
+          {% if can('clients', 'view') %}
+          <a href="{{ url_for('client_list') }}" class="nav-item {% if active == 'clients' %}active{% endif %}">
+            <span class="nav-icon">👥</span><span>Customers</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Purchases Section -->
+        <div class="nav-section">
+          <div class="nav-section-title">Purchases</div>
+          {% if can('purchase_orders', 'view') %}
+          <a href="{{ safe_url('purchase_order_list', '#') }}"
+            class="nav-item {% if active == 'purchase_orders' %}active{% endif %}">
+            <span class="nav-icon">🛒</span><span>Purchase Orders</span>
+          </a>
+          {% endif %}
+          {% if can('purchase', 'view') %}
+          <a href="{{ url_for('purchase_invoice_list') }}"
+            class="nav-item {% if active == 'purchases' %}active{% endif %}">
+            <span class="nav-icon">🧾</span><span>Purchase Invoices</span>
+          </a>
+          {% endif %}
+          {% if can('suppliers', 'view') %}
+          <a href="{{ url_for('supplier_list') }}" class="nav-item {% if active == 'suppliers' %}active{% endif %}">
+            <span class="nav-icon">🏭</span><span>Suppliers</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Inventory Section -->
+        <div class="nav-section">
+          <div class="nav-section-title">Inventory</div>
+          {% if can('stock', 'view') %}
+          <a href="{{ safe_url('inventory_list', '#') }}" class="nav-item {% if active == 'stock' %}active{% endif %}">
+            <span class="nav-icon">📦</span><span>Products & Stock</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Banking & Finance -->
+        <div class="nav-section">
+          <div class="nav-section-title">Banking & Finance</div>
+          {% if can('bank', 'view') %}
+          <a href="{{ safe_url('bank_accounts', '#') }}" class="nav-item {% if active == 'bank_accounts' %}active{% endif %}">
+            <span class="nav-icon">🏦</span><span>Bank Accounts</span>
+          </a>
+          {% endif %}
+          {% if can('cash', 'view') %}
+          <a href="{{ url_for('cash_in_hand') }}" class="nav-item {% if active == 'cash_in_hand' %}active{% endif %}">
+            <span class="nav-icon">💵</span><span>Cash In Hand</span>
+          </a>
+          {% endif %}
+          {% if can('cheques', 'view') %}
+          <a href="{{ url_for('cheques') }}" class="nav-item {% if active == 'cheques' %}active{% endif %}">
+            <span class="nav-icon">📝</span><span>Cheques</span>
+          </a>
+          {% endif %}
+          {% if can('loans', 'view') %}
+          <a href="{{ url_for('loan_accounts') }}" class="nav-item {% if active == 'loan_accounts' %}active{% endif %}">
+            <span class="nav-icon">🏦</span><span>Loan Accounts</span>
+          </a>
+          {% endif %}
+          {% if can('expenses', 'view') %}
+          <a href="{{ url_for('expenses') }}" class="nav-item {% if active == 'expenses' %}active{% endif %}">
+            <span class="nav-icon">💸</span><span>Expenses</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Accounting -->
+        <div class="nav-section">
+          <div class="nav-section-title">Accounting</div>
+          {% if can('clients', 'view') %}
+          <a href="{{ safe_url('debtors_list', '#') }}" class="nav-item {% if active == 'debtors' %}active{% endif %}">
+            <span class="nav-icon">💰</span><span>Debtors (Customers)</span>
+          </a>
+          {% endif %}
+          {% if can('suppliers', 'view') %}
+          <a href="{{ safe_url('creditors_list', '#') }}" class="nav-item {% if active == 'creditors' %}active{% endif %}">
+            <span class="nav-icon">💳</span><span>Creditors (Suppliers)</span>
+          </a>
+          {% endif %}
+          {% if can('receipts_payments', 'view') %}
+          <a href="{{ url_for('receipt_new') }}" class="nav-item {% if active == 'receipts' %}active{% endif %}">
+            <span class="nav-icon">📥</span><span>Receipts (IN)</span>
+          </a>
+          <a href="{{ url_for('payment_new') }}" class="nav-item {% if active == 'payments' %}active{% endif %}">
+            <span class="nav-icon">📤</span><span>Payments (Out)</span>
+          </a>
+          {% endif %}
+          {% if can('analytics', 'view') %}
+          <a href="{{ url_for('ledger') }}" class="nav-item {% if active == 'ledger' %}active{% endif %}">
+            <span class="nav-icon">📒</span><span>General Ledger</span>
+          </a>
+          <a href="{{ url_for('trial_balance') }}" class="nav-item {% if active == 'trial_balance' %}active{% endif %}">
+            <span class="nav-icon">⚖️</span><span>Trial Balance</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Sync & Backup -->
+        <div class="nav-section">
+          <div class="nav-section-title">Export & Backup</div>
+          {% if can('backup', 'view') %}
+          <a href="{{ url_for('backup') }}" class="nav-item {% if active == 'backup' %}active{% endif %}">
+            <span class="nav-icon">💾</span><span>Backup</span>
+          </a>
+          {% endif %}
+          {% if can('analytics', 'view') %}
+          <a href="{{ url_for('export_selector') }}"
+            class="nav-item {% if active == 'export_selector' %}active{% endif %}">
+            <span class="nav-icon">📤</span><span>Export to Excel</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Settings -->
+        {% if user.role in ['owner', 'super_admin'] %}
+        <div class="nav-section">
+          <div class="nav-section-title">Settings</div>
+          <a href="{{ url_for('company_settings') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">
+            <span class="nav-icon">⚙️</span><span>Company Settings</span>
+          </a>
+          <a href="{{ url_for('whatsapp_settings') }}"
+            class="nav-item {% if active == 'whatsapp_settings' %}active{% endif %}">
+            <span class="nav-icon">📱</span><span>WhatsApp Connect</span>
+          </a>
+        </div>
+        {% endif %}
+        {% endif %}
+      </nav>
+
+    </aside>
+    <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle sidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+        stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+    {% endif %}
+
+    <!-- ── MAIN ── -->
+    <div class="main">
+      <!-- Topbar with Brand Logo, Company Hub Pill, Full Access & User Trigger -->
+      <div class="topbar">
+        <button class="hamburger-btn" id="hamburgerBtn" title="Menu">☰</button>
+
+        <div class="topbar-brand-wrap">
+          <a href="{{ safe_url('apps_hub', '/apps') }}" class="topbar-brand-logo-link" title="Qiyadah ERP Apps Hub">
+            <img src="{{ url_for('static', filename='qiyadah_icon.png') }}" alt="Qiyadah Logo" class="topbar-brand-icon">
+            <img src="{{ url_for('static', filename='qiyadah-word.png') }}" alt="QIYADAH" class="topbar-brand-word">
+          </a>
+          <div class="topbar-brand-divider"></div>
+          <div class="topbar-company-pill" title="Current Active Organization">
+            <div class="topbar-company-pill-details">
+              <span class="topbar-company-badge-name">{{ company.company_name if company else 'Enterprise Workspace' }}</span>
+              {% if company and company.branch_name %}
+                <span class="topbar-company-badge-branch">{{ company.branch_name }}</span>
+              {% endif %}
+            </div>
+            <span class="topbar-company-badge-tag">{% block hub_tag %}{% if active == 'bi_intelligence' %}BI INTELLIGENCE HUB{% elif active == 'bi_dashboard' %}BI DASHBOARD{% elif active == 'bi_finance_dashboard' %}FINANCIAL BI{% elif active == 'reports_dashboard' %}REPORTS HUB{% elif active == 'apps_hub' %}WORKSPACE HUB{% elif active == 'finance_workspace' %}FINANCE HUB{% elif active == 'supply_chain_workspace' %}SUPPLY CHAIN HUB{% elif active == 'workshop_erp_view' %}WORKSHOP ERP{% elif active == 'crm_view' %}CRM HUB{% elif active == 'hr_dashboard' %}HR &amp; PAYROLL HUB{% elif active == 'settings' %}SETTINGS HUB{% else %}ENTERPRISE HUB{% endif %}{% endblock %}</span>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- ── ALL WORKSPACES BUTTON ── -->
+          {% if active != 'apps_hub' %}
+          <a href="{{ safe_url('apps_hub', '/apps') }}" class="apps-hub-top-btn" title="All Workspaces">
+            <span style="font-size:14px;">🎛️</span>
+            <span>All Workspaces</span>
+          </a>
+          {% endif %}
+
+          {% set cur_user = session.user if (session and session.user) else (user if user else None) %}
+          {% if (session.user and session.user.role in ['owner', 'super_admin']) or (user and user.role in ['owner', 'super_admin']) %}
+          <div class="topbar-owner-pill">
+            <span>👑</span> Full Access
+          </div>
+          {% endif %}
+
+          <button class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light Mode" aria-label="Toggle Dark or Light theme">🌙</button>
+
+          {% if cur_user %}
+          <div class="topbar-user-wrap" id="userWrap">
+            <div class="topbar-welcome" id="userTrigger">
+              <div class="topbar-welcome-avatar">{{ (cur_user.full_name[0] if cur_user.full_name else 'U')|upper }}</div>
+              <div class="topbar-welcome-text">
+                <div class="topbar-welcome-name">Welcome, {{ cur_user.full_name.split()[0] if cur_user.full_name else 'User' }}! 👋</div>
+                <div class="topbar-welcome-greeting">{{ (cur_user.role or 'owner')|replace('_',' ')|title }}</div>
+              </div>
+              <span class="topbar-welcome-caret">▼</span>
+            </div>
+            <div class="user-dropdown" id="userDropdown">
+              <div class="user-dropdown-header">
+                <div class="user-dropdown-name">{{ cur_user.full_name or 'User' }}</div>
+                <div class="topbar-company-plan">PLAN : {{ company.subscription_plan|upper if company and company.subscription_plan else 'FREE' }}</div>
+                <div class="user-dropdown-email">{{ cur_user.email or '' }}</div>
+                <span class="user-dropdown-role">{{ (cur_user.role or 'owner')|replace('_',' ')|title }}</span>
+              </div>
+              <div class="user-dropdown-body">
+                <a href="{{ safe_url('select_company', '#') }}" class="user-dropdown-item switch-item">
+                  🏢 Switch Company
+                </a>
+                <a href="{{ safe_url('logout', '/logout') }}" class="user-dropdown-item logout-item">
+                  🚪 Logout
+                </a>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+
+      <div class="content">
+        {% if session.get('lifetime_maintenance_due') %}
+        <div class="flash"
+          style="background:linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%); border:1.5px solid #F59E0B; color:#92400E; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-radius:10px; padding:12px 18px; box-shadow:0 2px 8px rgba(245,158,11,0.12); flex-wrap:wrap; gap:10px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:22px;">⭐</span>
+            <div>
+              <strong style="color:#78350F; font-size:14px;">Lifetime License — Annual Maintenance (₹2,500) Due</strong>
+              <div style="font-size:12px; color:#92400E; margin-top:2px;">To maintain automated cloud backups, WhatsApp
+                integration, and updates, please renew your ₹2,500 annual maintenance fee.</div>
+            </div>
+          </div>
+          <button type="button" onclick="payLifetimeMaintenance()"
+            style="background:#D97706; color:#fff; padding:8px 18px; border-radius:8px; font-weight:700; border:none; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(217,119,6,0.3); white-space:nowrap;">
+            <span>💳 Pay ₹2,500 (Razorpay)</span>
+            <span>→</span>
+          </button>
+        </div>
+        {% endif %}
+
+        {% include '_trial_notice.html' %}
+        {% if company and company.subscription_end and not selected_trial %}
+        {% set days_left = (company.subscription_end - subscription_today).days %}
+        {% if days_left < 0 %} <div class="flash"
+          style="background:#fee2e2; color:#b91c1c; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>⚠️ Your {{ (company.subscription_plan or 'ERP')|upper }} subscription expired on {{
+            company.subscription_end.strftime('%d %b %Y') }}. Please renew to prevent interruption.</div>
+          <a href="{{ url_for('company_settings') }}#tab-subscription"
+            style="background:#b91c1c; color:#fff; padding:4px 12px; border-radius:6px; font-weight:600; text-decoration:none; font-size:12px;">Renew
+            Now</a>
+      </div>
+      {% elif company.subscription_plan == 'trial' %}
+      <div class="flash"
+        style="background:linear-gradient(135deg, #EFF6FF 0%, #EEF2FF 100%); border:1px solid #C7D2FE; color:#312E81; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">🎁</span>
+          <span>You are enjoying the <strong>14-Day Free Trial</strong> with 100% full ERP features (<strong>{{
+              days_left }} day{{ 's' if days_left != 1 else '' }}</strong> remaining).</span>
+        </div>
+        <a href="{{ url_for('company_settings') }}#tab-subscription"
+          style="background:#4F46E5; color:#fff; padding:5px 14px; border-radius:6px; font-weight:700; text-decoration:none; font-size:12px; white-space:nowrap;">Upgrade
+          Plan →</a>
+      </div>
+      {% elif days_left <= 30 %} <div class="flash"
+        style="background:#fef3c7; color:#92400e; display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div>⏳ Your {{ company.subscription_plan|upper }} plan expires in {{ days_left }} day{{ 's' if days_left != 1
+          else '' }} ({{ company.subscription_end.strftime('%d %b %Y') }}).</div>
+        <button type="button"
+          onclick="openExpiryRenewalCheckout('{{ company.subscription_plan }}', '{{ company.company_id }}')"
+          style="background:#92400e; color:#fff; border:none; padding:5px 14px; border-radius:6px; font-weight:600; cursor:pointer; font-size:12px;">Renew
+          Now</button>
+    </div>
+    {% endif %}
+    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, msg in messages %}
+    {% set flash_map = {
+    'success': ('flash-success', '✅'),
+    'error': ('flash-error', '❌'),
+    'danger': ('flash-error', '❌'),
+    'warning': ('flash-warning', '⚠️'),
+    'info': ('flash-info', 'ℹ️'),
+    'message': ('flash-info', 'ℹ️')
+    } %}
+    {% set cls, icon = flash_map.get(category, ('flash-info', 'ℹ️')) %}
+    <div class="flash {{ cls }}">{{ icon }} {{ msg }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
+  </div>
+
+  </div>
+
+  <!-- ── MOBILE BOTTOM NAV ── -->
+  <nav class="bottom-nav">
+    {% if use_administration_navigation %}
+    <a href="{{ safe_url('apps_hub', '/apps') }}" class="bn-item"><span class="bn-icon">🏠</span><span>Workspaces</span></a>
+    {% if user.role in ['owner', 'super_admin'] %}
+    <a href="{{ url_for('company_settings') }}" class="bn-item"><span class="bn-icon">⚙️</span><span>Company</span></a>
+    <a href="{{ url_for('company_settings') }}#tab-team" class="bn-item"><span class="bn-icon">👥</span><span>Team</span></a>
+    <a href="{{ url_for('company_settings') }}#tab-access" class="bn-item"><span class="bn-icon">🔑</span><span>Access</span></a>
+    {% else %}
+    <a href="{{ safe_url('hr_user_access', '#') }}" class="bn-item active"><span class="bn-icon">🔑</span><span>HR Access</span></a>
+    {% endif %}
+    {% elif use_finance_navigation %}
+    <a href="{{ safe_url('finance_workspace', '#') }}" class="bn-item {% if request.endpoint == 'finance_workspace' %}active{% endif %}"><span class="bn-icon">📊</span><span>Finance</span></a>
+    {% if can('debtors','view') %}<a href="{{ safe_url('debtors_list', '#') }}" class="bn-item"><span class="bn-icon">📥</span><span>Receivables</span></a>{% endif %}
+    {% if can('creditors','view') %}<a href="{{ safe_url('creditors_list', '#') }}" class="bn-item"><span class="bn-icon">📤</span><span>Payables</span></a>{% endif %}
+    {% if can('bank','view') %}<a href="{{ safe_url('bank_accounts', '#') }}" class="bn-item"><span class="bn-icon">🏦</span><span>Banking</span></a>{% endif %}
+    {% elif use_supply_navigation %}
+    <a href="{{ safe_url('supply_chain_workspace', '#') }}" class="bn-item"><span class="bn-icon">📦</span><span>Supply Chain</span></a>
+    {% if can('purchase_orders','view') %}<a href="{{ safe_url('purchase_order_list', '#') }}" class="bn-item"><span class="bn-icon">🛒</span><span>Purchasing</span></a>{% endif %}
+    {% if can('stock','view') %}<a href="{{ safe_url('inventory_list', '#') }}" class="bn-item"><span class="bn-icon">📋</span><span>Stock</span></a>{% endif %}
+    {% if can('delivery_challans','view') %}<a href="{{ safe_url('delivery_challan_list', '#') }}" class="bn-item"><span class="bn-icon">🚚</span><span>Dispatch</span></a>{% endif %}
+    {% else %}
+    {% if can('analytics', 'view') %}
+    <a href="{{ safe_url('reports_dashboard', '#') }}"
+      class="bn-item {% if active == 'reports_dashboard' %}active{% endif %}">
+      <span class="bn-icon">📈</span><span>Analytics</span>
+    </a>
+    {% endif %}
+
+    <a href="/invoice/new" class="bn-item {% if active == 'new_invoice' %}active{% endif %}">
+      <span class="bn-icon">➕</span><span>New</span>
+    </a>
+
+    <div class="bn-fab-slot">
+      {% if module_access is not defined or module_access('core') %}<a href="{{ safe_url('bi_dashboard', '#') }}" class="bn-fab {% if active == 'bi_dashboard' %}active{% endif %}"
+        title="BI Dashboard">
+        <img src="{{ url_for('static', filename='qiyadah_icon.png') }}" alt="Qiyadah BI Dashboard" class="bn-fab-logo">
+      </a>{% endif %}
+    </div>
+
+    {% if can('delivery_challans', 'view') %}
+    <a href="{{ safe_url('delivery_challan_list', '#') }}"
+      class="bn-item {% if active == 'delivery_challans' %}active{% endif %}">
+      <span class="bn-icon">🚚</span><span>Challans</span>
+    </a>
+    {% elif can('customer_invoices', 'view') %}
+    <a href="{{ safe_url('customer_invoice_list', '#') }}"
+      class="bn-item {% if active == 'customer_invoices' %}active{% endif %}">
+      <span class="bn-icon">📑</span><span>Invoices</span>
+    </a>
+    {% endif %}
+    <a href="{{ url_for('repair_bills_view') }}" class="nav-item">
+      <span class="nav-icon">🧾</span>
+      <span>Repair Bills</span>
+    </a>
+    {% if can('clients', 'view') %}
+    <a href="{{ url_for('client_list') }}" class="bn-item {% if active == 'clients' %}active{% endif %}">
+      <span class="bn-icon">👥</span><span>Customers</span>
+    </a>
+    {% endif %}
+    {% endif %}
+  </nav>
+
+  {% block extra_script %}{% endblock %}
+  <script>
+    (function () {
+      var wrap = document.getElementById('userWrap');
+      var trigger = document.getElementById('userTrigger');
+      if (!wrap || !trigger) return;
+      trigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        wrap.classList.toggle('open');
+      });
+      document.addEventListener('click', function () {
+        wrap.classList.remove('open');
+      });
+      document.getElementById('userDropdown').addEventListener('click', function (e) {
+        e.stopPropagation();
+      });
+    })();
+
+    // Sidebar collapse/expand
+    (function () {
+      var sidebar = document.getElementById('sidebar');
+      var main = document.querySelector('.main');
+      var btn = document.getElementById('sidebarToggle');
+      if (!sidebar || !btn) return;
+
+      // Auto-fill tooltip text from each item's visible label, so no
+      // manual data-tooltip attributes are needed on individual nav items.
+      var navLinks = sidebar.querySelectorAll('.nav-item, .sidebar-foot a');
+      navLinks.forEach(function (el) {
+        var label = el.querySelector('span:last-child');
+        if (label && !el.hasAttribute('data-tooltip')) {
+          el.setAttribute('data-tooltip', label.textContent.trim());
+        }
+      });
+
+      // Rollout label element — lives on <body>, positioned via getBoundingClientRect()
+      // on hover, so it's never clipped by .sidebar.collapsed's overflow:hidden.
+      var rollout = document.createElement('div');
+      rollout.id = 'navRollout';
+      document.body.appendChild(rollout);
+      var hideTimer = null;
+
+      function showRollout(el) {
+        if (!sidebar.classList.contains('collapsed')) return; // only relevant when collapsed
+        if (window.innerWidth <= 991) return; // mobile sidebar shows full labels already
+        clearTimeout(hideTimer);
+        var rect = el.getBoundingClientRect();
+        rollout.textContent = el.getAttribute('data-tooltip') || '';
+        rollout.classList.toggle('is-active', el.classList.contains('active'));
+        rollout.style.top = rect.top + 'px';
+        rollout.style.height = rect.height + 'px';
+        rollout.style.left = rect.right + 'px';
+        // Force reflow so the transition re-triggers even if it was already showing elsewhere
+        void rollout.offsetWidth;
+        rollout.classList.add('show');
+      }
+      function hideRollout() {
+        hideTimer = setTimeout(function () { rollout.classList.remove('show'); }, 40);
+      }
+      navLinks.forEach(function (el) {
+        el.addEventListener('mouseenter', function () { showRollout(el); });
+        el.addEventListener('mouseleave', hideRollout);
+        el.addEventListener('focus', function () { showRollout(el); });
+        el.addEventListener('blur', hideRollout);
+      });
+      // If the sidebar expands (or window resizes into mobile) while a rollout
+      // is visible, get rid of it immediately rather than leaving it stranded.
+      window.addEventListener('scroll', function () { rollout.classList.remove('show'); }, true);
+      window.addEventListener('resize', function () { rollout.classList.remove('show'); });
+
+      var collapsed = localStorage.getItem('sidebarCollapsed') === '1';
+      function apply(c) {
+        if (c) { sidebar.classList.add('collapsed'); main.classList.add('collapsed'); btn.classList.add('is-collapsed'); }
+        else { sidebar.classList.remove('collapsed'); main.classList.remove('collapsed'); btn.classList.remove('is-collapsed'); }
+      }
+      apply(collapsed);
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        rollout.classList.remove('show');
+        collapsed = !collapsed;
+        localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
+        apply(collapsed);
+      });
+    })();
+
+    // ── DARK THEME TOGGLE ──
+    (function () {
+      var themeToggle = document.getElementById('themeToggle');
+      if (!themeToggle) return;
+
+      var isDark = localStorage.getItem('darkTheme') === 'true';
+
+      function applyTheme(dark) {
+        if (dark) {
+          document.body.classList.add('dark-theme');
+          themeToggle.textContent = '☀️';
+          themeToggle.title = 'Switch to Light Mode';
+        } else {
+          document.body.classList.remove('dark-theme');
+          themeToggle.textContent = '🌙';
+          themeToggle.title = 'Switch to Dark Mode';
+        }
+        localStorage.setItem('darkTheme', dark ? 'true' : 'false');
+      }
+
+      applyTheme(isDark);
+
+      themeToggle.addEventListener('click', function () {
+        isDark = !isDark;
+        applyTheme(isDark);
+      });
+    })();
+
+    // Mobile drawer
+    (function () {
+      var sidebar = document.getElementById('sidebar');
+      var hamburger = document.getElementById('hamburgerBtn');
+      var backdrop = document.getElementById('mobileBackdrop');
+      if (!sidebar || !hamburger || !backdrop) return;
+
+      function openDrawer() {
+        sidebar.classList.add('mobile-open');
+        backdrop.classList.add('open');
+      }
+      function closeDrawer() {
+        sidebar.classList.remove('mobile-open');
+        backdrop.classList.remove('open');
+      }
+      hamburger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openDrawer();
+      });
+      backdrop.addEventListener('click', closeDrawer);
+
+      var bnMore = document.getElementById('bnMoreBtn');
+      if (bnMore) {
+        bnMore.addEventListener('click', function (e) {
+          e.stopPropagation();
+          openDrawer();
+        });
+      }
+      sidebar.querySelectorAll('.nav-item, .sidebar-foot a').forEach(function (link) {
+        link.addEventListener('click', closeDrawer);
+      });
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 768) closeDrawer();
+      });
+    })();
+
+    // ── Themed alert/confirm modal ──
+    (function () {
+      var overlay, box, iconEl, msgEl, actionsEl;
+
+      function build() {
+        overlay = document.createElement('div');
+        overlay.className = 'app-modal-overlay';
+        overlay.innerHTML =
+          '<div class="app-modal" data-type="info">' +
+          '<div class="app-modal-icon">i</div>' +
+          '<div class="app-modal-body"><div class="app-modal-message"></div>' +
+          '<input type="text" class="app-modal-input" style="display:none;">' +
+          '</div>' +
+          '<div class="app-modal-actions"></div>' +
+          '</div>';
+        document.body.appendChild(overlay);
+        box = overlay.querySelector('.app-modal');
+        iconEl = overlay.querySelector('.app-modal-icon');
+        msgEl = overlay.querySelector('.app-modal-message');
+        inputEl = overlay.querySelector('.app-modal-input');
+        actionsEl = overlay.querySelector('.app-modal-actions');
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) close(cancelValue); });
+        inputEl.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); var b = actionsEl.querySelector('.app-modal-btn.confirm'); if (b) b.click(); }
+          if (e.key === 'Escape') { close(cancelValue); }
+        });
+      }
+
+      var ICONS = { info: 'ℹ️', success: '✅', danger: '⛔', warning: '⚠️' };
+      var resolver = null;
+      var inputEl = null;
+      var cancelValue = false;
+
+      function open(message, type, buttons, inputCfg) {
+        if (!overlay) build();
+        box.setAttribute('data-type', type);
+        iconEl.textContent = ICONS[type] || ICONS.info;
+        msgEl.textContent = message;
+        cancelValue = false;
+        if (inputCfg) {
+          inputEl.style.display = '';
+          inputEl.value = inputCfg.value || '';
+          inputEl.placeholder = inputCfg.placeholder || '';
+        } else {
+          inputEl.style.display = 'none';
+          inputEl.value = '';
+        }
+        actionsEl.innerHTML = '';
+        buttons.forEach(function (b) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'app-modal-btn ' + b.cls;
+          btn.textContent = b.label;
+          if (b.cls === 'cancel') cancelValue = (b.value === '__INPUT__') ? null : b.value;
+          btn.addEventListener('click', function () {
+            close(b.value === '__INPUT__' ? inputEl.value : b.value);
+          });
+          actionsEl.appendChild(btn);
+        });
+        requestAnimationFrame(function () {
+          overlay.classList.add('open');
+          if (inputCfg) inputEl.focus();
+        });
+      }
+
+      function close(value) {
+        overlay.classList.remove('open');
+        if (resolver) { var r = resolver; resolver = null; r(value); }
+      }
+
+      window.alert = function (message, type) {
+        open(String(message), type || 'info', [{ label: 'OK', cls: 'confirm', value: true }]);
+        return new Promise(function (res) { resolver = res; });
+      };
+
+      window.appConfirm = function (message, opts) {
+        opts = opts || {};
+        return new Promise(function (res) {
+          resolver = res;
+          open(String(message), opts.type || 'warning', [
+            { label: opts.cancelLabel || 'Cancel', cls: 'cancel', value: false },
+            { label: opts.okLabel || 'Confirm', cls: 'confirm', value: true }
+          ]);
+        });
+      };
+
+      window.appPrompt = function (message, opts) {
+        opts = opts || {};
+        return new Promise(function (res) {
+          resolver = res;
+          open(String(message), opts.type || 'info', [
+            { label: opts.cancelLabel || 'Cancel', cls: 'cancel', value: null },
+            { label: opts.okLabel || 'OK', cls: 'confirm', value: '__INPUT__' }
+          ], { placeholder: opts.placeholder || '', value: opts.defaultValue || '' });
+        });
+      };
+    })();
+  </script>
+  <script>
+    (function () {
+      var sidebar = document.getElementById('sidebar');
+      if (!sidebar) return;
+
+      function saveScrollPosition() {
+        localStorage.setItem('sidebarScrollPos', sidebar.scrollTop);
+      }
+
+      function restoreScrollPosition() {
+        var savedPos = localStorage.getItem('sidebarScrollPos');
+        if (savedPos !== null) {
+          sidebar.scrollTop = parseInt(savedPos, 10);
+        }
+      }
+
+      function scrollToActiveItem() {
+        var activeItem = sidebar.querySelector('.nav-item.active');
+        if (activeItem) {
+          var rect = activeItem.getBoundingClientRect();
+          var sidebarRect = sidebar.getBoundingClientRect();
+          var isVisible = rect.top >= sidebarRect.top &&
+            rect.bottom <= sidebarRect.bottom;
+
+          if (!isVisible) {
+            activeItem.scrollIntoView({
+              block: 'center',
+              behavior: 'smooth'
+            });
+          }
+        }
+      }
+
+      sidebar.querySelectorAll('.nav-item, .sidebar-foot a').forEach(function (link) {
+        link.addEventListener('click', function () {
+          saveScrollPosition();
+        });
+      });
+
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          restoreScrollPosition();
+          setTimeout(scrollToActiveItem, 100);
+        }, 50);
+      });
+
+      window.addEventListener('beforeunload', function () {
+        saveScrollPosition();
+      });
+    })();
+  </script>
+  <script>
+    window.addEventListener('load', function () {
+      var loader = document.getElementById('logoLoaderOverlay');
+      if (loader) loader.style.display = 'none';
+    });
+  </script>
+  {% if session.user %}
+  <style>
+    .ai-fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 998;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #0D9488, var(--primary));
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    .ai-fab:hover {
+      transform: translateY(-2px) scale(1.04);
+      box-shadow: 0 10px 26px rgba(245, 158, 11, 0.45);
+    }
+
+    .ai-fab.hidden-when-open {
+      display: none;
+    }
+
+    .ai-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 999;
+      width: 400px;
+      max-width: 100vw;
+      height: 100vh;
+      max-height: 100vh;
+      background: var(--bg-card);
+      border-radius: 0;
+      box-shadow: -8px 0 40px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: var(--font);
+      border-left: 1px solid var(--border-color);
+      transform: translateX(100%);
+      visibility: hidden;
+      transition: transform .28s cubic-bezier(.4, 0, .2, 1), visibility 0s linear .28s;
+    }
+
+    .ai-panel.open {
+      transform: translateX(0);
+      visibility: visible;
+      transition: transform .28s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .ai-panel-header {
+      background: #012926;
+      color: #fff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    body.dark-theme .ai-panel-header {
+      background: #011A18;
+    }
+
+    .ai-panel-header-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #0D9488, var(--primary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .ai-panel-header-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ai-panel-header-title {
+      font-size: 13.5px;
+      font-weight: 700;
+    }
+
+    .ai-panel-header-sub {
+      font-size: 10.5px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 1px;
+    }
+
+    .ai-panel-header-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 15px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .ai-panel-header-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .ai-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--bg-body);
+      transition: background 0.3s ease;
+    }
+
+    .ai-msg {
+      max-width: 85%;
+      padding: 10px 13px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .ai-msg.user {
+      align-self: flex-end;
+      background: var(--primary);
+      color: #fff;
+      border-bottom-right-radius: 3px;
+    }
+
+    .ai-msg.bot {
+      align-self: flex-start;
+      background: var(--bg-card);
+      color: var(--text-body);
+      border: 1px solid var(--border-color);
+      border-bottom-left-radius: 3px;
+      transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    }
+
+    .ai-msg.bot.error {
+      border-color: var(--danger-light);
+      background: var(--danger-light);
+      color: #991b1b;
+    }
+
+    body.dark-theme .ai-msg.bot.error {
+      background: rgba(220, 38, 38, 0.15);
+      color: #F87171;
+      border-color: rgba(220, 38, 38, 0.2);
+    }
+
+    .ai-msg.bot.denied {
+      border-color: var(--warning-light);
+      background: var(--warning-light);
+      color: #92400e;
+    }
+
+    body.dark-theme .ai-msg.bot.denied {
+      background: rgba(217, 119, 6, 0.15);
+      color: #FBBF24;
+      border-color: rgba(217, 119, 6, 0.2);
+    }
+
+    .ai-msg-welcome {
+      align-self: center;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 24px 12px;
+      transition: color 0.3s ease;
+    }
+
+    .ai-msg-welcome b {
+      color: var(--text-body);
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    .ai-typing {
+      align-self: flex-start;
+      display: flex;
+      gap: 4px;
+      padding: 10px 13px;
+    }
+
+    .ai-typing span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: ai-bounce 1.2s infinite;
+    }
+
+    .ai-typing span:nth-child(2) {
+      animation-delay: .15s;
+    }
+
+    .ai-typing span:nth-child(3) {
+      animation-delay: .3s;
+    }
+
+    @keyframes ai-bounce {
+
+      0%,
+      60%,
+      100% {
+        transform: translateY(0);
+        opacity: .5;
+      }
+
+      30% {
+        transform: translateY(-4px);
+        opacity: 1;
+      }
+    }
+
+    .ai-panel-suggestions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 0 16px 10px;
+    }
+
+    .ai-suggestion-chip {
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 20px;
+      background: var(--gray-100);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+
+    .ai-suggestion-chip:hover {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      border-color: var(--primary);
+    }
+
+    body.dark-theme .ai-suggestion-chip:hover {
+      background: rgba(245, 158, 11, 0.15);
+      color: #FBBF24;
+      border-color: #FBBF24;
+    }
+
+    .ai-panel-input {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-card);
+      transition: border-color 0.3s ease, background 0.3s ease;
+    }
+
+    .ai-panel-input input {
+      flex: 1;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: var(--font);
+      outline: none;
+      background: var(--bg-input);
+      color: var(--text-body);
+      transition: border-color 0.3s ease, background 0.3s ease, color 0.3s ease;
+    }
+
+    .ai-panel-input input:focus {
+      border-color: var(--primary);
+    }
+
+    .ai-panel-input button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .ai-panel-input button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 480px) {
+      .ai-panel {
+        width: 100vw;
+      }
+
+      .ai-fab {
+        right: 16px;
+        bottom: 16px;
+      }
+    }
+
+    .ai-status {
+      align-self: flex-start;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 13px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      transition: color 0.3s ease;
+    }
+
+    .ai-status .ai-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+      animation: ai-pulse 1s infinite;
+    }
+
+    @keyframes ai-pulse {
+
+      0%,
+      100% {
+        opacity: 0.35;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+
+    .ai-panel-header-help {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      transition: all 0.2s ease;
+    }
+
+    .ai-panel-header-help:hover {
+      background: rgba(255, 255, 255, 0.35);
+      transform: translateY(-1px);
+    }
+
+    .ai-help-container {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .ai-help-category {
+      background: var(--bg-card, #ffffff);
+      border: 1px solid var(--border-color, #e2e8f0);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s ease;
+    }
+
+    .ai-help-cat-header {
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-body, #1e293b);
+      background: var(--gray-50, #f8fafc);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .ai-help-cat-header:hover {
+      background: #f1f5f9;
+      color: var(--primary, #2563eb);
+    }
+
+    .ai-help-cat-body {
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .ai-q-chip {
+      text-align: left;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 7px 12px;
+      border-radius: 8px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #1e293b;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      line-height: 1.35;
+    }
+
+    .ai-q-chip:hover {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      transform: translateX(3px);
+      box-shadow: 0 2px 5px rgba(59, 130, 246, 0.12);
+    }
+
+    .ai-q-chip i {
+      color: #3b82f6;
+      font-size: 10px;
+      transition: transform 0.15s ease;
+    }
+
+    .ai-q-chip:hover i {
+      transform: translateX(2px);
+    }
+
+    .ai-card {
+      background: var(--bg-card, #fff);
+      border: 1px solid var(--border-color, #e2e8f0);
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 8px;
+      font-size: 12px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+    }
+
+    .ai-metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(85px, 1fr));
+      gap: 8px;
+      margin: 8px 0;
+    }
+
+    .ai-metric-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .ai-metric-lbl {
+      font-size: 10px;
+      color: var(--text-muted, #64748b);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .ai-metric-val {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-body, #0f172a);
+      margin-top: 3px;
+    }
+
+    .ai-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    }
+
+    .ai-badge-danger {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .ai-badge-success {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .ai-badge-warning {
+      background: #fef3c7;
+      color: #b45309;
+    }
+
+    .ai-badge-info {
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+  </style>
+
+  <button class="ai-fab" id="aiFab" title="Ask Qiyadah AI">💬</button>
+
+  <div class="ai-panel" id="aiPanel">
+    <div class="ai-panel-header">
+      <div class="ai-panel-header-icon">🤖</div>
+      <div class="ai-panel-header-text">
+        <div class="ai-panel-header-title">Qiyadah AI</div>
+        <div class="ai-panel-header-sub">{{ company.company_name if company else 'Your company' }}</div>
+      </div>
+      <button class="ai-panel-header-help" id="aiHelpBtn" title="Questions & Guide">
+        <i class="fas fa-lightbulb"></i> Questions
+      </button>
+      <button class="ai-panel-header-btn" id="aiClearBtn" title="Clear chat">↺</button>
+      <button class="ai-panel-header-btn" id="aiCloseBtn" title="Close">✕</button>
+    </div>
+
+    <div class="ai-panel-body" id="aiBody">
+      <div class="ai-daily-welcome" id="aiDailyWelcome"
+        style="display:none; background: linear-gradient(135deg, #07383A 0%, #011A18 100%); color: #fff; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; border: 1.5px solid #FCC605; box-shadow: 0 4px 15px rgba(0,0,0,0.15);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div
+              style="width:32px; height:32px; border-radius:8px; background:rgba(252,198,5,0.2); border:1px solid #FCC605; display:flex; align-items:center; justify-content:center; font-size:16px;">
+              ✨</div>
+            <div>
+              <div
+                style="font-size:9px; font-weight:800; color:#FCC605; text-transform:uppercase; letter-spacing:0.5px;">
+                Qiyadah AI Assistant</div>
+              <div style="font-size:13px; font-weight:700; color:#fff;">Welcome, {{ session.user.full_name.split()[0] if
+                session.user and session.user.full_name else (session.user.full_name if session.user else 'User') }}! 👋
+              </div>
+            </div>
+          </div>
+          <button type="button" id="aiDailyWelcomeClose"
+            style="background:rgba(255,255,255,0.15); border:none; color:#fff; width:22px; height:22px; border-radius:50%; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center;"
+            title="Dismiss">✕</button>
+        </div>
+        <p style="font-size:11.5px; line-height:1.45; color:rgba(255,255,255,0.9); margin-bottom:10px;">
+          Welcome to your <strong>Qiyadah</strong> workspace. Sales, purchases, financial reports, and the AI
+          assistant are synchronized and ready.
+        </p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+          <a href="{{ url_for('customer_invoice_new') }}"
+            style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:6px 10px; border-radius:8px; text-decoration:none; font-size:11px; font-weight:600; display:flex; align-items:center; gap:6px;">
+            <span>📦</span> New Invoice
+          </a>
+          <a href="{{ safe_url('customer_invoice_list', '#') }}"
+            style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.2); color:#fff; padding:6px 10px; border-radius:8px; text-decoration:none; font-size:11px; font-weight:600; display:flex; align-items:center; gap:6px;">
+            <span>⚡</span> Sales Invoices
+          </a>
+        </div>
+      </div>
+
+      <div class="ai-msg-welcome" id="aiWelcome">
+        <b>Ask me anything about {{ company.company_name if company else 'your company' }}</b>
+        Answers from Qiyadah records for sales, purchases, balances, inventory and cash/bank; guidance for Finance, HR, CRM &
+        analytics.
+        <div style="margin-top: 10px;">
+          <button class="ai-suggestion-chip" id="aiWelcomeHelp"
+            style="background: var(--primary); color: #fff; border:none; padding: 6px 12px; font-weight: 600;">
+            <i class="fas fa-list-ul"></i> Browse Predefined Questions
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ai-panel-suggestions" id="aiSuggestions">
+      <span class="ai-suggestion-chip" data-q="Today's sales"><i class="fas fa-chart-line"></i> Today's Sales</span>
+      <span class="ai-suggestion-chip" data-q="Explain accounting checks"><i class="fas fa-check-circle"></i> Accounting Checks</span>
+      <span class="ai-suggestion-chip" data-q="Explain financial records"><i class="fas fa-book"></i> Financial Records</span>
+      <span class="ai-suggestion-chip" data-q="Low stock"><i class="fas fa-boxes"></i> Low Stock</span>
+      <span class="ai-suggestion-chip" data-q="How does payroll work?"><i class="fas fa-users"></i> HR & Payroll</span>
+      <span class="ai-suggestion-chip" data-q="How to use CRM?"><i class="fas fa-address-book"></i> CRM</span>
+      <span class="ai-suggestion-chip" data-q="This month sales"><i class="fas fa-chart-line"></i> This Month
+        Sales</span>
+      <span class="ai-suggestion-chip" data-q="Total payable from purchase"><i class="fas fa-truck-loading"></i>
+        Purchase Payables</span>
+      <span class="ai-suggestion-chip" data-q="Open profit and loss report"><i class="fas fa-percentage"></i> Profit &amp;
+        Loss</span>
+      <span class="ai-suggestion-chip" data-q="GST summary"><i class="fas fa-coins"></i> Recorded
+        Tax</span>
+      <span class="ai-suggestion-chip" data-q="How to give access to employee"><i class="fas fa-user-plus"></i> Add
+        Employee</span>
+      <span class="ai-suggestion-chip" data-q="What plan is current?"><i class="fas fa-id-card"></i> My Plan</span>
+      <span class="ai-suggestion-chip" data-q="Overdue invoices"><i class="fas fa-exclamation-triangle"></i>
+        Overdue</span>
+      <span class="ai-suggestion-chip" data-q="Who owes me money?"><i class="fas fa-hand-holding-usd"></i>
+        Receivables</span>
+      <span class="ai-suggestion-chip" data-q="Total bank balance"><i class="fas fa-university"></i> Bank</span>
+      <span class="ai-suggestion-chip" data-q="Help"><i class="fas fa-list-ul"></i> All Questions</span>
+    </div>
+
+    <div class="ai-panel-input">
+      <button class="ai-clear-btn" id="aiClear" title="Clear Chat">
+        <i class="fas fa-trash-alt"></i>
+      </button>
+      <input type="text" id="aiInput"
+        placeholder="Ask Qiyadah AI: sales this month, accounting checks, low stock, payroll guidance..."
+        autocomplete="off">
+      <button class="ai-send-btn" id="aiSend">
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var OPEN_KEY = 'nexa_ai_open';
+      var HISTORY_KEY = 'nexa_ai_hist';
+      var panel = document.getElementById('aiPanel');
+      var fab = document.getElementById('aiFab');
+      var closeBtn = document.getElementById('aiCloseBtn');
+      var body = document.getElementById('aiBody');
+      var welcome = document.getElementById('aiWelcome');
+      var suggestions = document.getElementById('aiSuggestions');
+      var input = document.getElementById('aiInput');
+      var sendBtn = document.getElementById('aiSend') || document.getElementById('aiSendBtn');
+      var clearBtn = document.getElementById('aiClearBtn');
+      var clearAlt = document.getElementById('aiClear');
+      var helpBtn = document.getElementById('aiHelpBtn');
+      var welcomeHelp = document.getElementById('aiWelcomeHelp');
+
+      function openPanel(skipFocus) {
+        panel.classList.add('open');
+        if (fab) fab.style.transform = 'scale(0)';
+        sessionStorage.setItem(OPEN_KEY, '1');
+        if (!skipFocus && input) setTimeout(function () { input.focus(); }, 300);
+      }
+      function closePanel() {
+        panel.classList.remove('open');
+        if (fab) fab.style.transform = 'scale(1)';
+        sessionStorage.setItem(OPEN_KEY, '0');
+      }
+
+      if (fab) fab.addEventListener('click', function () { openPanel(false); });
+      if (closeBtn) closeBtn.addEventListener('click', closePanel);
+
+      function loadHistory() {
+        try {
+          var j = sessionStorage.getItem(HISTORY_KEY);
+          return j ? JSON.parse(j) : [];
+        } catch (e) { return []; }
+      }
+      function saveHistory(arr) {
+        sessionStorage.setItem(HISTORY_KEY, JSON.stringify(arr.slice(-30)));
+      }
+
+      function handleClearChat() {
+        if (!confirm("Clear conversation history?")) return;
+        fetch('/api/ai-chat/clear', { method: 'POST' }).catch(function () { });
+        body.innerHTML = '';
+        if (welcome) {
+          welcome.style.display = 'block';
+          body.appendChild(welcome);
+        }
+        if (suggestions) {
+          suggestions.style.display = 'flex';
+          body.appendChild(suggestions);
+        }
+        saveHistory([]);
+      }
+
+      if (clearBtn) clearBtn.addEventListener('click', handleClearChat);
+      if (clearAlt) clearAlt.addEventListener('click', handleClearChat);
+
+      function escapeHtml(unsafe) {
+        if (!unsafe) return "";
+        return String(unsafe)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function formatMarkdown(unsafe) {
+        if (!unsafe) return "";
+        var s = escapeHtml(unsafe);
+        // Bold: **text**
+        s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        // Inline code: `text`
+        s = s.replace(/`([^`\n]+)`/g, '<code style="background:rgba(0,0,0,0.06); padding:1px 5px; border-radius:4px; font-family:monospace; font-size:90%;">$1</code>');
+        // Italic: *text* (handles single asterisks including around strong tags)
+        s = s.replace(/(^|[^*])\*([^*\n]+)\*([^*]|$)/g, '$1<em>$2</em>$3');
+        // Line breaks: convert \n to <br/>
+        s = s.replace(/\n/g, '<br/>');
+        return s;
+      }
+
+      function renderHelpCatalog(data, container) {
+        var wrap = document.createElement('div');
+        wrap.className = 'ai-help-container';
+        wrap.style.marginTop = '10px';
+
+        if (data.categories && Array.isArray(data.categories)) {
+          data.categories.forEach(function (cat, idx) {
+            var catEl = document.createElement('div');
+            catEl.className = 'ai-help-category';
+
+            var header = document.createElement('div');
+            header.className = 'ai-help-cat-header';
+            header.innerHTML = '<span>' + escapeHtml(cat.name) + '</span><i class="fas fa-chevron-' + (idx === 0 ? 'up' : 'down') + '"></i>';
+
+            var catBody = document.createElement('div');
+            catBody.className = 'ai-help-cat-body';
+            catBody.style.display = idx === 0 ? 'flex' : 'none';
+
+            if (cat.description) {
+              var desc = document.createElement('div');
+              desc.style.fontSize = '11px';
+              desc.style.color = 'var(--text-muted)';
+              desc.style.marginBottom = '4px';
+              desc.textContent = cat.description;
+              catBody.appendChild(desc);
+            }
+
+            if (cat.questions && Array.isArray(cat.questions)) {
+              cat.questions.forEach(function (q) {
+                var btn = document.createElement('div');
+                btn.className = 'ai-q-chip';
+                btn.innerHTML = '<i class="fas fa-chevron-circle-right"></i> <span>' + escapeHtml(q) + '</span>';
+                btn.addEventListener('click', function () {
+                  if (q.endsWith(' ') || q.endsWith('...')) {
+                    if (input) {
+                      input.value = q;
+                      input.focus();
+                    }
+                  } else {
+                    send(q);
+                  }
+                });
+                catBody.appendChild(btn);
+              });
+            }
+
+            header.addEventListener('click', function () {
+              var isOpen = catBody.style.display !== 'none';
+              catBody.style.display = isOpen ? 'none' : 'flex';
+              header.querySelector('i').className = 'fas fa-chevron-' + (isOpen ? 'down' : 'up');
+            });
+
+            catEl.appendChild(header);
+            catEl.appendChild(catBody);
+            wrap.appendChild(catEl);
+          });
+        }
+        container.appendChild(wrap);
+      }
+
+      function addMessage(text, who, variant, skipSave, payload) {
+        if (welcome) welcome.style.display = 'none';
+        var el = document.createElement('div');
+        el.className = 'ai-msg ' + who + (variant ? ' ' + variant : '');
+
+        var safeText = who === 'user' ? escapeHtml(text).replace(/\n/g, '<br/>') : formatMarkdown(text);
+
+        if (payload && payload.intent === 'help' && payload.data && payload.data.categories) {
+          var html = '<p style="margin-bottom:6px;"><strong>Qiyadah AI Question Catalog:</strong></p>';
+          html += '<p style="font-size:12px; color:var(--text-muted);">' + safeText + '</p>';
+          el.innerHTML = html;
+          renderHelpCatalog(payload.data, el);
+        } else if (payload && payload.data && typeof payload.data === 'object') {
+          var d = payload.data;
+          var html = '<p>' + safeText + '</p>';
+
+          // Qiyadah sales invoice details
+          if ((d.intent === 'invoice_detail' || d.intent === 'customer_invoice_detail') && d.found) {
+            html += '<div class="ai-card"><strong>Invoice ' + escapeHtml(d.invoice_number || d.invoice_id) + '</strong>';
+            html += '<div>' + escapeHtml(d.client_name || d.client || '') + ' · ' + escapeHtml(d.status || '') + '</div>';
+            html += '<div>Total: {{ currency_symbol|default("₹") }}' + Number(d.grand_total || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + ' · Balance: {{ currency_symbol|default("₹") }}' + Number(d.balance || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</div>';
+            if (Array.isArray(d.items) && d.items.length) {
+              html += '<ul>';
+              d.items.slice(0, 5).forEach(function (item) {
+                html += '<li>' + escapeHtml(item.item_name || item.item_code || 'Item') + ': ' + escapeHtml(String(item.quantity || 0)) + ' ' + escapeHtml(item.unit || '') + '</li>';
+              });
+              html += '</ul>';
+            }
+            html += '</div>';
+          }
+          else if (d.kind === 'guidance' && d.path && /^\/(?!\/)[a-zA-Z0-9/_-]+$/.test(d.path)) {
+            html += '<a class="btn btn-primary btn-sm" href="' + escapeHtml(d.path) + '">Open ' + escapeHtml(d.title || 'Qiyadah') + '</a>';
+          }
+          // Sales Summary card (This month, last month, 3 months, 6 months)
+          else if (d.intent === 'sales_summary') {
+            html += '<div class="ai-card">';
+            html += '<div style="display:flex; justify-content:space-between; margin-bottom:6px;"><strong>Sales Report</strong><span class="ai-badge ai-badge-success">' + escapeHtml(d.period_label || 'Summary') + '</span></div>';
+            html += '<div class="ai-metric-grid">';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Total Sales</div><div class="ai-metric-val" style="color:#15803d;">{{ currency_symbol|default("₹") }}' + Number(d.total_sales || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</div></div>';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Collected</div><div class="ai-metric-val">{{ currency_symbol|default("₹") }}' + Number(d.total_collected || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</div></div>';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Pending</div><div class="ai-metric-val" style="color:#b91c1c;">{{ currency_symbol|default("₹") }}' + Number(d.total_pending || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</div></div>';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Invoices</div><div class="ai-metric-val">' + (d.invoice_count || 0) + '</div></div>';
+            html += '</div></div>';
+          }
+          // Pending Payables card (Total payable from purchase)
+          else if (d.intent === 'pending_payables') {
+            html += '<div class="ai-card">';
+            html += '<div style="display:flex; justify-content:space-between; margin-bottom:6px;"><strong>Purchase Payables</strong><span class="ai-badge ai-badge-danger">Total {{ currency_symbol|default("₹") }}' + Number(d.total_payable || d.total_outstanding || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</span></div>';
+            html += '<div class="ai-metric-grid">';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Unpaid Bills</div><div class="ai-metric-val">' + (d.count || 0) + '</div></div>';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Overdue Bills</div><div class="ai-metric-val" style="color:#b91c1c;">' + (d.overdue_count || 0) + '</div></div>';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Overdue {{ currency_symbol|default("₹") }}</div><div class="ai-metric-val" style="color:#b91c1c;">{{ currency_symbol|default("₹") }}' + Number(d.overdue_amount || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</div></div>';
+            html += '</div>';
+            if (d.items && d.items.length > 0) {
+              html += '<div style="font-size:11px; margin-top:6px; font-weight:600; color:var(--text-muted);">Top Unpaid Purchase Invoices:</div>';
+              html += '<div style="overflow-x:auto;"><table style="width:100%; font-size:11px; border-collapse:collapse; margin-top:4px;">';
+              html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.1);"><th style="text-align:left; padding:3px;">Supplier</th><th style="text-align:right; padding:3px;">Balance</th><th style="text-align:right; padding:3px;">Due Date</th></tr>';
+              d.items.slice(0, 5).forEach(function (p) {
+                html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.05);"><td style="padding:3px;">' + escapeHtml(p.supplier) + '</td><td style="text-align:right; padding:3px; color:#b91c1c; font-weight:600;">{{ currency_symbol|default("₹") }}' + Number(p.balance).toLocaleString('{{ number_locale|default("en-IN") }}') + '</td><td style="text-align:right; padding:3px;">' + escapeHtml(p.due_date || '-') + '</td></tr>';
+              });
+              html += '</table></div>';
+            }
+            html += '</div>';
+          }
+          // Client pending amount card
+          else if (d.intent === 'client_pending_amount' && d.found) {
+            html += '<div class="ai-card">';
+            html += '<div style="display:flex; justify-content:space-between; margin-bottom:6px;"><strong>' + escapeHtml(d.name) + '</strong><span class="ai-badge ' + (d.pending_amount > 0 ? 'ai-badge-danger' : 'ai-badge-success') + '">Pending {{ currency_symbol|default("₹") }}' + Number(d.pending_amount || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</span></div>';
+            html += '<div class="ai-metric-grid">';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Credit Limit</div><div class="ai-metric-val">{{ currency_symbol|default("₹") }}' + Number(d.credit_limit || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</div></div>';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Overdue</div><div class="ai-metric-val" style="color:#b91c1c">{{ currency_symbol|default("₹") }}' + Number(d.overdue_amount || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</div></div>';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Unpaid Bills</div><div class="ai-metric-val">' + (d.unpaid_count || 0) + '</div></div>';
+            html += '</div>';
+            if (d.unpaid_invoices && d.unpaid_invoices.length > 0) {
+              html += '<div style="font-size:11px; margin-top:6px; font-weight:600; color:var(--text-muted);">Unpaid Invoices:</div>';
+              html += '<div style="overflow-x:auto;"><table style="width:100%; font-size:11px; border-collapse:collapse; margin-top:4px;">';
+              html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.1);"><th style="text-align:left; padding:3px;">Inv #</th><th style="text-align:right; padding:3px;">Balance</th><th style="text-align:right; padding:3px;">Due Date</th></tr>';
+              d.unpaid_invoices.slice(0, 5).forEach(function (inv) {
+                html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.05);"><td style="padding:3px;">' + escapeHtml(inv.invoice_id) + '</td><td style="text-align:right; padding:3px; color:#b91c1c;">{{ currency_symbol|default("₹") }}' + Number(inv.balance).toLocaleString('{{ number_locale|default("en-IN") }}') + '</td><td style="text-align:right; padding:3px;">' + escapeHtml(inv.due_date) + '</td></tr>';
+              });
+              html += '</table></div>';
+            }
+            html += '</div>';
+          }
+          // Supplier payable amount card
+          else if (d.intent === 'supplier_payable_amount' && d.found) {
+            html += '<div class="ai-card">';
+            html += '<div style="display:flex; justify-content:space-between; margin-bottom:6px;"><strong>' + escapeHtml(d.name) + '</strong><span class="ai-badge ai-badge-danger">Payable {{ currency_symbol|default("₹") }}' + Number(d.payable_amount || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</span></div>';
+            html += '<div class="ai-metric-grid">';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Credit Limit</div><div class="ai-metric-val">{{ currency_symbol|default("₹") }}' + Number(d.credit_limit || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + '</div></div>';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Credit Days</div><div class="ai-metric-val">' + (d.credit_days || 30) + 'd</div></div>';
+            html += '<div class="ai-metric-box"><div class="ai-metric-lbl">Unpaid Bills</div><div class="ai-metric-val">' + (d.unpaid_count || 0) + '</div></div>';
+            html += '</div>';
+            html += '</div>';
+          }
+          // Overdue invoices table
+          else if (d.intent === 'overdue_invoices' && d.items && d.items.length > 0) {
+            html += '<div class="ai-card">';
+            html += '<div style="font-weight:600; margin-bottom:4px; color:#b91c1c;">Total Overdue: {{ currency_symbol|default("₹") }}' + Number(d.total_overdue || 0).toLocaleString('{{ number_locale|default("en-IN") }}') + ' (' + d.count + ' bills)</div>';
+            html += '<div style="overflow-x:auto;"><table style="width:100%; font-size:11px; border-collapse:collapse; margin-top:4px;">';
+            html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.1);"><th style="text-align:left; padding:3px;">Client</th><th style="text-align:right; padding:3px;">Overdue</th><th style="text-align:right; padding:3px;">Days</th></tr>';
+            d.items.slice(0, 6).forEach(function (it) {
+              html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.05);"><td style="padding:3px;">' + escapeHtml(it.client) + '</td><td style="text-align:right; padding:3px; color:#b91c1c; font-weight:600;">{{ currency_symbol|default("₹") }}' + Number(it.balance).toLocaleString('{{ number_locale|default("en-IN") }}') + '</td><td style="text-align:right; padding:3px;"><span class="ai-badge ai-badge-danger">' + it.days_overdue + 'd</span></td></tr>';
+            });
+            html += '</table></div></div>';
+          }
+          // Generic items table
+          else if (d.items && Array.isArray(d.items) && d.items.length > 0 && typeof d.items[0] === 'object') {
+            var keys = Object.keys(d.items[0]).slice(0, 3);
+            html += '<div class="ai-card" style="overflow-x:auto;"><table style="width:100%; font-size:11px; border-collapse:collapse;">';
+            html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.1);">' + keys.map(k => '<th style="text-align:left; padding:3px; text-transform:capitalize;">' + escapeHtml(k) + '</th>').join('') + '</tr>';
+            d.items.slice(0, 8).forEach(function (row) {
+              html += '<tr style="border-bottom:1px solid rgba(0,0,0,0.05);">' + keys.map(k => '<td style="padding:3px;">' + escapeHtml(String(row[k] || '')) + '</td>').join('') + '</tr>';
+            });
+            html += '</table></div>';
+          }
+
+          el.innerHTML = html;
+        } else {
+          el.innerHTML = safeText;
+        }
+
+        body.appendChild(el);
+        body.scrollTop = body.scrollHeight;
+        if (!skipSave) {
+          var history = loadHistory();
+          history.push({ text: text, who: who, variant: variant || null, payload: payload || null });
+          saveHistory(history);
+        }
+        return el;
+      }
+
+      var STATUS_PHASES = [
+        'Checking your records…',
+        'Fetching database figures…',
+        'Formatting response…'
+      ];
+      var statusTimer = null;
+
+      function addTyping() {
+        var el = document.createElement('div');
+        el.className = 'ai-status';
+        el.id = 'aiTypingIndicator';
+        el.innerHTML = '<span class="ai-status-dot"></span><span class="ai-status-text">' + STATUS_PHASES[0] + '</span>';
+        body.appendChild(el);
+        body.scrollTop = body.scrollHeight;
+
+        var phase = 1;
+        statusTimer = setInterval(function () {
+          var textEl = el.querySelector('.ai-status-text');
+          if (!textEl) return;
+          textEl.textContent = STATUS_PHASES[phase % STATUS_PHASES.length];
+          phase++;
+        }, 1400);
+      }
+      function removeTyping() {
+        if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
+        var el = document.getElementById('aiTypingIndicator');
+        if (el) el.remove();
+      }
+
+      function send(customMsg) {
+        var msg = (typeof customMsg === 'string' ? customMsg : (input ? input.value : '')).trim();
+        if (!msg) return;
+        addMessage(msg, 'user');
+        if (input) input.value = '';
+        if (sendBtn) sendBtn.disabled = true;
+        addTyping();
+
+        fetch('/api/ai-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg })
+        })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            removeTyping();
+            var variant = data.source === 'permission_denied' ? 'denied'
+              : data.source === 'error' ? 'error' : null;
+            addMessage(data.response || "Sorry, something went wrong.", 'bot', variant, false, data);
+          })
+          .catch(function () {
+            removeTyping();
+            addMessage("Couldn't reach the assistant. Please try again.", 'bot', 'error');
+          })
+          .finally(function () { if (sendBtn) sendBtn.disabled = false; });
+      }
+
+      if (sendBtn) sendBtn.addEventListener('click', function () { send(); });
+      if (input) input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') send();
+      });
+      if (suggestions) {
+        suggestions.querySelectorAll('.ai-suggestion-chip').forEach(function (chip) {
+          chip.addEventListener('click', function () {
+            send(chip.getAttribute('data-q'));
+          });
+        });
+      }
+      if (helpBtn) {
+        helpBtn.addEventListener('click', function () {
+          send("help");
+        });
+      }
+      if (welcomeHelp) {
+        welcomeHelp.addEventListener('click', function () {
+          send("help");
+        });
+      }
+
+      var dailyClose = document.getElementById('aiDailyWelcomeClose');
+      if (dailyClose) {
+        dailyClose.addEventListener('click', function () {
+          var w = document.getElementById('aiDailyWelcome');
+          if (w) w.style.display = 'none';
+        });
+      }
+
+      // Check once per day on first login of the day
+      var userEmail = "{{ session.user.email if session.user else '' }}";
+      if (userEmail) {
+        var todayStr = new Date().toISOString().slice(0, 10);
+        var dailyKey = 'qiyadah_ai_welcome_shown_' + todayStr + '_' + userEmail;
+        if (!localStorage.getItem(dailyKey)) {
+          localStorage.setItem(dailyKey, '1');
+          var dailyW = document.getElementById('aiDailyWelcome');
+          if (dailyW) dailyW.style.display = 'block';
+          // Automatically open AI panel on the first login of the day
+          setTimeout(function () {
+            openPanel(true);
+          }, 600);
+        }
+      }
+
+      var history = loadHistory();
+      if (history.length) {
+        history.forEach(function (m) { addMessage(m.text, m.who, m.variant, true, m.payload); });
+      }
+      if (sessionStorage.getItem(OPEN_KEY) === '1') {
+        openPanel(true);
+      }
+    })();
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+      });
+    }
+  </script>
+  <script>
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('installNexaBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // Stop Chrome's default mini-infobar so you control the moment it shows
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'inline-block';
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      installBtn.style.display = 'none';
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice; // 'accepted' | 'dismissed'
+      deferredPrompt = null;
+    });
+
+    // Already installed (or user just installed) — hide the button, nothing more to do
+    window.addEventListener('appinstalled', () => {
+      installBtn.style.display = 'none';
+      deferredPrompt = null;
+    });
+  </script>
+  <script>
+    // Comprehensive PWA debugging
+    document.addEventListener('DOMContentLoaded', function () {
+      const installBtn = document.getElementById('installNexaBtn');
+
+      // Log everything
+      console.log('🔍 PWA Debug:');
+      console.log('  - HTTPS:', window.location.protocol === 'https:');
+      console.log('  - Hostname:', window.location.hostname);
+      console.log('  - Manifest link:', document.querySelector('link[rel="manifest"]')?.href || 'NOT FOUND');
+      console.log('  - Service Worker:', navigator.serviceWorker ? 'Supported' : 'Not supported');
+      console.log('  - Standalone mode:', window.matchMedia('(display-mode: standalone)').matches);
+      console.log('  - Install button exists:', !!installBtn);
+
+      if (installBtn) {
+        console.log('  - Button display:', installBtn.style.display);
+        console.log('  - Button classes:', installBtn.className);
+      }
+
+      // Try to fetch manifest to check if it's accessible
+      fetch('/static/manifest.json')
+        .then(res => {
+          console.log('  - Manifest fetch:', res.ok ? '✅ OK' : '❌ Failed (status: ' + res.status + ')');
+          return res.json();
+        })
+        .then(data => {
+          console.log('  - Manifest data:', data);
+        })
+        .catch(err => {
+          console.error('  - Manifest fetch error:', err);
+        });
+    });
+  </script>
+  {% endif %}
+
+  <script>
+    async function payLifetimeMaintenance() {
+      try {
+        if (typeof Razorpay === 'undefined') {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        }
+
+        const res = await fetch('/api/payment/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            plan_id: 'lifetime_maintenance',
+            duration: '1_year',
+            email: "{{ user.email if user else (session.get('user', {}).get('email', '')) }}",
+            company_id: "{{ company.company_id if company else '' }}"
+          })
+        });
+
+        const orderData = await res.json();
+        if (orderData.status !== 'success') {
+          alert(orderData.message || 'Error creating payment order.');
+          return;
+        }
+
+        const options = {
+          key: orderData.key_id,
+          amount: orderData.amount_paise,
+          currency: 'INR',
+          name: 'Qiyadah ERP',
+          description: 'Annual Maintenance Fee (Lifetime License)',
+          order_id: orderData.order_id,
+          prefill: {
+            name: "{{ user.full_name if user else '' }}",
+            email: "{{ user.email if user else '' }}",
+            contact: "{{ company.phone if company else '' }}"
+          },
+          theme: { color: '#D97706' },
+          handler: async function (response) {
+            try {
+              const verifyRes = await fetch('/api/payment/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  transaction_id: orderData.transaction_id,
+                  plan_id: 'lifetime_maintenance',
+                  duration: '1_year',
+                  email: "{{ user.email if user else (session.get('user', {}).get('email', '')) }}",
+                  company_id: "{{ company.company_id if company else '' }}"
+                })
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.status === 'success') {
+                alert('🎉 Annual Maintenance Fee Paid Successfully! Your lifetime ERP license is active with full features.');
+                window.location.reload();
+              } else {
+                alert(verifyData.message || 'Payment verification failed.');
+              }
+            } catch (e) {
+              alert('Error verifying payment: ' + e.message);
+            }
+          }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+      } catch (err) {
+        alert('Error connecting to payment gateway: ' + err.message);
+      }
+    }
+
+    async function openExpiryRenewalCheckout(planId, companyId) {
+      try {
+        if (typeof Razorpay === 'undefined') {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        }
+
+        const effectivePlan = planId || 'starter';
+        const effectiveComp = companyId || "{{ company.company_id if company else '' }}";
+
+        const res = await fetch('/api/payment/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            plan_id: effectivePlan,
+            duration: '1_year',
+            company_id: effectiveComp,
+            email: "{{ user.email if user else (session.get('user', {}).get('email', '')) }}"
+          })
+        });
+
+        const orderData = await res.json();
+        if (orderData.status !== 'success') {
+          window.location.href = "{{ url_for('company_settings') }}#tab-subscription";
+          return;
+        }
+
+        const options = {
+          key: orderData.key_id,
+          amount: orderData.amount_paise,
+          currency: 'INR',
+          name: 'Qiyadah ERP',
+          description: 'Subscription Plan Renewal (1 Year)',
+          order_id: orderData.order_id,
+          prefill: {
+            name: "{{ user.full_name if user else '' }}",
+            email: "{{ user.email if user else (session.get('user', {}).get('email', '')) }}",
+            contact: "{{ company.phone if company else '' }}"
+          },
+          theme: { color: '#07383A' },
+          handler: async function (response) {
+            try {
+              const verifyRes = await fetch('/api/payment/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  transaction_id: orderData.transaction_id,
+                  plan_id: effectivePlan,
+                  duration: '1_year',
+                  company_id: effectiveComp,
+                  email: "{{ user.email if user else (session.get('user', {}).get('email', '')) }}"
+                })
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyData.status === 'success') {
+                alert('🎉 Subscription Renewed Successfully! Your Qiyadah ERP platform is active.');
+                window.location.reload();
+              } else {
+                alert(verifyData.message || 'Payment verification failed.');
+              }
+            } catch (e) {
+              alert('Error verifying payment: ' + e.message);
+            }
+          }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+      } catch (err) {
+        window.location.href = "{{ url_for('company_settings') }}#tab-subscription";
+      }
+    }
+
+    function dismissExpiryModal() {
+      const m = document.getElementById('planExpiryDailyModal');
+      if (m) m.style.display = 'none';
+      fetch('/api/dismiss-expiry-popup', { method: 'POST' }).catch(() => { });
+    }
+  </script>
+
+  {% if show_expiry_popup and expiry_info %}
+  <!-- ═══ PLAN EXPIRY DAILY POPUP MODAL (1 Month Before Expiry) ═══ -->
+  <style>
+    .expiry-popup-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(1, 26, 24, 0.78);
+      backdrop-filter: blur(8px);
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: expiryModalFadeIn 0.25s ease-out;
+    }
+
+    @keyframes expiryModalFadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.96);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .expiry-popup-dialog {
+      background: #ffffff;
+      border-radius: 20px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 25px 60px -10px rgba(1, 26, 24, 0.45), 0 0 0 1px rgba(7, 56, 58, 0.15);
+      overflow: hidden;
+      border: 1.5px solid #07383A;
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    }
+
+    .expiry-popup-header {
+      background: linear-gradient(135deg, #07383A 0%, #011A18 100%);
+      padding: 22px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid #FCC605;
+    }
+
+    .expiry-popup-icon-box {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: rgba(252, 198, 5, 0.15);
+      border: 1.5px solid rgba(252, 198, 5, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .expiry-popup-badge {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #FCC605;
+      text-transform: uppercase;
+    }
+
+    .expiry-popup-title {
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 700;
+      margin: 2px 0 0;
+    }
+
+    .expiry-popup-close-btn {
+      background: rgba(255, 255, 255, 0.12);
+      border: none;
+      color: #fff;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .expiry-popup-close-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      transform: rotate(90deg);
+    }
+
+    .expiry-popup-body {
+      padding: 24px;
+      background: #ffffff;
+      color: #1F2937;
+    }
+
+    .expiry-popup-desc {
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: #4B5563;
+      margin-bottom: 20px;
+    }
+
+    .expiry-highlight {
+      color: #B91C1C;
+      font-weight: 700;
+    }
+
+    .expiry-popup-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 22px;
+    }
+
+    .expiry-info-tile .tile-label {
+      font-size: 11px;
+      color: #64748B;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .expiry-info-tile .tile-val {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #0F172A;
+      margin-top: 2px;
+    }
+
+    .expiry-popup-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .btn-renew-instant {
+      background: linear-gradient(135deg, #07383A 0%, #0F4A4D 100%);
+      color: #FCC605;
+      border: 1.5px solid #FCC605;
+      padding: 13px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(7, 56, 58, 0.25);
+      transition: all 0.2s;
+    }
+
+    .btn-renew-instant:hover {
+      background: #011A18;
+      color: #FFF;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(7, 56, 58, 0.35);
+    }
+
+    .btn-dismiss-modal {
+      background: transparent;
+      border: none;
+      color: #6B7280;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 8px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    .btn-dismiss-modal:hover {
+      color: #111827;
+      text-decoration: underline;
+    }
+  </style>
+
+  <div id="planExpiryDailyModal" class="expiry-popup-overlay">
+    <div class="expiry-popup-dialog">
+      <!-- Header -->
+      <div class="expiry-popup-header">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="expiry-popup-icon-box">
+            {% if expiry_info.is_expired %}🚨{% else %}⏳{% endif %}
+          </div>
+          <div>
+            <div class="expiry-popup-badge">
+              {% if expiry_info.is_expired %}EXPIRED{% else %}EXPIRATION NOTICE ({{ expiry_info.days_left }} DAYS
+              LEFT){% endif %}
+            </div>
+            <h3 class="expiry-popup-title">
+              {% if expiry_info.is_expired %}Subscription Expired{% elif expiry_info.days_left == 0 %}Plan Expires
+              Today!{% else %}Subscription Expiring Soon{% endif %}
+            </h3>
+          </div>
+        </div>
+        <button type="button" class="expiry-popup-close-btn" onclick="dismissExpiryModal()" title="Close">✕</button>
+      </div>
+
+      <!-- Body -->
+      <div class="expiry-popup-body">
+        <p class="expiry-popup-desc">
+          {% if expiry_info.is_expired %}
+          Your <strong>Qiyadah ERP</strong> subscription expired on <span class="expiry-highlight">{{
+            expiry_info.expiry_date }}</span>. Please renew immediately to avoid interruption to sales,
+          purchases, invoices, and financial reports.
+          {% else %}
+          Your <strong>{{ expiry_info.plan_name }} Plan</strong> for <strong>{{ expiry_info.company_name }}</strong>
+          will expire on <span class="expiry-highlight">{{ expiry_info.expiry_date }}</span> (<strong>{{
+            expiry_info.days_left }} days remaining</strong>). Renew your subscription today to ensure continuous and
+          uninterrupted logistics operations.
+          {% endif %}
+        </p>
+
+        <!-- Key Plan Details Box -->
+        <div class="expiry-popup-info-grid">
+          <div class="expiry-info-tile">
+            <div class="tile-label">Company</div>
+            <div class="tile-val">{{ expiry_info.company_name }}</div>
+          </div>
+          <div class="expiry-info-tile">
+            <div class="tile-label">Current Plan</div>
+            <div class="tile-val">{{ expiry_info.plan_name }}</div>
+          </div>
+          <div class="expiry-info-tile">
+            <div class="tile-label">Valid Until</div>
+            <div class="tile-val" style="color:#DC2626; font-weight:700;">{{ expiry_info.expiry_date }}</div>
+          </div>
+          <div class="expiry-info-tile">
+            <div class="tile-label">Days Left</div>
+            <div class="tile-val"
+              style="color:{% if expiry_info.is_expired %}#DC2626{% else %}#D97706{% endif %}; font-weight:800;">
+              {% if expiry_info.is_expired %}Expired{% elif expiry_info.days_left == 0 %}Expires Today{% else %}{{
+              expiry_info.days_left }} Days{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="expiry-popup-actions">
+          <button type="button" class="btn-renew-instant"
+            onclick="openExpiryRenewalCheckout('{{ expiry_info.plan_id }}', '{{ expiry_info.company_id }}')">
+            <span>💳 Renew Subscription (Razorpay)</span>
+            <span style="font-size:16px;">→</span>
+          </button>
+          <button type="button" class="btn-dismiss-modal" onclick="dismissExpiryModal()">
+            Remind Me Tomorrow / Continue to Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</body>
+
+</html>

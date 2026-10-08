@@ -1,0 +1,1036 @@
+{% extends "base.html" %}
+{% block title %}BI Intelligence | {{ company.company_name if company and company.company_name else 'Qiyadah' }}{% endblock %}
+{% block page_title %}BI Intelligence{% endblock %}
+{% set active = 'bi_intelligence' %}
+{% block hub_tag %}BI INTELLIGENCE HUB{% endblock %}
+
+{% block extra_style %}
+<style>
+/* ============================================================
+   QIYADAH EXECUTIVE BI INTELLIGENCE SUITE
+   Ultra-modern, high-contrast, catchy executive design
+   ============================================================ */
+
+.bi-wrap {
+    max-width: 1520px;
+    margin: 0 auto;
+    padding: 4px 16px 36px;
+    font-family: var(--font, 'Plus Jakarta Sans', sans-serif);
+    color: var(--text-body, #1E293B);
+}
+
+/* ── Hero Container ── */
+.bi-hero {
+    position: relative;
+    background: 
+        radial-gradient(120% 120% at 90% 15%, rgba(245, 158, 11, 0.18) 0%, transparent 60%),
+        radial-gradient(100% 100% at 10% 85%, rgba(16, 185, 129, 0.15) 0%, transparent 55%),
+        linear-gradient(135deg, #022320 0%, #011614 55%, #051d27 100%);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 24px;
+    padding: 34px 38px;
+    color: #FFFFFF;
+    margin-bottom: 24px;
+    box-shadow: 0 20px 45px -15px rgba(2, 35, 32, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+
+.bi-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 380px;
+    height: 100%;
+    background: radial-gradient(circle at 80% 20%, rgba(245, 158, 11, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.bi-hero-content {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+/* ── Company Branding Header (Prominent & Catchy) ── */
+.bi-company-meta-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.bi-company-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 999px;
+    color: #FCD34D;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+}
+
+.bi-pulse-dot {
+    width: 7px;
+    height: 7px;
+    background: #10B981;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    animation: biPulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes biPulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.bi-company-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.bi-company-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.bi-company-logo-avatar {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(16, 185, 129, 0.2) 100%);
+    border: 2px solid rgba(245, 158, 11, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    font-weight: 800;
+    color: #FCD34D;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.bi-company-logo-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ── LARGE BOLD COMPANY NAME ── */
+.bi-company-name-hero {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 850;
+    letter-spacing: -0.5px;
+    line-height: 1.2;
+    background: linear-gradient(90deg, #FFFFFF 0%, #FEF3C7 50%, #FBBF24 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.bi-suite-subtitle {
+    margin: 4px 0 0 0;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.78);
+    line-height: 1.5;
+    max-width: 680px;
+}
+
+/* ── Hero Buttons ── */
+.bi-hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.bi-btn-primary-glow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+    color: #FFFFFF !important;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 8px 20px -4px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+}
+
+.bi-btn-primary-glow:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 26px -3px rgba(245, 158, 11, 0.65);
+    background: linear-gradient(135deg, #FBBF24 0%, #B45309 100%);
+    color: #FFFFFF !important;
+}
+
+.bi-btn-glass {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #FFFFFF !important;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(8px);
+    transition: all 0.25s ease;
+    cursor: pointer;
+}
+
+.bi-btn-glass:hover {
+    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(245, 158, 11, 0.45);
+    transform: translateY(-2px);
+    color: #FFFFFF !important;
+}
+
+/* ── Four Executive Diagnostic Pillars (Catchy Highlight Ribbon) ── */
+.bi-pillars-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.bi-pillar-card {
+    background: var(--bg-card, #FFFFFF);
+    border: 1px solid var(--border-color, #E2E8F0);
+    border-radius: 16px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+    transition: all 0.2s ease;
+}
+
+.bi-pillar-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px -4px rgba(0, 0, 0, 0.08);
+    border-color: rgba(245, 158, 11, 0.4);
+}
+
+.bi-pillar-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.bi-pillar-icon.green  { background: rgba(16, 185, 129, 0.12); color: #059669; }
+.bi-pillar-icon.blue   { background: rgba(59, 130, 246, 0.12); color: #2563EB; }
+.bi-pillar-icon.purple { background: rgba(139, 92, 246, 0.12); color: #7C3AED; }
+.bi-pillar-icon.amber  { background: rgba(245, 158, 11, 0.12); color: #D97706; }
+
+.bi-pillar-info h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-body, #1E293B);
+}
+
+.bi-pillar-info p {
+    margin: 2px 0 0 0;
+    font-size: 11.5px;
+    color: var(--text-muted, #64748B);
+    line-height: 1.35;
+}
+
+/* ── Interactive Category Bar & Quick Search ── */
+.bi-controls-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.bi-filter-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.bi-chip {
+    padding: 7px 14px;
+    border-radius: 10px;
+    background: var(--bg-card, #FFFFFF);
+    border: 1px solid var(--border-color, #E2E8F0);
+    color: var(--text-muted, #64748B);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.bi-chip:hover {
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--text-body, #1E293B);
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.bi-chip.active {
+    background: var(--primary, #F59E0B);
+    color: #FFFFFF;
+    border-color: var(--primary, #F59E0B);
+    box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
+}
+
+.bi-search-input-wrap {
+    position: relative;
+    min-width: 270px;
+}
+
+.bi-search-input {
+    width: 100%;
+    padding: 9px 14px 9px 36px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border-color, #E2E8F0);
+    background: var(--bg-card, #FFFFFF);
+    color: var(--text-body, #1E293B);
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.bi-search-input:focus {
+    border-color: var(--primary, #F59E0B);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15);
+}
+
+.bi-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: var(--text-muted, #94A3B8);
+    pointer-events: none;
+}
+
+/* ── Modern Catchy Module Grid ── */
+.bi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.bi-card {
+    position: relative;
+    background: var(--bg-card, #FFFFFF);
+    border: 1px solid var(--border-color, #E2E8F0);
+    border-radius: 20px;
+    padding: 26px 24px 22px;
+    box-shadow: 0 6px 16px -3px rgba(0, 0, 0, 0.04), 0 2px 6px -2px rgba(0, 0, 0, 0.02);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+}
+
+/* Dynamic color accent bar on top */
+.bi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--card-accent, #F59E0B);
+    transition: height 0.25s ease;
+}
+
+.bi-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 18px 32px -8px rgba(0, 0, 0, 0.1), 0 6px 14px -3px rgba(0, 0, 0, 0.05);
+    border-color: rgba(245, 158, 11, 0.35);
+}
+
+.bi-card:hover::before {
+    height: 5px;
+}
+
+/* ── Card Top: Icon & Category Badges ── */
+.bi-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.bi-card-icon-badge {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    background: var(--icon-bg, rgba(245, 158, 11, 0.12));
+    border: 1px solid var(--icon-border, rgba(245, 158, 11, 0.25));
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+    transition: transform 0.25s ease;
+}
+
+.bi-card:hover .bi-card-icon-badge {
+    transform: scale(1.08) rotate(3deg);
+}
+
+.bi-card-tag {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--tag-bg, #F1F5F9);
+    color: var(--tag-color, #475569);
+    border: 1px solid var(--tag-border, transparent);
+}
+
+/* ── Card Body Typography ── */
+.bi-card-body h2 {
+    margin: 0 0 8px;
+    font-size: 19px;
+    font-weight: 750;
+    color: var(--text-body, #1E293B);
+    line-height: 1.3;
+}
+
+.bi-card-body p {
+    margin: 0 0 18px;
+    color: var(--text-muted, #64748B);
+    font-size: 13px;
+    line-height: 1.55;
+    min-height: 58px;
+}
+
+/* ── Feature Pills within card ── */
+.bi-feature-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.bi-feature-pill {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.03);
+    color: var(--text-muted, #64748B);
+    border: 1px solid var(--border-color, #E2E8F0);
+}
+
+/* ── Card Footer CTA ── */
+.bi-card-footer {
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color, #F1F5F9);
+}
+
+.bi-card-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+    text-decoration: none;
+    background: var(--btn-bg, #F8FAFC);
+    color: var(--text-body, #1E293B);
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 650;
+    border: 1px solid var(--border-color, #E2E8F0);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.bi-card:hover .bi-card-btn {
+    background: var(--card-accent, #F59E0B);
+    color: #FFFFFF;
+    border-color: var(--card-accent, #F59E0B);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+}
+
+.bi-card-btn .arrow-icon {
+    font-size: 14px;
+    transition: transform 0.2s ease;
+}
+
+.bi-card:hover .bi-card-btn .arrow-icon {
+    transform: translateX(4px);
+}
+
+.bi-locked-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: rgba(100, 116, 139, 0.08);
+    color: var(--text-muted, #94A3B8);
+    border: 1px solid var(--border-color, #E2E8F0);
+    font-size: 12.5px;
+    font-weight: 600;
+    justify-content: center;
+}
+
+/* ── Dark Theme Overrides ── */
+body.dark-theme .bi-pillar-card,
+body.dark-theme .bi-card,
+body.dark-theme .bi-chip,
+body.dark-theme .bi-search-input {
+    background: var(--bg-card, #1A1A1A);
+    border-color: var(--border-color, #2E2E2E);
+}
+
+body.dark-theme .bi-card-body h2,
+body.dark-theme .bi-pillar-info h4 {
+    color: var(--text-body, #F3F4F6);
+}
+
+body.dark-theme .bi-card-body p,
+body.dark-theme .bi-pillar-info p {
+    color: var(--text-muted, #A1A1AA);
+}
+
+body.dark-theme .bi-card-btn {
+    background: #242424;
+    color: #E5E7EB;
+    border-color: #333333;
+}
+
+body.dark-theme .bi-feature-pill {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #9CA3AF;
+}
+
+body.dark-theme .bi-card-footer {
+    border-top-color: #262626;
+}
+
+/* ── Responsive Breakpoints ── */
+@media (max-width: 1120px) {
+    .bi-pillars-strip {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .bi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .bi-hero {
+        padding: 24px 20px;
+    }
+    .bi-company-title-wrap {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .bi-company-name-hero {
+        font-size: 26px;
+    }
+    .bi-pillars-strip {
+        grid-template-columns: 1fr;
+    }
+    .bi-grid {
+        grid-template-columns: 1fr;
+    }
+    .bi-controls-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .bi-search-input-wrap {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+{% set premium_bi = bi_unified_access is defined and bi_unified_access() %}
+{% set comp_name = company.company_name if company and company.company_name else (company.name if company and company.name else 'Qiyadah Enterprise') %}
+
+<div class="bi-wrap">
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- 1. HIGH-IMPACT HERO & PROMINENT COMPANY BRANDING                   -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="bi-hero">
+    <div class="bi-hero-content">
+      <div>
+        <!-- Company Metadata Ribbon -->
+        <div class="bi-company-meta-bar">
+          <div class="bi-company-badge">
+            <span class="bi-pulse-dot"></span>
+            <span>Enterprise BI Hub</span>
+          </div>
+          {% if company and company.branch_name %}
+          <div class="bi-company-pill">
+            <span>📍 {{ company.branch_name }}</span>
+          </div>
+          {% endif %}
+          <div class="bi-company-pill">
+            <span>⭐ {{ (company.subscription_plan or 'Standard')|upper }} PLAN</span>
+          </div>
+          <div class="bi-company-pill" style="color: #6EE7B7;">
+            <span>⚡ Real-Time Data Sync Active</span>
+          </div>
+        </div>
+
+        <!-- Executive BI Suite Title -->
+        <div class="bi-company-title-wrap">
+          <div class="bi-company-logo-avatar" style="background: linear-gradient(135deg, rgba(245,158,11,0.24), rgba(16,185,129,0.24)); border: 1px solid rgba(245,158,11,0.45); display: flex; align-items: center; justify-content: center;">
+            <span style="font-size: 26px;">🧠</span>
+          </div>
+          <div>
+            <h1 class="bi-company-name-hero">Executive Business Intelligence Suite</h1>
+            <p class="bi-suite-subtitle">
+              Unified multi-module diagnostics, profit tracking, predictive signals &amp; departmental analytics across all operations.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero Call-To-Action Buttons -->
+      <div class="bi-hero-actions">
+        <a href="{{ url_for('bi_dashboard') }}" class="bi-btn-primary-glow">
+          <span>📊</span>
+          <span>Launch BI Dashboard</span>
+        </a>
+        <a href="{{ url_for('reports_dashboard') }}" class="bi-btn-glass">
+          <span>📈</span>
+          <span>Reports Hub</span>
+        </a>
+        {% if (premium_bi or user.role == 'bi_developer') and (user.role in ['owner', 'super_admin', 'bi_developer'] or can('analytics', 'view')) %}
+        <a href="{{ url_for('bi_builder') }}" class="bi-btn-glass" style="border-color: rgba(245, 158, 11, 0.45); color: #FCD34D !important;">
+          <span>🧠</span>
+          <span>BI Studio Builder</span>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- 2. FOUR EXECUTIVE DIAGNOSTIC PILLARS                               -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="bi-pillars-strip">
+    <div class="bi-pillar-card">
+      <div class="bi-pillar-icon green">💰</div>
+      <div class="bi-pillar-info">
+        <h4>Financial &amp; Margin Radar</h4>
+        <p>Live gross margins, cash/bank split, receivables &amp; P&amp;L</p>
+      </div>
+    </div>
+    <div class="bi-pillar-card">
+      <div class="bi-pillar-icon blue">📈</div>
+      <div class="bi-pillar-info">
+        <h4>Sales &amp; Revenue Velocity</h4>
+        <p>Billed revenue, top customers, geographic trends &amp; churn</p>
+      </div>
+    </div>
+    <div class="bi-pillar-card">
+      <div class="bi-pillar-icon purple">📦</div>
+      <div class="bi-pillar-info">
+        <h4>Supply Chain &amp; Stock</h4>
+        <p>Procurement efficiency, inventory valuation &amp; low stock</p>
+      </div>
+    </div>
+    <div class="bi-pillar-card">
+      <div class="bi-pillar-icon amber">🎯</div>
+      <div class="bi-pillar-info">
+        <h4>Executive Standing &amp; AI</h4>
+        <p>20-point diagnostic score, anomaly signals &amp; forecasting</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- 3. INTERACTIVE CATEGORY FILTER CHIPS & INSTANT SEARCH               -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="bi-controls-row">
+    <div class="bi-filter-chips">
+      <button type="button" class="bi-chip active" onclick="filterBiModules('all')">All Workspaces (9)</button>
+      <button type="button" class="bi-chip" onclick="filterBiModules('core')">Core &amp; Reports</button>
+      <button type="button" class="bi-chip" onclick="filterBiModules('executive')">Executive &amp; AI</button>
+      <button type="button" class="bi-chip" onclick="filterBiModules('advanced')">Advanced Tools</button>
+    </div>
+    <div class="bi-search-input-wrap">
+      <span class="bi-search-icon">🔍</span>
+      <input type="text" id="biSearchInput" class="bi-search-input" placeholder="Quick find BI tool or report..." oninput="searchBiModules(this.value)">
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <!-- 4. CATCHY, MODERN MODULE CARDS GRID                                -->
+  <!-- ══════════════════════════════════════════════════════════════════ -->
+  <div class="bi-grid" id="biGrid">
+
+    <!-- Card 1: All-Module Dashboard -->
+    <div class="bi-card" data-category="core" data-search="all module dashboard finance crm pipeline purchasing stock production workshop attendance payroll" style="--card-accent: #10B981; --icon-bg: rgba(16, 185, 129, 0.12); --icon-border: rgba(16, 185, 129, 0.25);">
+      <div>
+        <div class="bi-card-top">
+          <div class="bi-card-icon-badge">📊</div>
+          <span class="bi-card-tag" style="--tag-bg: rgba(16, 185, 129, 0.12); --tag-color: #059669;">Core Analytics</span>
+        </div>
+        <div class="bi-card-body">
+          <h2>All-Module BI Dashboard</h2>
+          <p>Finance, CRM pipeline, purchasing, stock, production, workshop, attendance and payroll—with date filters and attention items.</p>
+        </div>
+        <div class="bi-feature-pills">
+          <span class="bi-feature-pill">Real-time KPIs</span>
+          <span class="bi-feature-pill">Date Filters</span>
+          <span class="bi-feature-pill">All Operations</span>
+        </div>
+      </div>
+      <div class="bi-card-footer">
+        <a class="bi-card-btn" href="{{ url_for('bi_dashboard') }}">
+          <span>Open All-Module BI</span>
+          <span class="arrow-icon">→</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Card 2: Report Dashboard -->
+    <div class="bi-card" data-category="core" data-search="report dashboard sales purchase stock tax gst financial reports charts export" style="--card-accent: #3B82F6; --icon-bg: rgba(59, 130, 246, 0.12); --icon-border: rgba(59, 130, 246, 0.25);">
+      <div>
+        <div class="bi-card-top">
+          <div class="bi-card-icon-badge">📈</div>
+          <span class="bi-card-tag" style="--tag-bg: rgba(59, 130, 246, 0.12); --tag-color: #2563EB;">Reports Hub</span>
+        </div>
+        <div class="bi-card-body">
+          <h2>Report Dashboard</h2>
+          <p>Sales, purchase, stock, tax/GST and financial reports with interactive charts, multi-parameter filters and deep analytics.</p>
+        </div>
+        <div class="bi-feature-pills">
+          <span class="bi-feature-pill">GST / Tax Audits</span>
+          <span class="bi-feature-pill">Sales Breakdown</span>
+          <span class="bi-feature-pill">Excel Export</span>
+        </div>
+      </div>
+      <div class="bi-card-footer">
+        <a class="bi-card-btn" href="{{ url_for('reports_dashboard') }}">
+          <span>Open Report Dashboard</span>
+          <span class="arrow-icon">→</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Card 3: Detailed Financial Reports -->
+    <div class="bi-card" data-category="core" data-search="detailed financial reports revenue expenses profit loss cash flow bank balance journals" style="--card-accent: #8B5CF6; --icon-bg: rgba(139, 92, 246, 0.12); --icon-border: rgba(139, 92, 246, 0.25);">
+      <div>
+        <div class="bi-card-top">
+          <div class="bi-card-icon-badge">▥</div>
+          <span class="bi-card-tag" style="--tag-bg: rgba(139, 92, 246, 0.12); --tag-color: #7C3AED;">Financial Intel</span>
+        </div>
+        <div class="bi-card-body">
+          <h2>Detailed Financial Reports</h2>
+          <p>Explore financial performance, revenue run-rates, operational expenses, asset books and comprehensive ledger analysis.</p>
+        </div>
+        <div class="bi-feature-pills">
+          <span class="bi-feature-pill">Profit &amp; Loss</span>
+          <span class="bi-feature-pill">Cash Flow</span>
+          <span class="bi-feature-pill">Trial Balance</span>
+        </div>
+      </div>
+      <div class="bi-card-footer">
+        <a class="bi-card-btn" href="{{ url_for('bi_finance_dashboard') }}">
+          <span>Open Financial Reports</span>
+          <span class="arrow-icon">→</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Card 4: Executive Overview (Owner/Super Admin) -->
+    {% if user.role in ['owner', 'super_admin'] %}
+    <div class="bi-card" data-category="executive" data-search="executive overview sales purchase kpis monthly trends top customers geography signals" style="--card-accent: #F59E0B; --icon-bg: rgba(245, 158, 11, 0.14); --icon-border: rgba(245, 158, 11, 0.3);">
+      <div>
+        <div class="bi-card-top">
+          <div class="bi-card-icon-badge">◈</div>
+          <span class="bi-card-tag" style="--tag-bg: rgba(245, 158, 11, 0.14); --tag-color: #D97706;">C-Suite View</span>
+        </div>
+        <div class="bi-card-body">
+          <h2>Executive Overview</h2>
+          <p>Canonical sales and purchase KPIs, monthly trends, top revenue customers, regional geography and rule-based business signals.</p>
+        </div>
+        <div class="bi-feature-pills">
+          <span class="bi-feature-pill">Rule Signals</span>
+          <span class="bi-feature-pill">Monthly Trends</span>
+          <span class="bi-feature-pill">Top Clients</span>
+        </div>
+      </div>
+      <div class="bi-card-footer">
+        {% if premium_bi %}
+        <a class="bi-card-btn" href="{{ url_for('bi_executive') }}">
+          <span>Open Executive BI</span>
+          <span class="arrow-icon">→</span>
+        </a>
+        {% else %}
+        <div class="bi-locked-badge">🔒 Qiyadah Unified Only</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Card 5: Department Intelligence -->
+    {% if user.role in ['owner', 'super_admin'] %}
+    <div class="bi-card" data-category="executive" data-search="department intelligence sales customers purchasing suppliers inventory finance tax geographic" style="--card-accent: #06B6D4; --icon-bg: rgba(6, 182, 212, 0.12); --icon-border: rgba(6, 182, 212, 0.25);">
+      <div>
+        <div class="bi-card-top">
+          <div class="bi-card-icon-badge">🏛️</div>
+          <span class="bi-card-tag" style="--tag-bg: rgba(6, 182, 212, 0.12); --tag-color: #0891B2;">Departmental</span>
+        </div>
+        <div class="bi-card-body">
+          <h2>Department Intelligence</h2>
+          <p>Departmental summaries covering Sales, Clients, Procurement, Vendors, Stock, Finance, Tax and Geographic performance.</p>
+        </div>
+        <div class="bi-feature-pills">
+          <span class="bi-feature-pill">Team Breakdowns</span>
+          <span class="bi-feature-pill">Vendor Scorecards</span>
+          <span class="bi-feature-pill">Tax Summaries</span>
+        </div>
+      </div>
+      <div class="bi-card-footer">
+        {% if premium_bi %}
+        <a class="bi-card-btn" href="{{ url_for('bi_departments') }}">
+          <span>Open Departments</span>
+          <span class="arrow-icon">→</span>
+        </a>
+        {% else %}
+        <div class="bi-locked-badge">🔒 Qiyadah Unified Only</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Card 6: BI Explorer -->
+    {% if user.role in ['owner', 'super_admin', 'bi_developer'] %}
+    <div class="bi-card" data-category="advanced" data-search="bi explorer trace geography customers products suppliers inventory underlying records export excel pdf" style="--card-accent: #6366F1; --icon-bg: rgba(99, 102, 241, 0.12); --icon-border: rgba(99, 102, 241, 0.25);">
+      <div>
+        <div class="bi-card-top">
+          <div class="bi-card-icon-badge">⌕</div>
+          <span class="bi-card-tag" style="--tag-bg: rgba(99, 102, 241, 0.12); --tag-color: #4F46E5;">Data Drilldown</span>
+        </div>
+        <div class="bi-card-body">
+          <h2>BI Explorer &amp; Auditor</h2>
+          <p>Trace geography, clients, products, vendors and inventory to underlying source records, then export cleanly to Excel or PDF.</p>
+        </div>
+        <div class="bi-feature-pills">
+          <span class="bi-feature-pill">Underlying Records</span>
+          <span class="bi-feature-pill">Direct Export</span>
+          <span class="bi-feature-pill">Deep Audit</span>
+        </div>
+      </div>
+      <div class="bi-card-footer">
+        {% if premium_bi %}
+        <a class="bi-card-btn" href="{{ url_for('bi_explore') }}">
+          <span>Open Explorer</span>
+          <span class="arrow-icon">→</span>
+        </a>
+        {% else %}
+        <div class="bi-locked-badge">🔒 Qiyadah Unified Only</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Card 7: My Dashboards (BI Builder) -->
+    {% if user.role in ['owner', 'super_admin'] or can('analytics', 'view') %}
+    <div class="bi-card" data-category="advanced" data-search="my dashboards bi builder custom widgets private owner shared kpi chart table" style="--card-accent: #EC4899; --icon-bg: rgba(236, 72, 153, 0.12); --icon-border: rgba(236, 72, 153, 0.25);">
+      <div>
+        <div class="bi-card-top">
+          <div class="bi-card-icon-badge">▦</div>
+          <span class="bi-card-tag" style="--tag-bg: rgba(236, 72, 153, 0.12); --tag-color: #DB2777;">Studio Builder</span>
+        </div>
+        <div class="bi-card-body">
+          <h2>BI Studio &amp; Custom Dashboards</h2>
+          <p>Build custom private or executive-shared dashboards from approved KPI, chart, data table and analytical metric widgets.</p>
+        </div>
+        <div class="bi-feature-pills">
+          <span class="bi-feature-pill">Drag &amp; Drop</span>
+          <span class="bi-feature-pill">Custom Widgets</span>
+          <span class="bi-feature-pill">Shareable</span>
+        </div>
+      </div>
+      <div class="bi-card-footer">
+        {% if premium_bi or user.role == 'bi_developer' %}
+        <a class="bi-card-btn" href="{{ url_for('bi_builder') }}">
+          <span>Open Builder</span>
+          <span class="arrow-icon">→</span>
+        </a>
+        {% else %}
+        <div class="bi-locked-badge">🔒 Qiyadah Unified Only</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Card 8: BI Warehouse -->
+    {% if user.role in ['owner', 'super_admin'] %}
+    <div class="bi-card" data-category="advanced" data-search="bi warehouse refresh monitor facts dimensions star schema sync data lake" style="--card-accent: #0D9488; --icon-bg: rgba(13, 148, 136, 0.12); --icon-border: rgba(13, 148, 136, 0.25);">
+      <div>
+        <div class="bi-card-top">
+          <div class="bi-card-icon-badge">🗄️</div>
+          <span class="bi-card-tag" style="--tag-bg: rgba(13, 148, 136, 0.12); --tag-color: #0F766E;">Data Lake</span>
+        </div>
+        <div class="bi-card-body">
+          <h2>BI Warehouse Engine</h2>
+          <p>Refresh, monitor and optimize underlying analytical warehouse fact and dimension tables for ultra-fast multi-year queries.</p>
+        </div>
+        <div class="bi-feature-pills">
+          <span class="bi-feature-pill">Facts &amp; Dimensions</span>
+          <span class="bi-feature-pill">ETL Sync</span>
+          <span class="bi-feature-pill">Warehouse Status</span>
+        </div>
+      </div>
+      <div class="bi-card-footer">
+        {% if premium_bi %}
+        <a class="bi-card-btn" href="{{ url_for('bi_warehouse') }}">
+          <span>Open Warehouse</span>
+          <span class="arrow-icon">→</span>
+        </a>
+        {% else %}
+        <div class="bi-locked-badge">🔒 Qiyadah Unified Only</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Card 9: Predictive Analytics -->
+    {% if user.role in ['owner', 'super_admin'] %}
+    <div class="bi-card" data-category="executive" data-search="predictive analytics sales revenue inventory cash forecasts customer risk anomaly signals machine learning" style="--card-accent: #F43F5E; --icon-bg: rgba(244, 63, 94, 0.12); --icon-border: rgba(244, 63, 94, 0.25);">
+      <div>
+        <div class="bi-card-top">
+          <div class="bi-card-icon-badge">🔮</div>
+          <span class="bi-card-tag" style="--tag-bg: rgba(244, 63, 94, 0.12); --tag-color: #E11D48;">AI Forecasting</span>
+        </div>
+        <div class="bi-card-body">
+          <h2>Predictive Analytics &amp; AI</h2>
+          <p>Sales, revenue, inventory reorder and cash runway forecasts with client churn risk scoring and statistical anomaly detection.</p>
+        </div>
+        <div class="bi-feature-pills">
+          <span class="bi-feature-pill">Runway Forecast</span>
+          <span class="bi-feature-pill">Churn Risk</span>
+          <span class="bi-feature-pill">Anomaly Signals</span>
+        </div>
+      </div>
+      <div class="bi-card-footer">
+        {% if premium_bi %}
+        <a class="bi-card-btn" href="{{ url_for('bi_predictive') }}">
+          <span>Open Predictions</span>
+          <span class="arrow-icon">→</span>
+        </a>
+        {% else %}
+        <div class="bi-locked-badge">🔒 Qiyadah Unified Only</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Empty search state -->
+  <div id="biEmptySearch" style="display:none; text-align:center; padding: 48px 20px; background:var(--bg-card,#fff); border:1px solid var(--border-color,#E2E8F0); border-radius:18px; margin-top:20px;">
+    <div style="font-size:38px; margin-bottom:10px;">🔍</div>
+    <h3 style="margin:0 0 6px 0; color:var(--text-body,#1E293B);">No intelligence modules found</h3>
+    <p style="margin:0; color:var(--text-muted,#64748B); font-size:13.5px;">Try searching for "financial", "sales", "executive", "warehouse" or clear the search.</p>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+// Interactive category filtering and instant search for BI Intelligence
+function filterBiModules(category) {
+    // Update active chip
+    const chips = document.querySelectorAll('.bi-chip');
+    chips.forEach(c => c.classList.remove('active'));
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+
+    const cards = document.querySelectorAll('#biGrid .bi-card');
+    let visibleCount = 0;
+    cards.forEach(card => {
+        const cat = card.getAttribute('data-category');
+        if (category === 'all' || cat === category) {
+            card.style.display = 'flex';
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    const empty = document.getElementById('biEmptySearch');
+    if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
+}
+
+function searchBiModules(query) {
+    const q = (query || '').toLowerCase().trim();
+    const cards = document.querySelectorAll('#biGrid .bi-card');
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+        const text = (card.getAttribute('data-search') || '').toLowerCase();
+        const title = (card.querySelector('h2')?.innerText || '').toLowerCase();
+        if (!q || text.includes(q) || title.includes(q)) {
+            card.style.display = 'flex';
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+
+    const empty = document.getElementById('biEmptySearch');
+    if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
+}
+</script>
+{% endblock %}

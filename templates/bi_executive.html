@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Executive BI | Qiyadah{% endblock %}
+{% block page_title %}Executive BI{% endblock %}
+{% block extra_style %}
+<style>
+.qbi{max-width:1500px;margin:auto;padding:8px 12px 35px;font-family:var(--font,'Plus Jakarta Sans',sans-serif);color:var(--text-body,#1E293B)}
+.qbi-hero{background:linear-gradient(135deg,var(--bg-sidebar,#012926),#011A18);border:1px solid rgba(245,158,11,.35);color:#fff;border-radius:22px;padding:27px 32px;display:flex;justify-content:space-between;gap:24px;align-items:center}
+.qbi-hero small{color:var(--primary,#F59E0B);text-transform:uppercase;font-weight:800;letter-spacing:.14em;font-family:var(--font)}.qbi-hero h1{font-size:30px;font-weight:800;margin:5px 0;font-family:var(--font)}.qbi-hero p{margin:0;color:rgba(255,255,255,.78);font-family:var(--font)}
+.qbi-link{color:var(--primary,#F59E0B);text-decoration:none;font-weight:600;font-family:var(--font)}.qbi-filter{display:flex;gap:12px;flex-wrap:wrap;align-items:end;background:var(--bg-card,#fff);border:1px solid var(--border-color,#E2E8F0);border-radius:16px;padding:16px;margin:17px 0;box-shadow:var(--shadow-card)}
+.qbi-filter label{font-size:12px;font-weight:700;display:grid;gap:5px;color:var(--text-body,#1E293B);font-family:var(--font)}.qbi-filter input{border:1.5px solid var(--border-color,#E2E8F0);border-radius:8px;padding:9px 12px;color:var(--text-body,#1E293B);background:var(--bg-input,#fff);font-family:var(--font);font-size:13px}
+.qbi button{background:var(--primary,#F59E0B);color:#fff;border:0;border-radius:8px;padding:9px 18px;cursor:pointer;font-family:var(--font,'Plus Jakarta Sans',sans-serif);font-size:13px;font-weight:600;transition:all .15s}.qbi button:hover{background:var(--primary-dark,#D97706);color:#fff}.qbi button:disabled{opacity:.5}
+.qbi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.qbi-card,.qbi-panel{background:var(--bg-card,#fff);border:1px solid var(--border-color,#E2E8F0);border-radius:16px;padding:19px;min-width:0;box-shadow:var(--shadow-card)}
+.qbi-card{border-top:3px solid var(--primary,#F59E0B)}.qbi-card small{color:var(--text-muted,#64748B);font-weight:700;font-family:var(--font)}.qbi-value{font-size:25px;font-weight:800;margin-top:10px;color:var(--text-body,#1E293B);font-family:var(--font);overflow-wrap:anywhere}.qbi-change{margin-top:6px;font-size:12px;color:var(--text-muted,#64748B);font-family:var(--font)}.qbi-up{color:var(--success,#059669)}.qbi-down{color:var(--danger,#DC2626)}
+.qbi-panels{display:grid;grid-template-columns:1.4fr 1fr;gap:15px;margin-top:15px}.qbi-panel h2{font-size:17px;font-weight:700;color:var(--text-body,#1E293B);margin:0 0 14px;font-family:var(--font)}.qbi-panel p{color:var(--text-muted,#64748B);font-size:12px;margin:0 0 12px;font-family:var(--font)}
+.qbi-list{list-style:none;padding:0;margin:0;font-family:var(--font)}.qbi-list li{padding:9px 0;border-top:1px solid var(--border-color,#E2E8F0);display:flex;gap:12px;justify-content:space-between;font-size:13px;color:var(--text-body,#1E293B)}.qbi-list strong{white-space:nowrap}.qbi-insights li{justify-content:start}.qbi-muted{color:var(--text-muted,#64748B)}
+.qbi-trend{width:100%;height:240px;display:block}.qbi-legend{display:flex;gap:16px;font-size:12px;color:var(--text-muted,#64748B);margin-top:7px;font-family:var(--font)}.qbi-swatch{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}
+.qbi-alert{border:1px solid rgba(245,158,11,.35);background:var(--warning-light,#FEF3C7);color:var(--primary-dark,#D97706);border-radius:12px;padding:12px;margin:12px 0;font-size:13px;font-family:var(--font)}.qbi-error{border-color:var(--danger,#DC2626);background:var(--danger-light,#FEE2E2);color:var(--danger,#DC2626)}
+@media(max-width:1100px){.qbi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:720px){.qbi-grid,.qbi-panels{grid-template-columns:1fr}.qbi-hero{display:block}.qbi-hero h1{font-size:24px}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="qbi">
+  <header class="qbi-hero"><div><div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;background:rgba(245,158,11,0.2);border:1px solid rgba(245,158,11,0.4);border-radius:999px;color:#FCD34D;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">🏢 {{ company.company_name if company and company.company_name else (company.name if company and company.name else 'QIYADAH ENTERPRISE') }}</div><h1>Executive Overview</h1><p>Canonical invoice and purchase data, in the company base currency.</p></div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;"><a class="qbi-link" href="{{ url_for('bi_intelligence') }}" style="background:rgba(255,255,255,0.12);padding:9px 16px;border-radius:8px;color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,0.28);font-size:13px;font-weight:600;">🧠 Back to BI Workspace</a><a class="qbi-link" href="{{ url_for('bi_dashboard') }}" style="background:var(--primary,#F59E0B);padding:9px 16px;border-radius:8px;color:#fff;text-decoration:none;font-size:13px;font-weight:600;">📊 BI Dashboard</a><a class="qbi-link" href="{{ url_for('bi_builder') }}" style="background:rgba(255,255,255,0.12);padding:9px 16px;border-radius:8px;color:#fff;text-decoration:none;border:1px solid rgba(255,255,255,0.28);font-size:13px;font-weight:600;">⚙ BI Studio Builder</a><a class="qbi-link" href="{{ url_for('bi_departments') }}">Department views →</a></div></header>
+  <form class="qbi-filter" id="qbiForm"><label>From<input type="date" name="from_date" required></label><label>To<input type="date" name="to_date" required></label><button type="submit" id="qbiApply">Apply dates</button><span class="qbi-muted" id="qbiPeriod" aria-live="polite"></span></form>
+  <div id="qbiNotice" role="status" aria-live="polite"></div>
+  <div class="qbi-grid" id="qbiCards" aria-label="Executive metrics"></div>
+  <div class="qbi-panels"><section class="qbi-panel"><h2>Sales, purchases & expenses</h2><p>Monthly values excluding tax, across the selected period.</p><svg id="qbiTrend" class="qbi-trend" role="img" aria-label="Monthly sales purchases and expenses trend"></svg><div class="qbi-legend"><span><i class="qbi-swatch" style="background:#0e776b"></i>Net sales</span><span><i class="qbi-swatch" style="background:#dea600"></i>Purchases</span><span><i class="qbi-swatch" style="background:#758e9b"></i>Expenses</span></div></section><section class="qbi-panel"><h2>Business signals</h2><p>Rule-based observations from the displayed data.</p><ul class="qbi-list qbi-insights" id="qbiInsights"></ul></section></div>
+  <div class="qbi-panels"><section class="qbi-panel"><h2>Top customers</h2><p>Net sales excluding tax in the selected period.</p><ul class="qbi-list" id="qbiCustomers"></ul></section><section class="qbi-panel"><h2>Sales by country</h2><p>Based on the customer's current country field.</p><ul class="qbi-list" id="qbiCountries"></ul></section></div>
+  <div class="qbi-alert" id="qbiCaveat">Profit figures are operational estimates: period purchases are not matched cost of goods sold. Inventory and outstanding balances are current snapshots.</div>
+</div>
+{% endblock %}
+{% block extra_script %}
+<script>
+(() => {
+  const $=id=>document.getElementById(id), form=$('qbiForm'), notice=$('qbiNotice');
+  const fmt=(v,c)=>new Intl.NumberFormat(undefined,{style:'currency',currency:c||{{ base_currency|default('INR')|tojson }},maximumFractionDigits:0}).format(Number(v)||0);
+  const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const today=new Date(), local=new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  form.elements.to_date.value=local;form.elements.from_date.value=local.slice(0,8)+'01';
+  const cards=[['net_sales','Net sales','period','money'],['billed_sales','Billed sales · incl. tax','period','money'],['sales_invoices','Sales invoices','period','count'],['active_customers','Active customers','period','count'],['purchase_cost','Purchases · excl. tax','period','money'],['expenses','Operating expenses','period','money'],['receivables','Receivables · current','live','money'],['payables','Payables · current','live','money'],['inventory_value','Stock value · estimate','live','money'],['low_stock_items','Low stock items','live','count'],['gross_profit_estimate','Gross profit · estimate','period','money'],['net_profit_estimate','Net profit · estimate','period','money']];
+  function cardHTML(d,c){let [key,label,scope,type]=d,v=c[scope][key];if(v===undefined||v===null)return '';
+    let compare=scope==='period'&&c.comparisons[key], change=compare&&compare.change_pct!==null?`<span class="${compare.change_pct>=0?'qbi-up':'qbi-down'}">${compare.change_pct>=0?'+':''}${compare.change_pct}%</span> vs preceding period`:(scope==='live'?'Current balance / stock':'No prior-period comparison');
+    return `<article class="qbi-card"><small>${label}</small><div class="qbi-value">${type==='money'?fmt(v,c.base_currency):Number(v).toLocaleString()}</div><div class="qbi-change">${change}</div></article>`}
+  function list(id,items,c){$(id).innerHTML=items.length?items.map(x=>`<li><span>${esc(x.name)}</span><strong>${fmt(x.value,c)}</strong></li>`).join(''):'<li class="qbi-muted">No data in this period</li>'}
+  function svgEl(tag,attrs){let el=document.createElementNS('http://www.w3.org/2000/svg',tag);Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));return el}
+  function trend(rows){let svg=$('qbiTrend');svg.replaceChildren();svg.setAttribute('viewBox','0 0 650 240');
+    if(!rows.length)return;let colors={sales:'#0e776b',purchases:'#dea600',expenses:'#758e9b'},max=Math.max(1,...rows.flatMap(r=>[r.sales,r.purchases,r.expenses]));
+    [0,1,2,3].forEach(i=>{let y=195-i*55;svg.appendChild(svgEl('line',{x1:42,y1:y,x2:630,y2:y,stroke:'#dce7e1'}));let t=svgEl('text',{x:0,y:y+4,fill:'#7b8f8c','font-size':10});t.textContent=(max*i/3).toLocaleString(undefined,{notation:'compact',maximumFractionDigits:1});svg.appendChild(t)});
+    Object.entries(colors).forEach(([key,color])=>{let points=rows.map((r,i)=>`${42+(rows.length===1?294:i*588/(rows.length-1))},${195-(Math.max(0,r[key])/max)*165}`).join(' ');svg.appendChild(svgEl('polyline',{points,fill:'none',stroke:color,'stroke-width':3,'stroke-linejoin':'round'}));});
+    rows.forEach((r,i)=>{if(rows.length>10&&i%Math.ceil(rows.length/8)!==0&&i!==rows.length-1)return;let t=svgEl('text',{x:42+(rows.length===1?294:i*588/(rows.length-1)),y:226,fill:'#71847f','font-size':10,'text-anchor':'middle'});t.textContent=r.month;svg.appendChild(t)})}
+  async function load(){let from=form.elements.from_date.value,to=form.elements.to_date.value;if(from>to){notice.className='qbi-alert qbi-error';notice.textContent='From date must be on or before To date.';return}
+    let button=$('qbiApply');button.disabled=true;notice.className='';notice.textContent='Loading executive data…';
+    try{let params=new URLSearchParams({from_date:from,to_date:to}),response=await fetch('{{ url_for("api_bi_v1_executive") }}?'+params,{credentials:'same-origin',headers:{Accept:'application/json'}});if(!response.ok)throw Error(response.status===403?'You do not have access to company-wide BI.':(await response.json().catch(()=>({}))).error||`Request failed (${response.status})`);
+      let d=await response.json();$('qbiCards').innerHTML=cards.map(x=>cardHTML(x,d)).join('');trend(d.trend||[]);list('qbiCustomers',d.top_customers||[],d.base_currency);list('qbiCountries',d.countries||[],d.base_currency);
+      $('qbiInsights').innerHTML=(d.insights||[]).length?(d.insights||[]).map(x=>`<li>${esc(x.text)}</li>`).join(''):'<li class="qbi-muted">No signal triggered in this period.</li>';
+      $('qbiPeriod').textContent=`${d.filters.from_date} – ${d.filters.to_date} · ${d.base_currency}`;
+      notice.textContent='';
+    }catch(e){notice.className='qbi-alert qbi-error';notice.textContent=e.message}finally{button.disabled=false}}
+  form.addEventListener('submit',e=>{e.preventDefault();load()});load();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+{% block title %}Business overview · Qiyadah BI{% endblock %}
+{% block page_title %}Business Intelligence{% endblock %}
+{% block hub_tag %}BI DASHBOARD{% endblock %}
+{% block extra_style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='bi_business.css') }}">
+{% endblock %}
+{% block content %}
+<div class="business-bi">
+  <header class="business-hero">
+    <div class="business-hero-left">
+      <div class="business-meta-tags">
+        <span class="business-eyebrow">QIYADAH BUSINESS INTELLIGENCE</span>
+        {% if company and company.subscription_plan %}
+        <span class="business-plan-badge">
+          <span class="business-pulse-dot"></span>
+          Plan: {{ company.subscription_plan|replace('_', ' ')|title }}
+        </span>
+        {% endif %}
+      </div>
+      <h1>Know where your business stands.</h1>
+      <p>Performance, people and operations—connected in one unified business overview.</p>
+    </div>
+    <div class="business-hero-actions">
+      <a class="btn btn-back-dashboards" href="{{ url_for('bi_intelligence') }}">
+        <span class="btn-icon">←</span> Back to all dashboards
+      </a>
+      <a class="btn btn-secondary" href="{{ url_for('bi_finance_dashboard') }}">
+        Detailed financial reports ↗
+      </a>
+      {% set has_builder = ('bi_builder' in url_for.__globals__['current_app'].view_functions) if (url_for.__globals__ is defined and 'current_app' in url_for.__globals__ and url_for.__globals__['current_app'].view_functions is defined) else true %}
+      {% if ((user is defined and user.role in ['owner', 'super_admin', 'bi_developer']) or (can is defined and can('analytics', 'view'))) and has_builder %}
+      <a class="btn btn-secondary" href="{{ url_for('bi_builder') }}" style="border-color: rgba(245, 158, 11, 0.45); color: #FCD34D;">
+        ⚙️ BI Studio Builder ↗
+      </a>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if error %}
+  <div class="business-message business-error-message" role="alert">
+    <span class="msg-icon">⚠️</span> {{ error }}
+    <a class="btn-reset-filters" href="{{ url_for('bi_dashboard') }}">Return to Whole business</a>
+  </div>
+  {% endif %}
+
+  {% if overview %}
+  <form method="get" class="business-filters">
+    <div class="business-filter-field">
+      <label for="filter-from">From</label>
+      <input type="date" id="filter-from" name="from_date" value="{{ overview.from_date }}" required>
+    </div>
+    <div class="business-filter-field">
+      <label for="filter-to">To</label>
+      <input type="date" id="filter-to" name="to_date" value="{{ overview.to_date }}" required>
+    </div>
+    <div class="business-filter-field">
+      <label for="filter-module">Business area</label>
+      <select id="filter-module" name="module">
+        <option value="all" {% if overview.selected == 'all' %}selected{% endif %}>Whole business</option>
+        {% for card in overview.modules %}
+          {% if card.enabled %}
+            <option value="{{ card.key }}" {% if overview.selected == card.key %}selected{% endif %}>{{ card.name }}</option>
+          {% else %}
+            <option disabled value="{{ card.key }}">🔒 {{ card.name }} · Locked (Upgrade plan)</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </div>
+    <div class="business-filter-buttons">
+      <button type="submit" class="btn btn-primary">Update overview</button>
+      <a class="btn btn-ghost" href="{{ url_for('bi_dashboard') }}">This month</a>
+    </div>
+    <div class="business-filter-caption">
+      <strong>{{ company.company_name if company else 'Active Company' }}</strong><br>
+      Comparison: {{ overview.previous_start }} – {{ overview.previous_end }}
+    </div>
+  </form>
+
+  <nav class="business-tabs" aria-label="BI business areas">
+    <a href="{{ url_for('bi_dashboard', from_date=overview.from_date, to_date=overview.to_date) }}" 
+       class="business-tab-item {% if overview.selected == 'all' %}is-active{% endif %}"
+       {% if overview.selected == 'all' %}aria-current="page"{% endif %}>
+      <span class="tab-icon">🌐</span> Whole business
+    </a>
+    {% for card in overview.modules %}
+      {% if card.enabled %}
+        <a href="{{ url_for('bi_dashboard', module=card.key, from_date=overview.from_date, to_date=overview.to_date) }}" 
+           class="business-tab-item {% if overview.selected == card.key %}is-active{% endif %}"
+           {% if overview.selected == card.key %}aria-current="page"{% endif %}>
+          {{ card.name }}
+        </a>
+      {% else %}
+        <span class="business-locked-tab" title="This business module is not included in your current subscription plan. Upgrade your plan to unlock this tab.">
+          <span class="lock-icon">🔒</span> {{ card.name }} · Locked
+        </span>
+      {% endif %}
+    {% endfor %}
+    <a href="{{ url_for('bi_finance_dashboard') }}" class="business-tab-item tab-secondary">
+      <span class="tab-icon">▥</span> Detailed Financial Reports ↗
+    </a>
+  </nav>
+
+  {% set core_card = (overview.modules | selectattr('key', 'equalto', 'core') | first) %}
+  {% set position = overview.get('financial_position') %}
+  {% if (not core_card or core_card.enabled) and overview.selected in ('all','core') %}
+  <section class="business-position">
+    <div class="business-section-heading">
+      <div>
+        <span class="business-eyebrow">WHERE YOU STAND</span>
+        <h2>Financial performance</h2>
+      </div>
+      <span class="business-muted">Posted accounts · selected period</span>
+    </div>
+    {% if position and position.available %}
+    <div class="business-position-grid">
+      <article>
+        <span>Operating revenue</span>
+        <strong>{{ position.currency }} {{ '{:,.2f}'.format(position.current.revenue) }}</strong>
+        <small>{% if position.revenue_change is not none %}{{ '%+.1f'|format(position.revenue_change) }}% against previous period{% else %}No comparable previous revenue baseline{% endif %}</small>
+      </article>
+      <article>
+        <span>Gross profit / loss</span>
+        <strong class="{% if position.current.gross_profit < 0 %}is-negative{% endif %}">{{ position.currency }} {{ '{:,.2f}'.format(position.current.gross_profit) }}</strong>
+        <small>Operating revenue less posted COGS</small>
+      </article>
+      <article>
+        <span>Operating expenses</span>
+        <strong>{{ position.currency }} {{ '{:,.2f}'.format(position.current.expenses) }}</strong>
+        <small>Posted expense accounts, excluding COGS</small>
+      </article>
+      <article>
+        <span>Net profit / loss</span>
+        <strong class="{% if position.current.net_profit < 0 %}is-negative{% endif %}">{{ position.currency }} {{ '{:,.2f}'.format(position.current.net_profit) }}</strong>
+        <small>{% if position.net_margin is not none %}{{ '%.1f'|format(position.net_margin) }}% net margin{% else %}Margin unavailable without positive revenue{% endif %}</small>
+      </article>
+    </div>
+    <p class="business-muted">{{ position.reason }} Other income is included in net profit. Invoice totals and accounting revenue may differ because of posting dates, credit notes and adjustments.</p>
+    {% else %}
+    <p class="business-message">{{ position.reason if position else 'Financial performance is unavailable under your current source permissions.' }} Operational invoice and activity measures remain available below.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="business-attention">
+    <div>
+      <span class="business-eyebrow">WHAT TO FOCUS ON</span>
+      <h2>Needs attention now</h2>
+      <p class="business-muted">Current exceptions as of {{ overview.today }}. These are operational signals from your active records.</p>
+    </div>
+    <div class="business-attention-grid">
+      {% for alert in overview.alerts if overview.selected in ('all',alert.key) %}
+      <a href="#module-{{ alert.key }}">
+        <strong>{{ alert.count }}</strong>
+        <span>{{ alert.message }}<small>{{ alert.module }}</small></span>
+        <span aria-hidden="true">→</span>
+      </a>
+      {% else %}
+      <p class="business-muted">No exceptions found in the available checks. Missing or restricted sources are not assessed.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="business-module-map">
+    {% for card in overview.modules if card.enabled and overview.selected in ('all',card.key) %}
+    <a href="#module-{{ card.key }}" style="--module-color:{{ card.color }}">
+      <strong>{{ card.name }}</strong>
+      <span>{{ card.charts|length }} detailed charts · {{ card.metrics|length }} measures</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% for card in overview.modules if card.enabled and overview.selected in ('all',card.key) %}
+  <section class="business-module" id="module-{{ card.key }}" style="--module-color:{{ card.color }}">
+    <div class="business-section-heading">
+      <div>
+        <span class="business-eyebrow">BUSINESS AREA</span>
+        <h2>{{ card.name }}</h2>
+      </div>
+      <a class="btn btn-secondary" href="{{ url_for(card.endpoint) }}">Open source workspace ↗</a>
+    </div>
+
+    <div class="business-metrics">
+      {% for metric in card.metrics %}
+      <article>
+        <span>{{ metric.label }}</span>
+        {% if metric.kind == 'money' %}
+          {% for amount in metric.amounts %}
+            <strong>{{ amount.currency }} {{ '{:,.2f}'.format(amount.value) }}</strong>
+          {% else %}
+            <strong>—</strong><small>No matching records</small>
+          {% endfor %}
+        {% else %}
+          <strong>{{ '{:,}'.format(metric.value) }}</strong>
+        {% endif %}
+        <small>{{ metric.note }}</small>
+        {% if metric.previous is not none %}
+          <small class="business-comparison">Previous: {{ '{:,}'.format(metric.previous) }} · Change: {{ '%+d'|format(metric.value - metric.previous) }}</small>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+
+    <div class="business-charts">
+    {% for chart in card.charts %}
+      <article class="business-chart">
+        <div class="business-chart-heading">
+          <div>
+            <h3>{{ chart.title }}</h3>
+            <p>{{ chart.scope }}{% if chart.currency %} · {{ chart.currency }}{% endif %}</p>
+          </div>
+          <label>View
+            <select class="business-chart-type" data-chart-id="{{ card.key }}-{{ loop.index0 }}">
+              <option value="bar" {% if chart.kind == 'bar' %}selected{% endif %}>Bars</option>
+              <option value="line" {% if chart.kind == 'line' %}selected{% endif %}>Trend line</option>
+            </select>
+          </label>
+        </div>
+        <div class="business-chart-plot" id="chart-{{ card.key }}-{{ loop.index0 }}" data-module="{{ card.key }}" data-index="{{ loop.index0 }}" role="img" aria-label="{{ chart.title }}. Exact values in the data table below.">
+          <p class="business-muted">Chart data is available in the table below.</p>
+        </div>
+        <div class="business-chart-legend">
+          {% for series in chart.series %}
+            <span><i style="background:{{ ['#0d9488','#8b5cf6','#e67828','#db2777','#2563eb','#64748b'][loop.index0 % 6] }}"></i>{{ series.name }}</span>
+          {% endfor %}
+        </div>
+        <p class="business-chart-note">{{ chart.note }}</p>
+        <details class="business-chart-data">
+          <summary>View exact values &amp; source</summary>
+          <p class="business-muted">Source: {{ chart.source or 'Scoped operational records' }} · {{ chart.unit }}{% if chart.currency %} ({{ chart.currency }}){% endif %}</p>
+          <div class="business-table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Category / period</th>
+                  {% for series in chart.series %}
+                    <th>{{ series.name }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for label in chart.labels %}
+                  {% set row = loop.index0 %}
+                  <tr>
+                    <th>{{ label }}</th>
+                    {% for series in chart.series %}
+                      <td>{{ '{:,.2f}'.format(series['values'][row]) if chart.unit == 'money' else '{:,.0f}'.format(series['values'][row]) }}</td>
+                    {% endfor %}
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" class="business-export" data-chart-id="{{ card.key }}-{{ loop.index0 }}">Download chart data (CSV)</button>
+        </details>
+      </article>
+    {% else %}
+      <p class="business-message">No chart data is available for the permitted sources in this period.</p>
+    {% endfor %}
+    </div>
+
+    <details class="business-definitions">
+      <summary>How to read {{ card.name }}</summary>
+      <ul>
+        {% for note in card.notes %}
+          <li>{{ note }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  </section>
+  {% else %}
+    {% if overview.selected != 'all' %}
+    <div class="business-message business-error-message" role="alert">
+      <span class="msg-icon">🔒</span> This business area is not included in your current subscription plan.
+      <a class="btn-reset-filters" href="{{ url_for('bi_dashboard') }}">Back to Whole business</a>
+    </div>
+    {% endif %}
+  {% endfor %}
+
+  <footer class="business-muted">
+    Dates filter activity, while balances and current statuses remain current snapshots. Each chart labels its basis. Source workspaces have their own filters. This view does not combine companies or infer branch allocation.
+  </footer>
+  <script id="business-chart-data" type="application/json">{{ overview.modules|tojson }}</script>
+  {% endif %}
+</div>
+{% endblock %}
+{% block extra_script %}
+<script src="{{ url_for('static', filename='bi_business.js') }}" defer></script>
+{% endblock %}
