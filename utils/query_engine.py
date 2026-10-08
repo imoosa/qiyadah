@@ -1,5 +1,5 @@
 """
-query_engine.py  (Logistics ERP / Magnustic ERP version)
+query_engine.py  (Qiyadah ERP version)
 ──────────────────────────────────────────────────────────
 Every function takes `company_id` and gets its session via
 db_router.get_customer_session(company_id) — the same cached,
@@ -14,7 +14,7 @@ same way the rest of app.py does.
 
 Isolation note: customer_models.py has no Flask-SQLAlchemy `.query`
 shortcut — the only way to reach data at all is through the session
-requested here, which is physically bound to erp_<company_id>'s own
+requested here, which is physically bound to qiy_<company_id>'s own
 MySQL database. company_id filters below are belt-and-suspenders on
 top of that, matching the existing column-per-table convention.
 """
@@ -28,7 +28,7 @@ from db_router import get_customer_session
 from customer_models import (
     Client, Supplier, Invoice, InvoiceItem, PurchaseInvoice, StockItem,
     CashTransaction, BankAccount, BankTransaction, Loan, Cheque,
-    CompanyManifest, ManifestEntry, Expense, Estimate, CustomerInvoice,
+    Expense, Estimate, CustomerInvoice,
     CustomerInvoiceItem, PurchaseInvoiceItem, CompanyUser,
 )
 
@@ -44,6 +44,16 @@ def _compute_client_live_outstanding(cdb, company_id: str, client) -> float:
     """
     cutoff_date = client.statement_cutoff.date() if client.statement_cutoff else None
     c_norm = (client.name or "").strip().lower()
+    
+    ci_q = cdb.query(func.sum(CustomerInvoice.grand_total)).filter(
+        CustomerInvoice.company_id == company_id,
+        CustomerInvoice.client_id == client.id,
+        CustomerInvoice.status.notin_(['Cancelled', 'Void', 'Draft']),
+    )
+    if cutoff_date:
+        ci_q = ci_q.filter(CustomerInvoice.invoice_date >= cutoff_date)
+    ci_invoiced = float(ci_q.scalar() or 0)
+
     inv_q = cdb.query(func.sum(Invoice.grand_total)).filter(
         Invoice.company_id == company_id,
         Invoice.client_id == client.id,
@@ -51,7 +61,9 @@ def _compute_client_live_outstanding(cdb, company_id: str, client) -> float:
     )
     if cutoff_date:
         inv_q = inv_q.filter(Invoice.date >= cutoff_date)
-    total_invoiced = float(inv_q.scalar() or 0)
+    legacy_invoiced = float(inv_q.scalar() or 0)
+    
+    total_invoiced = ci_invoiced if ci_invoiced > 0 else legacy_invoiced
 
     cash_q = cdb.query(func.sum(CashTransaction.amount)).filter(
         CashTransaction.company_id == company_id,
@@ -85,6 +97,13 @@ def _compute_outstanding_for_all_clients(cdb, company_id: str, client_rows=None)
         ).all()
     
     client_ids = [c.id for c in client_rows]
+    ci_invoiced_by_client = dict(
+        cdb.query(CustomerInvoice.client_id, func.sum(CustomerInvoice.grand_total))
+           .filter(CustomerInvoice.company_id == company_id, CustomerInvoice.client_id.in_(client_ids),
+                   CustomerInvoice.status.notin_(['Cancelled', 'Void', 'Draft']))
+           .group_by(CustomerInvoice.client_id).all()
+    ) if client_ids else {}
+
     invoiced_by_client = dict(
         cdb.query(Invoice.client_id, func.sum(Invoice.grand_total))
            .filter(Invoice.company_id == company_id, Invoice.client_id.in_(client_ids),
@@ -115,12 +134,19 @@ def _compute_outstanding_for_all_clients(cdb, company_id: str, client_rows=None)
         cutoff_date = c.statement_cutoff.date() if c.statement_cutoff else None
         c_norm = (c.name or "").strip().lower()
         if cutoff_date:
-            total_invoiced = float(
+            ci_invoiced = float(
+                cdb.query(func.sum(CustomerInvoice.grand_total))
+                   .filter(CustomerInvoice.company_id == company_id, CustomerInvoice.client_id == c.id,
+                           CustomerInvoice.status.notin_(['Cancelled', 'Void', 'Draft']),
+                           CustomerInvoice.invoice_date >= cutoff_date).scalar() or 0
+            )
+            legacy_invoiced = float(
                 cdb.query(func.sum(Invoice.grand_total))
                    .filter(Invoice.company_id == company_id, Invoice.client_id == c.id,
                            Invoice.status.notin_(['Cancelled', 'Void', 'Draft']),
                            Invoice.date >= cutoff_date).scalar() or 0
             )
+            total_invoiced = ci_invoiced if ci_invoiced > 0 else legacy_invoiced
             cash_received = float(
                 cdb.query(func.sum(CashTransaction.amount))
                    .filter(CashTransaction.company_id == company_id,
@@ -136,7 +162,7 @@ def _compute_outstanding_for_all_clients(cdb, company_id: str, client_rows=None)
                            BankTransaction.type == "credit", BankTransaction.date >= cutoff_date).scalar() or 0
             )
         else:
-            total_invoiced = float(invoiced_by_client.get(c.id, 0) or 0)
+            total_invoiced = float(ci_invoiced_by_client.get(c.id, 0) or invoiced_by_client.get(c.id, 0) or 0)
             cash_received = float(cash_by_norm_name.get(c_norm, 0.0))
             bank_received = float(bank_by_norm_name.get(c_norm, 0.0))
 
@@ -250,8 +276,8 @@ def get_dashboard_summary(company_id: str) -> Dict[str, Any]:
     total_suppliers = cdb.query(Supplier).filter_by(company_id=company_id).count()
 
     pending_invoices = (
-        cdb.query(Invoice)
-        .filter(Invoice.company_id == company_id, Invoice.status != "Paid", Invoice.status.notin_(['Void', 'Draft']))
+        cdb.query(CustomerInvoice)
+        .filter(CustomerInvoice.company_id == company_id, CustomerInvoice.status != "Paid", CustomerInvoice.status.notin_(['Cancelled', 'Void', 'Draft']))
         .count()
     )
     # Live total receivables across all active clients (matches dashboard & Clients page)
@@ -271,8 +297,8 @@ def get_dashboard_summary(company_id: str) -> Dict[str, Any]:
 
     this_month_start = date.today().replace(day=1)
     month_sales = (
-        cdb.query(func.sum(Invoice.grand_total))
-        .filter(Invoice.company_id == company_id, Invoice.date >= this_month_start, Invoice.status.notin_(['Void', 'Draft']))
+        cdb.query(func.sum(CustomerInvoice.grand_total))
+        .filter(CustomerInvoice.company_id == company_id, CustomerInvoice.invoice_date >= this_month_start, CustomerInvoice.status.notin_(['Cancelled', 'Void', 'Draft']))
         .scalar() or 0.0
     )
 
@@ -287,6 +313,7 @@ def get_dashboard_summary(company_id: str) -> Dict[str, Any]:
         "bank_balance": round(bank_balance, 2),
         "this_month_sales": round(month_sales, 2),
     }
+
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -419,8 +446,8 @@ def get_invoice_detail(company_id: str, invoice_identifier: str) -> Dict[str, An
     cdb = get_customer_session(company_id)
     ident = f"%{invoice_identifier.strip()}%"
     inv = (
-        cdb.query(Invoice)
-        .filter(Invoice.company_id == company_id, Invoice.invoice_id.ilike(ident))
+        cdb.query(CustomerInvoice)
+        .filter(CustomerInvoice.company_id == company_id, CustomerInvoice.invoice_number.ilike(ident))
         .first()
     )
     if not inv:
@@ -430,9 +457,9 @@ def get_invoice_detail(company_id: str, invoice_identifier: str) -> Dict[str, An
     return {
         "intent": "invoice_detail",
         "found": True,
-        "invoice_id": inv.invoice_id,
+        "invoice_id": inv.invoice_number,
         "client": client.name if client else "Unknown",
-        "date": inv.date.strftime("%d %b %Y"),
+        "date": inv.invoice_date.strftime("%d %b %Y"),
         "status": inv.status,
         "subtotal": inv.subtotal,
         "tax_amount": inv.tax_amount,
@@ -442,24 +469,24 @@ def get_invoice_detail(company_id: str, invoice_identifier: str) -> Dict[str, An
     }
 
 
+
 def get_sales_summary(company_id: str, start_date=None, end_date=None, months: int = None) -> Dict[str, Any]:
     """
-    Total sales from the Invoice table (this is the sales/booking invoice
-    model — see PurchaseInvoice below for the separate payables side).
+    Total sales from Qiyadah sales invoices, excluding inactive documents.
     months=None → all-time total. months=N → last N*30 days only.
     """
     cdb = get_customer_session(company_id)
-    q = cdb.query(Invoice).filter(
-        Invoice.company_id == company_id,
-        Invoice.status.notin_(['Void', 'Draft', 'Cancelled'])
+    q = cdb.query(CustomerInvoice).filter(
+        CustomerInvoice.company_id == company_id,
+        CustomerInvoice.status.notin_(['Void', 'Draft', 'Cancelled'])
     )
     period_label = "All-Time"
     if start_date and end_date:
-        q = q.filter(Invoice.date >= start_date, Invoice.date <= end_date)
+        q = q.filter(CustomerInvoice.invoice_date >= start_date, CustomerInvoice.invoice_date <= end_date)
         period_label = f"{start_date.strftime('%d %b %Y')} to {end_date.strftime('%d %b %Y')}"
     elif months:
         cutoff = date.today() - timedelta(days=30 * months)
-        q = q.filter(Invoice.date >= cutoff)
+        q = q.filter(CustomerInvoice.invoice_date >= cutoff)
         period_label = f"Last {months} Month{'s' if months > 1 else ''}"
     rows = q.all()
 
@@ -479,6 +506,7 @@ def get_sales_summary(company_id: str, start_date=None, end_date=None, months: i
         "total_pending": round(total_pending, 2),
         "avg_invoice": round(total_sales / len(rows), 2) if rows else 0.0,
     }
+
 
 
 def get_pending_receivables(company_id: str, limit: int = 15) -> Dict[str, Any]:
@@ -596,21 +624,21 @@ def get_pending_payables(company_id: str, limit: int = 15) -> Dict[str, Any]:
 def get_gst_summary(company_id: str, start_date=None, end_date=None, months: int = None) -> Dict[str, Any]:
     cdb = get_customer_session(company_id)
 
-    sales_q = cdb.query(Invoice).filter(
-        Invoice.company_id == company_id,
-        Invoice.status.notin_(['Cancelled', 'Void']),
+    sales_q = cdb.query(CustomerInvoice).filter(
+        CustomerInvoice.company_id == company_id,
+        CustomerInvoice.status.notin_(['Cancelled', 'Void', 'Draft']),
     )
     purchase_q = cdb.query(PurchaseInvoice).filter(
         PurchaseInvoice.company_id == company_id,
-        PurchaseInvoice.status.notin_(['Void', 'Draft']),
+        PurchaseInvoice.status.notin_(['Cancelled', 'Void', 'Draft']),
     )
 
     if start_date and end_date:
-        sales_q = sales_q.filter(Invoice.date >= start_date, Invoice.date <= end_date)
+        sales_q = sales_q.filter(CustomerInvoice.invoice_date >= start_date, CustomerInvoice.invoice_date <= end_date)
         purchase_q = purchase_q.filter(PurchaseInvoice.date >= start_date, PurchaseInvoice.date <= end_date)
     elif months:
         cutoff = date.today() - timedelta(days=30 * months)
-        sales_q = sales_q.filter(Invoice.date >= cutoff)
+        sales_q = sales_q.filter(CustomerInvoice.invoice_date >= cutoff)
         purchase_q = purchase_q.filter(PurchaseInvoice.date >= cutoff)
 
     sales = sales_q.all()
@@ -632,10 +660,11 @@ def get_gst_summary(company_id: str, start_date=None, end_date=None, months: int
         "input_gst": round(input_gst, 2),        # GST paid on purchases
         "net_gst": round(net_gst, 2),
         "net_gst_status": "payable" if net_gst > 0 else ("receivable" if net_gst < 0 else "nil"),
-        "cgst": round(output_gst / 2, 2),
-        "sgst": round(output_gst / 2, 2),
-        "igst": 0.0,
+        "cgst": round(sum(float(i.cgst_total or 0) for i in sales), 2),
+        "sgst": round(sum(float(i.sgst_total or 0) for i in sales), 2),
+        "igst": round(sum(float(i.igst_total or 0) for i in sales), 2),
     }
+
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -833,29 +862,6 @@ def get_stock_item_detail(company_id: str, identifier: str) -> Dict[str, Any]:
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# Manifest
-# ─────────────────────────────────────────────────────────────────────────
-
-def get_manifest_summary(company_id: str, days: int = 30) -> Dict[str, Any]:
-    cdb = get_customer_session(company_id)
-    cutoff = date.today() - timedelta(days=days)
-    manifests = (
-        cdb.query(CompanyManifest)
-        .filter(CompanyManifest.company_id == company_id, CompanyManifest.date >= cutoff)
-        .all()
-    )
-    pending = [m for m in manifests if m.status == "Pending"]
-    total_boxes = sum(m.total_boxes or 0 for m in manifests)
-    return {
-        "intent": "manifest_summary",
-        "period_days": days,
-        "total_manifests": len(manifests),
-        "pending_manifests": len(pending),
-        "total_boxes": total_boxes,
-    }
-
-
-# ─────────────────────────────────────────────────────────────────────────
 # Loans & Cheques
 # ─────────────────────────────────────────────────────────────────────────
 
@@ -906,25 +912,26 @@ def get_supplier_count(company_id: str) -> Dict[str, Any]:
 def get_gross_profit_summary(company_id: str, start_date=None, end_date=None, months: int = None) -> Dict[str, Any]:
     cdb = get_customer_session(company_id)
 
-    sales_q = cdb.query(Invoice).filter(
-        Invoice.company_id == company_id,
-        Invoice.status.notin_(['Cancelled', 'Void', 'Draft']),
+    sales_q = cdb.query(CustomerInvoice).filter(
+        CustomerInvoice.company_id == company_id,
+        CustomerInvoice.status.notin_(['Cancelled', 'Void', 'Draft']),
     )
     purchase_q = cdb.query(PurchaseInvoice).filter(
         PurchaseInvoice.company_id == company_id,
-        PurchaseInvoice.status.notin_(['Void', 'Draft']),
+        PurchaseInvoice.status.notin_(['Cancelled', 'Void', 'Draft']),
     )
 
     if start_date and end_date:
-        sales_q = sales_q.filter(Invoice.date >= start_date, Invoice.date <= end_date)
+        sales_q = sales_q.filter(CustomerInvoice.invoice_date >= start_date, CustomerInvoice.invoice_date <= end_date)
         purchase_q = purchase_q.filter(PurchaseInvoice.date >= start_date, PurchaseInvoice.date <= end_date)
     elif months:
         cutoff = date.today() - timedelta(days=30 * months)
-        sales_q = sales_q.filter(Invoice.date >= cutoff)
+        sales_q = sales_q.filter(CustomerInvoice.invoice_date >= cutoff)
         purchase_q = purchase_q.filter(PurchaseInvoice.date >= cutoff)
 
     total_sales = sum(inv.grand_total or 0 for inv in sales_q.all())
     total_purchase = sum(p.grand_total or 0 for p in purchase_q.all())
+    gross_profit = total_sales - total_purchase
     gross_margin_pct = round((gross_profit / total_sales * 100), 2) if total_sales > 0 else 0.0
 
     return {
@@ -939,26 +946,27 @@ def get_gross_profit_summary(company_id: str, start_date=None, end_date=None, mo
     }
 
 
+
 def get_net_profit_summary(company_id: str, start_date=None, end_date=None, months: int = None) -> Dict[str, Any]:
     cdb = get_customer_session(company_id)
 
-    sales_q = cdb.query(Invoice).filter(
-        Invoice.company_id == company_id,
-        Invoice.status.notin_(['Cancelled', 'Void', 'Draft']),
+    sales_q = cdb.query(CustomerInvoice).filter(
+        CustomerInvoice.company_id == company_id,
+        CustomerInvoice.status.notin_(['Cancelled', 'Void', 'Draft']),
     )
     purchase_q = cdb.query(PurchaseInvoice).filter(
         PurchaseInvoice.company_id == company_id,
-        PurchaseInvoice.status.notin_(['Void', 'Draft']),
+        PurchaseInvoice.status.notin_(['Cancelled', 'Void', 'Draft']),
     )
     expense_q = cdb.query(Expense).filter(Expense.company_id == company_id)
 
     if start_date and end_date:
-        sales_q = sales_q.filter(Invoice.date >= start_date, Invoice.date <= end_date)
+        sales_q = sales_q.filter(CustomerInvoice.invoice_date >= start_date, CustomerInvoice.invoice_date <= end_date)
         purchase_q = purchase_q.filter(PurchaseInvoice.date >= start_date, PurchaseInvoice.date <= end_date)
         expense_q = expense_q.filter(Expense.date >= start_date, Expense.date <= end_date)
     elif months:
         cutoff = date.today() - timedelta(days=30 * months)
-        sales_q = sales_q.filter(Invoice.date >= cutoff)
+        sales_q = sales_q.filter(CustomerInvoice.invoice_date >= cutoff)
         purchase_q = purchase_q.filter(PurchaseInvoice.date >= cutoff)
         expense_q = expense_q.filter(Expense.date >= cutoff)
 
@@ -986,6 +994,7 @@ def get_net_profit_summary(company_id: str, start_date=None, end_date=None, mont
         "net_profit_margin_percent": net_margin_pct,
         "is_profitable": net_profit >= 0,
     }
+
 
 
 def get_bookings_list(company_id: str, days: int = 30, limit: int = 20) -> Dict[str, Any]:
@@ -1090,7 +1099,7 @@ def get_price_list_status(company_id: str, identifier: str = None) -> Dict[str, 
 def get_whatsapp_status(company_id: str) -> Dict[str, Any]:
     """NOTE: uses the platform DB Company model, NOT get_customer_session().
     whatsapp_enabled / whatsapp_api_key live on Company in platform_models,
-    not in the per-tenant erp_<company_id> database — this is the one
+    not in the per-tenant qiy_<company_id> database — this is the one
     function in this file that deliberately breaks the cdb convention,
     because the data itself lives outside the tenant DB."""
     from platform_models import Company
@@ -1139,13 +1148,13 @@ def get_todays_sales(company_id: str) -> Dict[str, Any]:
     cdb = get_customer_session(company_id)
     today = date.today()
     rows = (
-        cdb.query(Invoice)
+        cdb.query(CustomerInvoice)
         .filter(
-            Invoice.company_id == company_id,
-            Invoice.date == today,
-            Invoice.status.notin_(["Cancelled", "Void"]),
+            CustomerInvoice.company_id == company_id,
+            CustomerInvoice.invoice_date == today,
+            CustomerInvoice.status.notin_(["Cancelled", "Void", "Draft"]),
         )
-        .order_by(Invoice.grand_total.desc())
+        .order_by(CustomerInvoice.grand_total.desc())
         .all()
     )
     total = sum(inv.grand_total or 0 for inv in rows)
@@ -1155,11 +1164,10 @@ def get_todays_sales(company_id: str) -> Dict[str, Any]:
     for inv in rows[:15]:
         client = cdb.query(Client).filter_by(id=inv.client_id).first()
         items.append({
-            "invoice_id": inv.invoice_id,
-            "client": client.name if client else (inv.phone or "Walk-in"),
+            "invoice_id": inv.invoice_number,
+            "client": client.name if client else (inv.client_name or "Walk-in"),
             "grand_total": inv.grand_total,
             "status": inv.status,
-            "docket_no": inv.docket_no,
         })
     return {
         "intent": "todays_sales",
@@ -1172,17 +1180,18 @@ def get_todays_sales(company_id: str) -> Dict[str, Any]:
     }
 
 
+
 def get_top_clients_by_sales(company_id: str, limit: int = 10, months: int = None) -> Dict[str, Any]:
     """Top N clients by total invoice grand_total."""
     cdb = get_customer_session(company_id)
-    q = cdb.query(Invoice).filter(
-        Invoice.company_id == company_id,
-        Invoice.status.notin_(["Cancelled", "Void"]),
-        Invoice.client_id.isnot(None),
+    q = cdb.query(CustomerInvoice).filter(
+        CustomerInvoice.company_id == company_id,
+        CustomerInvoice.status.notin_(["Cancelled", "Void", "Draft"]),
+        CustomerInvoice.client_id.isnot(None),
     )
     if months:
         cutoff = date.today() - timedelta(days=30 * months)
-        q = q.filter(Invoice.date >= cutoff)
+        q = q.filter(CustomerInvoice.invoice_date >= cutoff)
     rows = q.all()
 
     agg: Dict[int, Dict] = {}
@@ -1208,6 +1217,7 @@ def get_top_clients_by_sales(company_id: str, limit: int = 10, months: int = Non
     }
 
 
+
 def get_worst_clients_by_sales(company_id: str, limit: int = 10, months: int = None) -> Dict[str, Any]:
     """Lowest revenue/sales clients or inactive clients."""
     cdb = get_customer_session(company_id)
@@ -1217,14 +1227,14 @@ def get_worst_clients_by_sales(company_id: str, limit: int = 10, months: int = N
         ~Client.client_type.in_(["Supplier", "Cash-Only"]),
     ).all()
     
-    q = cdb.query(Invoice).filter(
-        Invoice.company_id == company_id,
-        Invoice.status.notin_(["Cancelled", "Void"]),
-        Invoice.client_id.isnot(None),
+    q = cdb.query(CustomerInvoice).filter(
+        CustomerInvoice.company_id == company_id,
+        CustomerInvoice.status.notin_(["Cancelled", "Void", "Draft"]),
+        CustomerInvoice.client_id.isnot(None),
     )
     if months:
         cutoff = date.today() - timedelta(days=30 * months)
-        q = q.filter(Invoice.date >= cutoff)
+        q = q.filter(CustomerInvoice.invoice_date >= cutoff)
     rows = q.all()
     
     sales_map = {}
@@ -1253,6 +1263,7 @@ def get_worst_clients_by_sales(company_id: str, limit: int = 10, months: int = N
         "limit": limit,
         "clients": worst_clients,
     }
+
 
 
 def get_top_clients_by_outstanding(company_id: str, limit: int = 10) -> Dict[str, Any]:
@@ -1292,24 +1303,24 @@ def get_overdue_invoices(company_id: str, limit: int = 20) -> Dict[str, Any]:
     cdb = get_customer_session(company_id)
     today = date.today()
     rows = (
-        cdb.query(Invoice)
+        cdb.query(CustomerInvoice)
         .filter(
-            Invoice.company_id == company_id,
-            Invoice.balance > 0,
-            Invoice.due_date < today,
-            Invoice.status.notin_(["Cancelled", "Void"]),
+            CustomerInvoice.company_id == company_id,
+            CustomerInvoice.balance > 0,
+            CustomerInvoice.due_date < today,
+            CustomerInvoice.status.notin_(["Cancelled", "Void", "Draft"]),
         )
-        .order_by(Invoice.due_date.asc())
+        .order_by(CustomerInvoice.due_date.asc())
         .limit(limit)
         .all()
     )
     total_overdue = (
-        cdb.query(func.sum(Invoice.balance))
+        cdb.query(func.sum(CustomerInvoice.balance))
         .filter(
-            Invoice.company_id == company_id,
-            Invoice.balance > 0,
-            Invoice.due_date < today,
-            Invoice.status.notin_(["Cancelled", "Void"]),
+            CustomerInvoice.company_id == company_id,
+            CustomerInvoice.balance > 0,
+            CustomerInvoice.due_date < today,
+            CustomerInvoice.status.notin_(["Cancelled", "Void", "Draft"]),
         )
         .scalar() or 0.0
     )
@@ -1318,135 +1329,20 @@ def get_overdue_invoices(company_id: str, limit: int = 20) -> Dict[str, Any]:
         client = cdb.query(Client).filter_by(id=inv.client_id).first()
         days_overdue = (today - inv.due_date).days if inv.due_date else 0
         items.append({
-            "invoice_id": inv.invoice_id,
+            "invoice_id": inv.invoice_number,
             "client": client.name if client else "Unknown",
             "balance": round(inv.balance, 2),
             "due_date": inv.due_date.strftime("%d %b %Y") if inv.due_date else None,
             "days_overdue": days_overdue,
-            "docket_no": inv.docket_no,
         })
+    full_count = cdb.query(CustomerInvoice).filter(CustomerInvoice.company_id == company_id, CustomerInvoice.balance > 0, CustomerInvoice.due_date < today, CustomerInvoice.status.notin_(["Cancelled", "Void", "Draft"])).count()
     return {
         "intent": "overdue_invoices",
-        "count": len(rows),
+        "count": full_count,
         "total_overdue": round(total_overdue, 2),
         "items": items,
     }
 
-
-def get_invoice_by_awb(company_id: str, identifier: str) -> Dict[str, Any]:
-    """Find a booking invoice by AWB/docket number or invoice ID with all comprehensive booking details."""
-    cdb = get_customer_session(company_id)
-    ident = f"%{identifier.strip()}%"
-    clean_id = identifier.strip()
-
-    inv = (
-        cdb.query(Invoice)
-        .filter(
-            Invoice.company_id == company_id,
-            (Invoice.docket_no.ilike(ident)) |
-            (Invoice.invoice_id.ilike(ident)),
-        )
-        .first()
-    )
-
-    # Fallback: search in CustomerInvoiceItem if not directly in Invoice
-    ci_item = None
-    if not inv:
-        ci_item = (
-            cdb.query(CustomerInvoiceItem)
-            .filter(CustomerInvoiceItem.docket_no.ilike(ident))
-            .first()
-        )
-        if ci_item and ci_item.booking_invoice_id:
-            inv = cdb.query(Invoice).filter_by(id=ci_item.booking_invoice_id, company_id=company_id).first()
-
-    if not inv and not ci_item:
-        return {"intent": "awb_detail", "found": False, "query": identifier}
-
-    # If we found invoice, check if associated CustomerInvoiceItem exists for shipping snapshot
-    if inv and not ci_item:
-        ci_item = (
-            cdb.query(CustomerInvoiceItem)
-            .filter(
-                (CustomerInvoiceItem.booking_invoice_id == inv.id) |
-                (CustomerInvoiceItem.docket_no == inv.docket_no) |
-                (CustomerInvoiceItem.booking_invoice_ref == inv.invoice_id)
-            )
-            .first()
-        )
-
-    client = cdb.query(Client).filter_by(id=inv.client_id).first() if inv and inv.client_id else None
-    items_q = cdb.query(InvoiceItem).filter_by(invoice_id=inv.id).all() if inv else []
-
-    # Manifest info if linked
-    manifest_info = None
-    try:
-        m_entry = (
-            cdb.query(ManifestEntry)
-            .filter(ManifestEntry.awb_no.ilike(ident) if hasattr(ManifestEntry, 'awb_no') else ManifestEntry.id == -1)
-            .first()
-        )
-        if m_entry and m_entry.manifest:
-            manifest_info = {
-                "manifest_id": m_entry.manifest.manifest_id,
-                "manifest_date": m_entry.manifest.date.strftime("%d %b %Y") if m_entry.manifest.date else "-",
-                "courier": m_entry.courier_name or "-",
-            }
-    except Exception:
-        pass
-
-    receiver_name = (ci_item.receiver_name if ci_item and ci_item.receiver_name else getattr(inv, 'contact_person', None)) or "N/A"
-    destination = (ci_item.destination if ci_item and ci_item.destination else "-") or "-"
-    carrier = (ci_item.carrier if ci_item and ci_item.carrier else "-") or "-"
-    carrier_ref = (ci_item.carrier_ref if ci_item and ci_item.carrier_ref else "-") or "-"
-    weight_kg = (ci_item.weight_kg if ci_item and ci_item.weight_kg else sum(it.qty or 0 for it in items_q)) or 0.0
-    rate_per_kg = (ci_item.rate_per_kg if ci_item and ci_item.rate_per_kg else 0.0) or 0.0
-
-    return {
-        "intent": "awb_detail",
-        "found": True,
-        "docket_no": inv.docket_no if inv and inv.docket_no else (ci_item.docket_no if ci_item else clean_id),
-        "invoice_id": inv.invoice_id if inv else (ci_item.booking_invoice_ref or "-"),
-        "booking_date": inv.date.strftime("%d %b %Y") if inv and inv.date else (ci_item.booking_date.strftime("%d %b %Y") if ci_item and ci_item.booking_date else "-"),
-        "due_date": inv.due_date.strftime("%d %b %Y") if inv and inv.due_date else "-",
-        "status": inv.status if inv else (ci_item.customer_invoice.status if ci_item and ci_item.customer_invoice else "Booked"),
-        "client_name": client.name if client else (inv.phone if inv and inv.phone else (ci_item.customer_invoice.client_name if ci_item and ci_item.customer_invoice else "Walk-in / Cash")),
-        "client_phone": client.phone if client else (inv.phone if inv and inv.phone else "-"),
-        "client_city": client.city if client else "-",
-        "client_gst": client.gst_number if client else "-",
-        "receiver_name": receiver_name,
-        "destination": destination,
-        "carrier": carrier,
-        "carrier_ref": carrier_ref,
-        "weight_kg": round(weight_kg, 2),
-        "rate_per_kg": round(rate_per_kg, 2),
-        "subtotal": round(inv.subtotal if inv else (ci_item.taxable_amount or 0), 2),
-        "tax_amount": round(inv.tax_amount if inv else (ci_item.cgst_amount or 0) + (ci_item.sgst_amount or 0) + (ci_item.igst_amount or 0), 2),
-        "grand_total": round(inv.grand_total if inv else (ci_item.total_amount or 0), 2),
-        "paid_amount": round(inv.paid_amount if inv else 0.0, 2),
-        "balance": round(inv.balance if inv else (ci_item.total_amount or 0), 2),
-        "discount": round(inv.discount if inv else 0.0, 2),
-        "created_by": inv.created_by if inv and inv.created_by else "System",
-        "manifest_info": manifest_info,
-        "items": [
-            {
-                "code": it.code or "-",
-                "description": it.description,
-                "qty": it.qty,
-                "rate": round(it.rate or 0, 2),
-                "discount": round(it.discount or 0, 2),
-            }
-            for it in items_q[:15]
-        ] if items_q else ([
-            {
-                "code": "AWB",
-                "description": ci_item.item_description or "Parcel Shipment",
-                "qty": ci_item.quantity or 1.0,
-                "rate": round(ci_item.rate_per_kg or 0, 2),
-                "discount": 0.0,
-            }
-        ] if ci_item else []),
-    }
 
 
 def get_todays_expenses(company_id: str) -> Dict[str, Any]:
@@ -1581,11 +1477,11 @@ def get_client_statement_summary(company_id: str, identifier: str) -> Dict[str, 
     if not client:
         return {"intent": "client_statement", "found": False, "query": identifier}
 
-    invoices = cdb.query(Invoice).filter(
-        Invoice.company_id == company_id,
-        Invoice.client_id == client.id,
-        Invoice.status.notin_(["Cancelled", "Void"]),
-    ).order_by(Invoice.date.desc()).all()
+    invoices = cdb.query(CustomerInvoice).filter(
+        CustomerInvoice.company_id == company_id,
+        CustomerInvoice.client_id == client.id,
+        CustomerInvoice.status.notin_(["Cancelled", "Void", "Draft"]),
+    ).order_by(CustomerInvoice.invoice_date.desc()).all()
 
     total_invoiced = sum(inv.grand_total or 0 for inv in invoices)
     total_collected = sum(inv.paid_amount or 0 for inv in invoices)
@@ -1609,8 +1505,8 @@ def get_client_statement_summary(company_id: str, identifier: str) -> Dict[str, 
         "invoice_count": len(invoices),
         "recent_invoices": [
             {
-                "invoice_id": inv.invoice_id,
-                "date": inv.date.strftime("%d %b %Y"),
+                "invoice_id": inv.invoice_number,
+                "date": inv.invoice_date.strftime("%d %b %Y"),
                 "grand_total": inv.grand_total,
                 "balance": inv.balance,
                 "status": inv.status,
@@ -1618,6 +1514,7 @@ def get_client_statement_summary(company_id: str, identifier: str) -> Dict[str, 
             for inv in invoices[:5]
         ],
     }
+
 
 
 def get_supplier_statement_summary(company_id: str, identifier: str) -> Dict[str, Any]:
@@ -1757,105 +1654,6 @@ def get_top_suppliers_by_purchase(company_id: str, limit: int = 10, months: int 
     }
 
 
-def get_destination_analysis(company_id: str, months: int = 1) -> Dict[str, Any]:
-    """
-    Shipment count and revenue grouped by destination city.
-    """
-    cdb = get_customer_session(company_id)
-    cutoff = date.today() - timedelta(days=30 * months)
-    agg: Dict[str, Dict] = {}
-
-    try:
-        from customer_models import PurchaseInvoiceItem
-        items = (
-            cdb.query(PurchaseInvoiceItem.destination, PurchaseInvoiceItem.taxable_value)
-            .join(PurchaseInvoice, PurchaseInvoiceItem.purchase_invoice_id == PurchaseInvoice.id)
-            .filter(
-                PurchaseInvoice.company_id == company_id,
-                PurchaseInvoice.date >= cutoff,
-                PurchaseInvoiceItem.destination.isnot(None),
-            )
-            .all()
-        )
-        for dest_val, tax_val in items:
-            dest = (dest_val or "").strip().title() or "Unknown"
-            if dest not in agg:
-                agg[dest] = {"destination": dest, "shipment_count": 0, "total_revenue": 0.0}
-            agg[dest]["shipment_count"] += 1
-            agg[dest]["total_revenue"] += tax_val or 0
-    except Exception as e:
-        print(f"[QUERY ENGINE] destination_analysis fallback: {e}")
-
-    ranked = sorted(agg.values(), key=lambda x: x["shipment_count"], reverse=True)[:15]
-    for entry in ranked:
-        entry["total_revenue"] = round(entry["total_revenue"], 2)
-
-    return {
-        "intent": "destination_analysis",
-        "period_months": months,
-        "total_destinations": len(agg),
-        "top_destinations": ranked,
-    }
-
-
-def get_courier_analysis(company_id: str, months: int = 1) -> Dict[str, Any]:
-    """Shipment count and revenue per courier."""
-    cdb = get_customer_session(company_id)
-    cutoff = date.today() - timedelta(days=30 * months)
-    agg: Dict[str, Dict] = {}
-
-    try:
-        from customer_models import PurchaseInvoiceItem
-        items = (
-            cdb.query(PurchaseInvoiceItem.courier_name, PurchaseInvoiceItem.taxable_value, PurchaseInvoiceItem.weight_kg)
-            .join(PurchaseInvoice, PurchaseInvoiceItem.purchase_invoice_id == PurchaseInvoice.id)
-            .filter(
-                PurchaseInvoice.company_id == company_id,
-                PurchaseInvoice.date >= cutoff,
-            )
-            .all()
-        )
-        for courier_val, tax_val, weight in items:
-            courier = (courier_val or "").strip().title() or "Unknown"
-            if courier not in agg:
-                agg[courier] = {"courier": courier, "shipment_count": 0, "total_amount": 0.0, "total_weight": 0.0}
-            agg[courier]["shipment_count"] += 1
-            agg[courier]["total_amount"] += tax_val or 0
-            agg[courier]["total_weight"] += weight or 0
-    except Exception as e:
-        print(f"[QUERY ENGINE] courier_analysis items fallback: {e}")
-
-    # Also check ManifestEntry for courier data
-    try:
-        entries = (
-            cdb.query(ManifestEntry.courier_name, ManifestEntry.boxes)
-            .join(CompanyManifest, ManifestEntry.manifest_id == CompanyManifest.id)
-            .filter(
-                CompanyManifest.company_id == company_id,
-                CompanyManifest.date >= cutoff,
-            )
-            .all()
-        )
-        for courier_val, boxes in entries:
-            courier = (courier_val or "").strip().title() or "Unknown"
-            if courier not in agg:
-                agg[courier] = {"courier": courier, "shipment_count": 0, "total_amount": 0.0, "total_weight": 0.0}
-            agg[courier]["shipment_count"] += boxes or 0
-    except Exception as e:
-        print(f"[QUERY ENGINE] courier_analysis manifest fallback: {e}")
-
-    ranked = sorted(agg.values(), key=lambda x: x["shipment_count"], reverse=True)
-    for entry in ranked:
-        entry["total_amount"] = round(entry["total_amount"], 2)
-        entry["total_weight"] = round(entry["total_weight"], 2)
-
-    return {
-        "intent": "courier_analysis",
-        "period_months": months,
-        "couriers": ranked,
-    }
-
-
 def get_new_clients(company_id: str, months: int = 1) -> Dict[str, Any]:
     """Clients created within the last N months."""
     cdb = get_customer_session(company_id)
@@ -1883,13 +1681,15 @@ def get_new_clients(company_id: str, months: int = 1) -> Dict[str, Any]:
     }
 
 
-def get_customer_invoice_summary(company_id: str, months: int = 1) -> Dict[str, Any]:
-    """Aggregate customer invoices (CI) summary — the billing cycle invoices."""
+def get_customer_invoice_summary(company_id: str, months: int = 1, start_date=None, end_date=None) -> Dict[str, Any]:
+    """Posted sales invoices in the requested period."""
     cdb = get_customer_session(company_id)
-    cutoff = date.today() - timedelta(days=30 * months)
+    cutoff = start_date or date.today() - timedelta(days=30 * months)
     rows = cdb.query(CustomerInvoice).filter(
         CustomerInvoice.company_id == company_id,
         CustomerInvoice.invoice_date >= cutoff,
+        CustomerInvoice.invoice_date <= (end_date or date.today()),
+        CustomerInvoice.status.notin_(["Cancelled", "Void", "Draft"]),
     ).order_by(CustomerInvoice.invoice_date.desc()).all()
 
     total = sum(r.grand_total or 0 for r in rows)
@@ -1903,6 +1703,8 @@ def get_customer_invoice_summary(company_id: str, months: int = 1) -> Dict[str, 
     return {
         "intent": "customer_invoice_summary",
         "period_months": months,
+        "start_date": str(cutoff),
+        "end_date": str(end_date or date.today()),
         "count": len(rows),
         "total_value": round(total, 2),
         "total_collected": round(collected, 2),
@@ -2012,41 +1814,6 @@ def get_todays_bookings(company_id: str) -> Dict[str, Any]:
     }
 
 
-def get_pending_manifests(company_id: str) -> Dict[str, Any]:
-    """Manifests with pending status."""
-    cdb = get_customer_session(company_id)
-    manifests_list = []
-    total_boxes = 0
-
-    try:
-        manifests = (
-            cdb.query(CompanyManifest)
-            .filter(CompanyManifest.company_id == company_id)
-            .order_by(CompanyManifest.date.desc())
-            .all()
-        )
-        for m in manifests:
-            m_status = getattr(m, 'status', 'Pending')
-            if m_status == 'Pending':
-                manifests_list.append({
-                    "manifest_id": m.manifest_id,
-                    "date": m.date.strftime("%d %b %Y") if m.date else "-",
-                    "shipper": m.shipper_client_name or "-",
-                    "total_boxes": m.total_boxes or 0,
-                    "status": m_status,
-                })
-                total_boxes += (m.total_boxes or 0)
-    except Exception as e:
-        print(f"[QUERY ENGINE] pending_manifests fallback: {e}")
-
-    return {
-        "intent": "pending_manifests",
-        "count": len(manifests_list),
-        "total_boxes": total_boxes,
-        "manifests": manifests_list[:15],
-    }
-
-
 def get_client_pending_amount(company_id: str, identifier: str) -> Dict[str, Any]:
     """Exact pending balance, credit terms, and unpaid invoices for a specific client."""
     cdb = get_customer_session(company_id)
@@ -2065,14 +1832,14 @@ def get_client_pending_amount(company_id: str, identifier: str) -> Dict[str, Any
         return {"intent": "client_pending_amount", "found": False, "query": identifier}
 
     unpaid_invoices = (
-        cdb.query(Invoice)
+        cdb.query(CustomerInvoice)
         .filter(
-            Invoice.company_id == company_id,
-            Invoice.client_id == client.id,
-            Invoice.balance > 0,
-            Invoice.status.notin_(["Cancelled", "Void", "Draft"]),
+            CustomerInvoice.company_id == company_id,
+            CustomerInvoice.client_id == client.id,
+            CustomerInvoice.balance > 0,
+            CustomerInvoice.status.notin_(["Cancelled", "Void", "Draft"]),
         )
-        .order_by(Invoice.date.asc())
+        .order_by(CustomerInvoice.invoice_date.asc())
         .all()
     )
 
@@ -2097,9 +1864,8 @@ def get_client_pending_amount(company_id: str, identifier: str) -> Dict[str, Any
         "last_payment": client.last_payment.strftime("%d %b %Y") if client.last_payment else "No payment recorded",
         "unpaid_invoices": [
             {
-                "invoice_id": inv.invoice_id,
-                "docket_no": inv.docket_no or "-",
-                "date": inv.date.strftime("%d %b %Y"),
+                "invoice_id": inv.invoice_number,
+                "date": inv.invoice_date.strftime("%d %b %Y"),
                 "grand_total": round(inv.grand_total or 0, 2),
                 "balance": round(inv.balance or 0, 2),
                 "due_date": inv.due_date.strftime("%d %b %Y") if inv.due_date else "-",
@@ -2108,6 +1874,7 @@ def get_client_pending_amount(company_id: str, identifier: str) -> Dict[str, Any
             for inv in unpaid_invoices[:10]
         ],
     }
+
 
 
 def get_supplier_payable_amount(company_id: str, identifier: str) -> Dict[str, Any]:
@@ -2238,11 +2005,11 @@ def get_customer_invoice_detail(company_id: str, identifier: str) -> Dict[str, A
         "item_count": len(items),
         "items": [
             {
-                "docket_no": it.docket_no or "-",
-                "receiver_name": it.receiver_name or "-",
-                "destination": it.destination or "-",
-                "carrier": it.carrier or "-",
-                "weight_kg": it.weight_kg or 0,
+                "item_code": it.item_code or "-",
+                "item_name": it.item_name or it.item_description or "Item",
+                "quantity": it.quantity or 0,
+                "unit": it.unit or "",
+                "rate": it.rate or 0,
                 "total_amount": round(it.total_amount or 0, 2),
             }
             for it in items[:15]
@@ -2250,307 +2017,17 @@ def get_customer_invoice_detail(company_id: str, identifier: str) -> Dict[str, A
     }
 
 
+
 def get_general_tax_knowledge(topic: str = "") -> Dict[str, Any]:
-    """Provides authoritative statutory tax, GST, and logistics accounting guidance in India."""
-    t = (topic or "").lower()
+    return {"intent": "general_tax_knowledge", "title": "Tax information in Qiyadah",
+            "content": "Ask 'GST summary' to inspect tax amounts recorded on sales and purchase invoices. That summary is not a filed return or a confirmed tax liability. Current tax rates, credit eligibility and filing rules are not connected to a live legal source in this assistant; verify them with the official tax authority or your accountant before applying them."}
 
-    # 1. E-Way Bill
-    if any(k in t for k in ["eway", "e-way"]):
-        return {
-            "intent": "general_tax_knowledge",
-            "topic": "eway_bill",
-            "title": "📜 E-Way Bill Rules & Thresholds (Logistics & Goods Transport)",
-            "content": (
-                "• **Mandatory Threshold**: An E-Way Bill is mandatory for consignment movement of goods with an invoice value exceeding **₹50,000** (for Interstate movements; some states have higher Intrastate limits like ₹1,00,000).\n"
-                "• **Part A**: Consignor/Consignee fills GSTIN, Place of Dispatch & Delivery, Invoice No. & Date, Value, HSN code.\n"
-                "• **Part B**: Transporter fills Vehicle No. / Transporter ID (Transporter Document No. / AWB / LR No.).\n"
-                "• **Validity Duration**:\n"
-                "   - *Regular Cargo*: 1 day for every **200 km** (or part thereof).\n"
-                "   - *Over Dimensional Cargo (ODC) / Multimodal*: 1 day for every **20 km**.\n"
-                "• **Exemptions**: Non-motorized transport, transit cargo to/from Nepal/Bhutan, customs supervision transit, and exempted goods under GST notification."
-            )
-        }
-
-    # 2. RCM (Reverse Charge Mechanism)
-    if any(k in t for k in ["rcm", "reverse charge"]):
-        return {
-            "intent": "general_tax_knowledge",
-            "topic": "rcm",
-            "title": "🔄 Reverse Charge Mechanism (RCM) in Logistics & Transport",
-            "content": (
-                "• **Goods Transport Agency (GTA)**:\n"
-                "   - **5% GST under RCM**: Transporter does NOT charge GST on invoice. The registered recipient (consignor or consignee paying freight) pays **5% GST directly to the government** under Section 9(3) of CGST Act. Transporter cannot claim Input Tax Credit (ITC).\n"
-                "   - **12% GST under Forward Charge**: Transporter charges **12% GST** on the invoice with full ITC eligibility on trucks, repairs, and commercial assets.\n"
-                "• **Courier & Express Cargo (SAC 9968)**: Courier services are **NOT covered under RCM** — they are strictly billed under **18% Forward Charge** by the courier company.\n"
-                "• **Who pays under GTA RCM?**: Any registered business, factory, society, cooperative, or partnership paying the freight is liable to discharge the 5% RCM liability."
-            )
-        }
-
-    # 3. TDS on Transporters (Section 194C)
-    if any(k in t for k in ["tds", "194c"]):
-        return {
-            "intent": "general_tax_knowledge",
-            "topic": "tds",
-            "title": "📑 TDS on Freight & Transporters (Income Tax Section 194C)",
-            "content": (
-                "• **Deduction Rates**:\n"
-                "   - **1% TDS** if the transporter / contractor is an **Individual or HUF**.\n"
-                "   - **2% TDS** if the transporter is a **Company, Partnership Firm, or LLP**.\n"
-                "• **Threshold Limits**:\n"
-                "   - Single contract/bill exceeding **₹30,000**.\n"
-                "   - Aggregate payments to the contractor exceeding **₹1,00,000** in a financial year.\n"
-                "• **Special Transporter Exemption (Section 194C(6))**:\n"
-                "   - **NO TDS** is deductible if the transporter owns **10 or fewer goods carriages** at any time during the year AND provides a valid **PAN with written non-ownership declaration**."
-            )
-        }
-
-    # 4. SAC / HSN Codes
-    if any(k in t for k in ["sac", "hsn", "code"]):
-        return {
-            "intent": "general_tax_knowledge",
-            "topic": "sac_codes",
-            "title": "🏷️ Service Accounting Codes (SAC) for Logistics & Courier",
-            "content": (
-                "• **SAC 996812 / 996813**: **Courier & Express Parcel Delivery Services** (Domestic / International) — **Rate: 18% GST**.\n"
-                "• **SAC 996511**: **Road Freight Transport Services** (Goods Transport by road in trucks/trailers) — **Rate: 5% (RCM) or 12% (Forward Charge)**.\n"
-                "• **SAC 996521**: **Air Freight Cargo Transport Services** — **Rate: 18% GST**.\n"
-                "• **SAC 996531**: **Railway Cargo Freight Services** — **Rate: 5% GST**.\n"
-                "• **SAC 996719**: **Cargo Handling, Packaging & Warehousing Services** — **Rate: 18% GST**."
-            )
-        }
-
-    # 5. Difference between CGST, SGST, and IGST
-    if any(k in t for k in ["cgst", "sgst", "igst"]):
-        return {
-            "intent": "general_tax_knowledge",
-            "topic": "gst_types",
-            "title": "🏛️ Difference Between CGST, SGST & IGST",
-            "content": (
-                "• **Intra-State Supply** (Shipper and Consignee/Billing within the SAME state):\n"
-                "   - Billed as **CGST (Central GST)** + **SGST (State GST)** equally.\n"
-                "   - *Example on 18% Courier*: 9% CGST + 9% SGST.\n"
-                "• **Inter-State Supply** (Shipper and Consignee/Billing in DIFFERENT states):\n"
-                "   - Billed as **IGST (Integrated GST)** directly to Central Government.\n"
-                "   - *Example on 18% Courier*: 18% IGST.\n"
-                "• **ITC Utilization Hierarchy**: IGST credit is utilized first against IGST, then CGST/SGST. CGST credit cannot be set off against SGST and vice versa."
-            )
-        }
-
-    # 6. Debit Note vs Credit Note
-    if any(k in t for k in ["debit note", "credit note"]):
-        return {
-            "intent": "general_tax_knowledge",
-            "topic": "notes",
-            "title": "📝 Debit Note vs Credit Note in Accounting & GST",
-            "content": (
-                "• **Credit Note (Issued by Seller/Supplier)**:\n"
-                "   - Issued to **reduce** the invoice value (e.g. rate correction, discount, shipment return, damaged goods).\n"
-                "   - Reduces the seller's tax liability and debtor's receivable balance in ERP.\n"
-                "• **Debit Note (Issued by Buyer or Seller)**:\n"
-                "   - Issued to **increase** the invoice amount (e.g. additional weight charges, undercharged freight) OR issued by a customer to claim damages from a vendor.\n"
-                "   - Increases output tax liability / records supplier liability."
-            )
-        }
-
-    # 7. Default: GST Rates & Logistics Tax Slabs
-    return {
-        "intent": "general_tax_knowledge",
-        "topic": "gst_rates",
-        "title": "📊 GST Rates & Slabs for Courier, Freight & Logistics in India",
-        "content": (
-            "• **Courier & Express Parcel Services (SAC 9968)**: Standard **18% GST** (9% CGST + 9% SGST for intra-state, or 18% IGST for inter-state).\n"
-            "• **Goods Transport Agency / Road Freight (SAC 9965)**:\n"
-            "   - **5% GST** under Reverse Charge Mechanism (RCM) without Input Tax Credit.\n"
-            "   - **12% GST** under Forward Charge with full Input Tax Credit.\n"
-            "• **Air Freight Cargo**: **18% GST** on domestic air shipments.\n"
-            "• **General India GST Tax Slabs**:\n"
-            "   - **0% (Exempt)**: Unprocessed food, essential health items, books.\n"
-            "   - **5%**: Transport of goods by GTA (RCM), economy air travel, railway freight.\n"
-            "   - **12%**: Business class air transport, state lottery, GTA forward charge.\n"
-            "   - **18% (Standard)**: Most commercial services including **Courier, Cargo Handling, Software, and Telecom**.\n"
-            "   - **28%**: Luxury cars, tobacco, and high-end consumer goods.\n\n"
-            "💡 *To check your company's own GST collected & payable this month, ask: 'What is my GST payable?'*"
-        )
-    }
 
 
 def get_help_catalog() -> Dict[str, Any]:
-    """Predefined question categories and prompts covering the entire ERP database."""
-    return {
-        "intent": "help",
-        "categories": [
-            {
-                "name": "📚 General Tax, Accounts & Logistics Knowledge",
-                "icon": "fas fa-balance-scale",
-                "description": "Statutory GST rates, SAC codes, E-way bill rules, RCM & TDS",
-                "questions": [
-                    "What is today's GST rate and standard tax slabs?",
-                    "What is the GST rate on courier and logistics?",
-                    "What is the E-Way Bill threshold and rules?",
-                    "How does Reverse Charge Mechanism (RCM) work for GTA?",
-                    "What is TDS on freight and transporter (Section 194C)?",
-                    "What is the SAC code for courier and cargo services?",
-                    "Difference between CGST, SGST, and IGST",
-                    "What is the difference between Debit Note and Credit Note?",
-                ],
-            },
-            {
-                "name": "📦 Booking (AWB & Shipments)",
-                "icon": "fas fa-box",
-                "description": "AWB search, complete booking details, tracking & manifests",
-                "questions": [
-                    "Track AWB [AWB / Docket Number]",
-                    "Search according to the AWB number [AWB Number]",
-                    "All details of booking [AWB Number]",
-                    "What are today's bookings?",
-                    "Show recent bookings",
-                    "Show pending manifests",
-                    "Destination analysis / Top shipping cities",
-                    "Courier / Carrier performance report",
-                    "List void / cancelled bookings",
-                ],
-            },
-            {
-                "name": "💼 Sales (Revenue & Invoices)",
-                "icon": "fas fa-chart-bar",
-                "description": "Monthly sales trends, overdue invoices & customer billing",
-                "questions": [
-                    "This month sales",
-                    "Last month sales",
-                    "Last 3 months sales",
-                    "Last 6 months sales",
-                    "Today's sales",
-                    "Show overdue sales invoices",
-                    "Who owes me money? (Pending Receivables)",
-                    "Top 10 clients by sales",
-                    "Customer invoices summary",
-                    "Find customer invoice [CI Number]",
-                ],
-            },
-            {
-                "name": "🛒 Purchase (Payables & Procurement)",
-                "icon": "fas fa-shopping-cart",
-                "description": "Total purchase payables, supplier bills & vendor accounts",
-                "questions": [
-                    "Total payable from purchase",
-                    "Pending payables to suppliers",
-                    "Purchase summary this month",
-                    "Last month purchase",
-                    "Last 3 months purchase",
-                    "Payable amount to [Supplier Name]",
-                    "Top suppliers by purchase",
-                    "Find purchase invoice [Invoice Number]",
-                ],
-            },
-            {
-                "name": "👥 Clients & Debtors",
-                "icon": "fas fa-users",
-                "description": "Client directory, ledgers, statements & top customers",
-                "questions": [
-                    "Pending amount of [Client Name]",
-                    "Top 10 clients by sales",
-                    "Clients with highest pending balance",
-                    "Client statement for [Client Name]",
-                    "How many clients do we have?",
-                    "New clients registered this month",
-                ],
-            },
-            {
-                "name": "🏦 Cash, Bank & Collections",
-                "icon": "fas fa-university",
-                "description": "Cashbook balance, bank accounts & receipt vouchers",
-                "questions": [
-                    "What is my cash balance?",
-                    "Show today's cash flow",
-                    "What is my total bank balance?",
-                    "Show bank account details",
-                    "Receipts and payments summary",
-                ],
-            },
-            {
-                "name": "📉 Expenses & Quotations",
-                "icon": "fas fa-receipt",
-                "description": "Daily expenditure, category expenses & estimates",
-                "questions": [
-                    "Today's expenses",
-                    "Expenses this month",
-                    "Fuel expenses",
-                    "Salary expenses",
-                    "Show estimates summary",
-                    "Find estimate [Estimate ID]",
-                ],
-            },
-            {
-                "name": "📊 Profit, GST & Margins",
-                "icon": "fas fa-chart-line",
-                "description": "Net profit, profit percentage/margins, GST reports & analytics",
-                "questions": [
-                    "What is the percent of net profit?",
-                    "What is my net profit this month?",
-                    "What is my gross profit margin?",
-                    "What is my GST payable?",
-                    "Quarterly GST report",
-                    "Country wise sales and profit",
-                    "Employee wise performance",
-                ],
-            },
-            {
-                "name": "👥 Team & Employee Access",
-                "icon": "fas fa-user-shield",
-                "description": "User management, staff logins, role permissions & team counts",
-                "questions": [
-                    "How to give access to employee",
-                    "How to add new employee",
-                    "How to change employee permissions / roles",
-                    "How many users in company?",
-                    "Employee wise sales and bookings",
-                ],
-            },
-            {
-                "name": "⚙️ Settings, Plan & Security",
-                "icon": "fas fa-cogs",
-                "description": "Password reset, company profile, subscription plans & upgrades",
-                "questions": [
-                    "How to change password",
-                    "What plan is current?",
-                    "How to upgrade plan",
-                    "How to change company settings",
-                    "Is WhatsApp connected?",
-                ],
-            },
-            {
-                "name": "📋 Stock, Loans & Cheques",
-                "icon": "fas fa-boxes",
-                "description": "Inventory stock valuation, active loans & cheque registers",
-                "questions": [
-                    "Stock summary and low stock items",
-                    "Stock detail for [Item Name/Code]",
-                    "Active loans summary",
-                    "Pending cheques received and issued",
-                ],
-            },
-        ],
-        "examples": [
-            "How to give access to employee",
-            "What is the percent of net profit?",
-            "What plan is current?",
-            "How to change password",
-            "How to upgrade plan",
-            "Track AWB 123456",
-            "This month sales",
-            "Last month sales",
-            "Total United Arab Emirates booking",
-            "Country wise sales and profit",
-            "Employee wise performance",
-            "Pending amount of ABC Traders",
-            "Total payable from purchase",
-            "What are today's bookings?",
-            "Show overdue sales invoices",
-            "What is my net profit this month?",
-            "What is my GST payable?",
-            "Total bank balance",
-        ],
-    }
+    from utils.assistant_catalog import help_catalog
+    return help_catalog()
+
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -3001,12 +2478,12 @@ def get_employee_booking_summary(
 def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
     """
     Computes a comprehensive 15-20 point deep diagnostic executive audit of the company directly from the database:
-    1. All-time Sales & Bookings
-    2. Current Month Sales & Bookings
+    1. All-time Sales & Invoices Count
+    2. Current Month Sales & Invoices Count
     3. MoM (Month-over-Month) Sales Growth %
     4. Last 3 Months Trend & Average
     5. Last 6 Months Month-by-Month Performance
-    6. Direct Cost (Purchases) & Gross Profit
+    6. Direct Cost (Purchases / COGS) & Gross Profit
     7. Operating Expenses & Net Profit
     8. Liquid Funds (Cash in hand + Bank balances)
     9. Accounts Receivable & Collection Efficiency %
@@ -3014,10 +2491,10 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
     11. Top Client & Revenue Share %
     12. Client Concentration Risk Analysis (Top 3 Clients %)
     13. Surging Clients (Highest Growth vs Last Month)
-    14. Declining / At-Risk Clients (Bookings lessened from last month)
-    15. Top Destination / Shipping Country
-    16. Top Performing Employee
-    17. Booking Cancellation / Void Rate
+    14. Declining / At-Risk Clients (Billing lessened from last month)
+    15. Top Revenue Stream / Product & Workshop Category
+    16. Top Performing Employee / Sales Lead
+    17. Invoice Cancellation / Void Rate
     18. GST Tax Position (Output vs Input)
     19. Overall Company Financial Health Score
     20. Actionable Strategic AI Recommendations
@@ -3026,39 +2503,40 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
     today = date.today()
 
     # ─────────────────────────────────────────────────────────────
-    # 1. All-Time Sales & Purchases
+    # 1. All-Time Sales & Invoices
     # ─────────────────────────────────────────────────────────────
-    valid_invs = cdb.query(Invoice).filter(
-        Invoice.company_id == company_id,
-        Invoice.status.notin_(['Cancelled', 'Void', 'Draft']),
+    ci_rows = cdb.query(CustomerInvoice).filter(
+        CustomerInvoice.company_id == company_id,
+        CustomerInvoice.status.notin_(['Cancelled', 'Void', 'Draft']),
     ).all()
+
+    if ci_rows:
+        valid_invs = ci_rows
+        is_customer_invoice_model = True
+    else:
+        valid_invs = cdb.query(Invoice).filter(
+            Invoice.company_id == company_id,
+            Invoice.status.notin_(['Cancelled', 'Void', 'Draft']),
+        ).all()
+        is_customer_invoice_model = False
     
-    total_sales_all = sum(inv.grand_total or 0.0 for inv in valid_invs)
+    total_sales_all = sum(float(inv.grand_total or 0.0) for inv in valid_invs)
     total_bookings_all = len(valid_invs)
-    
-    all_inv_ids = [inv.id for inv in valid_invs]
-    total_purchase_all = 0.0
-    if all_inv_ids:
-        p_items = (
-            cdb.query(PurchaseInvoiceItem)
-            .join(PurchaseInvoice, PurchaseInvoiceItem.purchase_invoice_id == PurchaseInvoice.id)
-            .filter(
-                PurchaseInvoice.company_id == company_id,
-                PurchaseInvoice.status.notin_(['Void', 'Draft']),
-                PurchaseInvoiceItem.source_invoice_id.in_(all_inv_ids)
-            )
-            .all()
-        )
-        total_purchase_all = sum(p.total_amount or 0.0 for p in p_items)
+
+    # ─────────────────────────────────────────────────────────────
+    # 2. Purchases (COGS) & Operating Expenses
+    # ─────────────────────────────────────────────────────────────
+    purchases_all_rows = cdb.query(PurchaseInvoice).filter(
+        PurchaseInvoice.company_id == company_id,
+        PurchaseInvoice.status.notin_(['Void', 'Draft', 'Cancelled'])
+    ).all()
+    total_purchase_all = sum(float(p.grand_total or 0.0) for p in purchases_all_rows)
 
     gross_profit_all = total_sales_all - total_purchase_all
     gross_margin_all = round((gross_profit_all / total_sales_all * 100), 1) if total_sales_all > 0 else 0.0
 
-    # ─────────────────────────────────────────────────────────────
-    # 2. Operating Expenses & Net Profit (All-Time & Recent)
-    # ─────────────────────────────────────────────────────────────
     expenses_all_rows = cdb.query(Expense).filter(Expense.company_id == company_id).all()
-    total_expenses_all = sum(e.amount or 0.0 for e in expenses_all_rows)
+    total_expenses_all = sum(float(e.amount or 0.0) for e in expenses_all_rows)
     net_profit_all = gross_profit_all - total_expenses_all
     net_margin_all = round((net_profit_all / total_sales_all * 100), 1) if total_sales_all > 0 else 0.0
 
@@ -3081,7 +2559,6 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
         prev_year -= 1
 
     _, prev_max_days = calendar.monthrange(prev_year, prev_month)
-    # If on last day of month (e.g. 30th/31st), compare full month to full month. Otherwise compare 1 to cur_day.
     target_prev_day = prev_max_days if is_full_month else min(cur_day, prev_max_days)
 
     cur_mtd_start = date(cur_year, cur_month, 1)
@@ -3089,14 +2566,17 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
     prev_mtd_start = date(prev_year, prev_month, 1)
     prev_mtd_end = date(prev_year, prev_month, target_prev_day)
 
+    def _get_inv_date(inv):
+        return getattr(inv, 'invoice_date', None) or getattr(inv, 'date', None)
+
     # Current month MTD invoices (Day 1 to cur_day)
-    cur_m_invs = [inv for inv in valid_invs if inv.date and cur_mtd_start <= inv.date <= cur_mtd_end]
-    cur_m_sales = sum(inv.grand_total or 0.0 for inv in cur_m_invs)
+    cur_m_invs = [inv for inv in valid_invs if _get_inv_date(inv) and cur_mtd_start <= _get_inv_date(inv) <= cur_mtd_end]
+    cur_m_sales = sum(float(inv.grand_total or 0.0) for inv in cur_m_invs)
     cur_m_bookings = len(cur_m_invs)
 
     # Previous month comparable MTD invoices (Day 1 to target_prev_day)
-    prev_mtd_invs = [inv for inv in valid_invs if inv.date and prev_mtd_start <= inv.date <= prev_mtd_end]
-    prev_mtd_sales = sum(inv.grand_total or 0.0 for inv in prev_mtd_invs)
+    prev_mtd_invs = [inv for inv in valid_invs if _get_inv_date(inv) and prev_mtd_start <= _get_inv_date(inv) <= prev_mtd_end]
+    prev_mtd_sales = sum(float(inv.grand_total or 0.0) for inv in prev_mtd_invs)
     prev_mtd_bookings = len(prev_mtd_invs)
 
     for i in range(5, -1, -1):
@@ -3115,25 +2595,14 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
             m_label = f"{m_start.strftime('%b %Y')} (Day 1-{cur_day})" if not is_full_month else m_start.strftime("%b %Y")
         else:
             m_end = date(y_offset, m_offset, m_max_days)
-            m_bucket_invs = [inv for inv in valid_invs if inv.date and m_start <= inv.date <= m_end]
+            m_bucket_invs = [inv for inv in valid_invs if _get_inv_date(inv) and m_start <= _get_inv_date(inv) <= m_end]
             m_label = m_start.strftime("%b %Y")
             
-        m_sales = sum(inv.grand_total or 0.0 for inv in m_bucket_invs)
-        m_inv_ids = [inv.id for inv in m_bucket_invs]
+        m_sales = sum(float(inv.grand_total or 0.0) for inv in m_bucket_invs)
         
-        m_purchase = 0.0
-        if m_inv_ids:
-            mp_items = (
-                cdb.query(PurchaseInvoiceItem)
-                .join(PurchaseInvoice, PurchaseInvoiceItem.purchase_invoice_id == PurchaseInvoice.id)
-                .filter(
-                    PurchaseInvoice.company_id == company_id,
-                    PurchaseInvoice.status.notin_(['Void', 'Draft']),
-                    PurchaseInvoiceItem.source_invoice_id.in_(m_inv_ids)
-                )
-                .all()
-            )
-            m_purchase = sum(p.total_amount or 0.0 for p in mp_items)
+        # Monthly purchase bills in this window
+        m_purch_rows = [p for p in purchases_all_rows if p.date and m_start <= p.date <= m_end]
+        m_purchase = sum(float(p.grand_total or 0.0) for p in m_purch_rows)
             
         m_profit = m_sales - m_purchase
         m_margin = round((m_profit / m_sales * 100), 1) if m_sales > 0 else 0.0
@@ -3195,8 +2664,9 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
     client_all_counts = {}
     for inv in valid_invs:
         cid = inv.client_id
-        client_all_sales[cid] = client_all_sales.get(cid, 0.0) + (inv.grand_total or 0.0)
-        client_all_counts[cid] = client_all_counts.get(cid, 0) + 1
+        if cid:
+            client_all_sales[cid] = client_all_sales.get(cid, 0.0) + float(inv.grand_total or 0.0)
+            client_all_counts[cid] = client_all_counts.get(cid, 0) + 1
 
     ranked_clients = sorted(
         [
@@ -3227,20 +2697,22 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
         concentration_risk_level = "Well Diversified"
         concentration_risk_class = "success"
 
-    # MoM Client comparison: Date-matched (Cur month Day 1-cur_day vs Prev month Day 1-target_prev_day)
+    # MoM Client comparison
     cur_m_client_bookings = {}
     cur_m_client_sales = {}
     for inv in cur_m_invs:
         cid = inv.client_id
-        cur_m_client_bookings[cid] = cur_m_client_bookings.get(cid, 0) + 1
-        cur_m_client_sales[cid] = cur_m_client_sales.get(cid, 0.0) + (inv.grand_total or 0.0)
+        if cid:
+            cur_m_client_bookings[cid] = cur_m_client_bookings.get(cid, 0) + 1
+            cur_m_client_sales[cid] = cur_m_client_sales.get(cid, 0.0) + float(inv.grand_total or 0.0)
 
     prev_m_client_bookings = {}
     prev_m_client_sales = {}
     for inv in prev_mtd_invs:
         cid = inv.client_id
-        prev_m_client_bookings[cid] = prev_m_client_bookings.get(cid, 0) + 1
-        prev_m_client_sales[cid] = prev_m_client_sales.get(cid, 0.0) + (inv.grand_total or 0.0)
+        if cid:
+            prev_m_client_bookings[cid] = prev_m_client_bookings.get(cid, 0) + 1
+            prev_m_client_sales[cid] = prev_m_client_sales.get(cid, 0.0) + float(inv.grand_total or 0.0)
 
     all_active_cids = set(cur_m_client_bookings.keys()) | set(prev_m_client_bookings.keys())
     client_deltas = []
@@ -3285,7 +2757,7 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
     cash_balance = round(float(cash_in) - float(cash_out), 2)
 
     bank_accounts = cdb.query(BankAccount).filter(BankAccount.company_id == company_id, BankAccount.status == "Active").all()
-    bank_balance = round(sum(b.balance or 0.0 for b in bank_accounts), 2)
+    bank_balance = round(sum(float(b.balance or 0.0) for b in bank_accounts), 2)
     total_liquid_funds = round(cash_balance + bank_balance, 2)
 
     outstanding_map = _compute_outstanding_for_all_clients(cdb, company_id, clients)
@@ -3295,36 +2767,41 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
     total_collected = max(0.0, total_sales_all - total_receivable)
     collection_efficiency_pct = round((total_collected / total_sales_all * 100), 1) if total_sales_all > 0 else 100.0
 
-    purchases_all_rows = cdb.query(PurchaseInvoice).filter(
-        PurchaseInvoice.company_id == company_id,
-        PurchaseInvoice.status.notin_(['Void', 'Draft', 'Cancelled'])
-    ).all()
-    total_payable = round(sum(p.balance or 0.0 for p in purchases_all_rows), 2)
+    total_payable = round(sum(float(p.balance or 0.0) for p in purchases_all_rows), 2)
 
     # ─────────────────────────────────────────────────────────────
-    # 6. Country & Employee Operational Performance
+    # 6. Category / Revenue Streams & Employee Performance
     # ─────────────────────────────────────────────────────────────
-    country_sales = {}
-    country_counts = {}
+    category_sales = {}
+    category_counts = {}
+    cat_map = {
+        'product_sale': 'Product Sales & Parts',
+        'workshop_repair': 'Workshop Repair & Service',
+        'logistics': 'Logistics & Freight'
+    }
     for inv in valid_invs:
-        c_name = (_invoice_country(inv) or "Domestic / Other").strip()
-        country_sales[c_name] = country_sales.get(c_name, 0.0) + (inv.grand_total or 0.0)
-        country_counts[c_name] = country_counts.get(c_name, 0) + 1
+        raw_cat = getattr(inv, 'invoice_category', None)
+        if raw_cat:
+            c_name = cat_map.get(raw_cat.lower(), raw_cat.replace('_', ' ').title())
+        else:
+            c_name = (_invoice_country(inv) or "General Sales").strip()
+        category_sales[c_name] = category_sales.get(c_name, 0.0) + float(inv.grand_total or 0.0)
+        category_counts[c_name] = category_counts.get(c_name, 0) + 1
 
-    top_country = "N/A"
-    top_country_sales = 0.0
-    top_country_bookings = 0
-    if country_sales:
-        top_c_tuple = max(country_sales.items(), key=lambda x: x[1])
-        top_country = top_c_tuple[0]
-        top_country_sales = round(top_c_tuple[1], 2)
-        top_country_bookings = country_counts.get(top_country, 0)
+    top_category = "N/A"
+    top_category_sales = 0.0
+    top_category_bookings = 0
+    if category_sales:
+        top_c_tuple = max(category_sales.items(), key=lambda x: x[1])
+        top_category = top_c_tuple[0]
+        top_category_sales = round(top_c_tuple[1], 2)
+        top_category_bookings = category_counts.get(top_category, 0)
 
     emp_sales = {}
     emp_counts = {}
     for inv in valid_invs:
         creator = (inv.created_by or "Admin").strip()
-        emp_sales[creator] = emp_sales.get(creator, 0.0) + (inv.grand_total or 0.0)
+        emp_sales[creator] = emp_sales.get(creator, 0.0) + float(inv.grand_total or 0.0)
         emp_counts[creator] = emp_counts.get(creator, 0) + 1
 
     top_employee = "N/A"
@@ -3339,7 +2816,10 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
     # ─────────────────────────────────────────────────────────────
     # 7. Cancellation / Void Rate
     # ─────────────────────────────────────────────────────────────
-    all_raw_invoices = cdb.query(Invoice).filter(Invoice.company_id == company_id).all()
+    if is_customer_invoice_model:
+        all_raw_invoices = cdb.query(CustomerInvoice).filter(CustomerInvoice.company_id == company_id).all()
+    else:
+        all_raw_invoices = cdb.query(Invoice).filter(Invoice.company_id == company_id).all()
     total_raw_count = len(all_raw_invoices)
     void_cancelled_count = sum(1 for inv in all_raw_invoices if inv.status in ['Cancelled', 'Void'])
     cancellation_rate_pct = round((void_cancelled_count / total_raw_count * 100), 1) if total_raw_count > 0 else 0.0
@@ -3347,17 +2827,17 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
     # ─────────────────────────────────────────────────────────────
     # 8. GST Position (Output vs Input Tax)
     # ─────────────────────────────────────────────────────────────
-    output_gst = round(sum(inv.tax_amount or 0.0 for inv in valid_invs), 2)
-    input_gst = round(sum(p.tax_amount or 0.0 for p in purchases_all_rows), 2)
+    output_gst = round(sum(float(inv.tax_amount or 0.0) for inv in valid_invs), 2)
+    input_gst = round(sum(float(p.tax_amount or 0.0) for p in purchases_all_rows), 2)
     net_gst_liability = round(output_gst - input_gst, 2)
 
     # ─────────────────────────────────────────────────────────────
     # 9. Health Score (0 to 100)
     # ─────────────────────────────────────────────────────────────
     health_score = 70
-    if gross_margin_all >= 25:
+    if gross_margin_all >= 35:
         health_score += 10
-    elif gross_margin_all < 10:
+    elif gross_margin_all < 15:
         health_score -= 10
 
     if mom_sales_growth_pct > 0:
@@ -3385,14 +2865,14 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
     if total_receivable > 0.3 * total_sales_all:
         recommendations.append({
             "type": "warning",
-            "title": "High Outstanding Receivables",
-            "desc": f"Outstanding client dues are ₹{total_receivable:,.2f} ({100 - collection_efficiency_pct:.1f}% uncollected). Prioritize follow-ups with top {debtor_count} debtors to improve liquid cash flow."
+            "title": "High Outstanding Debtors",
+            "desc": f"Outstanding client receivables stand at ₹{total_receivable:,.2f} ({100 - collection_efficiency_pct:.1f}% uncollected). Prioritize collections with top {debtor_count} debtor accounts to maximize liquid funds."
         })
     elif collection_efficiency_pct >= 85:
         recommendations.append({
             "type": "success",
-            "title": "Healthy Cash Flow Collection",
-            "desc": f"Your collection efficiency is strong at {collection_efficiency_pct}%. Keep enforcing strict credit terms."
+            "title": "Healthy Collection Efficiency",
+            "desc": f"Your debtor collection efficiency is strong at {collection_efficiency_pct}%. Maintain automated reminders and milestone billing."
         })
 
     if declining_clients:
@@ -3401,27 +2881,33 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
         recommendations.append({
             "type": "danger",
             "title": "Client Retention Alert",
-            "desc": f"Client '{top_churn['name']}' volume dropped from {top_churn['prev_bookings']} bookings ({window_txt}) down to {top_churn['cur_bookings']} this month. Schedule an account review to prevent churn."
+            "desc": f"Client '{top_churn['name']}' volume dropped from {top_churn['prev_bookings']} orders ({window_txt}) down to {top_churn['cur_bookings']} this month. Schedule an account check-in to protect recurring business."
         })
 
     if top_3_concentration_pct > 50:
         recommendations.append({
             "type": "warning",
-            "title": "Client Diversification Recommended",
-            "desc": f"Top 3 clients account for {top_3_concentration_pct}% of total sales. Expand marketing to reduce single-client revenue dependency."
+            "title": "Client Revenue Diversification",
+            "desc": f"Top 3 clients generate {top_3_concentration_pct}% of total sales. Expand outreach across your CRM pipeline to balance customer revenue risk."
         })
     else:
         recommendations.append({
             "type": "success",
             "title": "Solid Revenue Diversification",
-            "desc": f"Revenue is well balanced across multiple clients with top 3 accounting for only {top_3_concentration_pct}% of sales."
+            "desc": f"Revenue is well balanced across accounts with the top 3 clients contributing only {top_3_concentration_pct}% of sales."
         })
 
-    if gross_margin_all < 15:
+    if gross_margin_all < 25:
         recommendations.append({
             "type": "danger",
-            "title": "Direct Cost Margin Squeeze",
-            "desc": f"Gross profit margin is currently {gross_margin_all}%. Renegotiate vendor freight rates to expand gross margins towards 25%+."
+            "title": "Direct Cost & Parts Margin Squeeze",
+            "desc": f"Gross profit margin is {gross_margin_all}%. Audit supplier component pricing and workshop labor markups to target 30%+ gross margin."
+        })
+    else:
+        recommendations.append({
+            "type": "success",
+            "title": "Robust Gross Profit Margin",
+            "desc": f"Gross profit margin is running strong at {gross_margin_all}%, providing solid coverage for operating overheads."
         })
 
     return {
@@ -3451,11 +2937,13 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
             "bookings_6m": bookings_6m,
             "avg_monthly_sales_6m": avg_sales_6m,
             "margin_6m": margin_6m,
+            "health_score": health_score,
             "monthly_history": [
                 {
                     "label": m["month_label"],
                     "short": m["short_label"],
                     "sales": m["sales"],
+                    "purchase": m["purchase"],
                     "bookings": m["bookings"],
                     "profit": m["profit"],
                     "margin": m["margin"],
@@ -3485,9 +2973,12 @@ def get_company_deep_analysis(company_id: str) -> Dict[str, Any]:
             "surging_clients": surging_clients,
             "declining_clients": declining_clients,
 
-            "top_country": top_country,
-            "top_country_sales": top_country_sales,
-            "top_country_bookings": top_country_bookings,
+            "top_country": top_category,
+            "top_country_sales": top_category_sales,
+            "top_country_bookings": top_category_bookings,
+            "top_category": top_category,
+            "top_category_sales": top_category_sales,
+            "top_category_bookings": top_category_bookings,
             "top_employee": top_employee,
             "top_employee_sales": top_employee_sales,
             "top_employee_bookings": top_employee_bookings,
@@ -3629,156 +3120,6 @@ def get_how_to_workflow_guide(company_id: str, topic: str = "general") -> Dict[s
     }
 
 
-def calculate_rate_quote(company_id: str, destination: str, weight: float, courier: str = None) -> Dict[str, Any]:
-    """Calculate instant rate quotation across active courier price lists for a destination and weight."""
-    import math
-    def round_billable_weight(w: float) -> float:
-        if not w or w <= 0: return 0.0
-        if w <= 10: return math.ceil(w / 0.5) * 0.5
-        return math.ceil(w)
-
-    def calculate_rate(rate_data, country_key, wt):
-        entry = rate_data.get('countries', {}).get(country_key)
-        if not entry: return None, None, None
-        if 'tiers' not in entry and 'bands' not in entry:
-            rate_keys = sorted(float(k) for k in entry.keys())
-            if not rate_keys: return None, None, None
-            closest = rate_keys[-1]
-            for k in rate_keys:
-                if k >= wt:
-                    closest = k
-                    break
-            rate = entry.get(closest) or entry.get(str(closest))
-            return rate, closest, 'tier'
-        tiers = entry.get('tiers', [])
-        bands = sorted(entry.get('bands', []), key=lambda b: b['min_kg'])
-        for band in bands:
-            min_kg, max_kg = band['min_kg'], band['max_kg']
-            if wt >= min_kg and (max_kg is None or wt < max_kg):
-                return round(band['rate_per_kg'] * wt, 2), wt, 'per_kg'
-        if bands and wt >= bands[-1]['min_kg']:
-            return round(bands[-1]['rate_per_kg'] * wt, 2), wt, 'per_kg'
-        if tiers:
-            tiers_sorted = sorted(tiers, key=lambda t: t['weight'])
-            for t in tiers_sorted:
-                if abs(t['weight'] - wt) < 1e-9:
-                    return t['price'], t['weight'], 'tier'
-            if wt <= tiers_sorted[0]['weight']:
-                return tiers_sorted[0]['price'], tiers_sorted[0]['weight'], 'tier'
-            for t in tiers_sorted:
-                if t['weight'] >= wt:
-                    return t['price'], t['weight'], 'tier'
-            if bands:
-                return round(bands[0]['rate_per_kg'] * wt, 2), wt, 'per_kg'
-            return tiers_sorted[-1]['price'], tiers_sorted[-1]['weight'], 'tier'
-        return None, None, None
-
-    cdb = get_customer_session(company_id)
-    dest_clean = (destination or '').strip().upper()
-    try:
-        raw_wt = float(weight or 0)
-    except (ValueError, TypeError):
-        raw_wt = 0.0
-
-    if not dest_clean or raw_wt <= 0:
-        return {
-            "intent": "calculate_rate_quote",
-            "found": False,
-            "destination": destination,
-            "weight": weight,
-            "message": "Please specify both a destination and a weight (e.g. 'Rate for 5kg to Dubai')."
-        }
-
-    billable_wt = round_billable_weight(raw_wt)
-    sales_lists = cdb.query(PriceList).filter_by(company_id=company_id, is_active=True, list_type='sales').all()
-    purchase_lists = cdb.query(PriceList).filter_by(company_id=company_id, is_active=True, list_type='purchase').all()
-    purch_map = {pl.courier.strip().upper(): pl for pl in purchase_lists if pl.courier}
-
-    quotes = []
-    for pl in sales_lists:
-        c_name = (pl.courier or '').strip()
-        if courier and courier.lower() not in c_name.lower() and c_name.lower() not in courier.lower():
-            continue
-        try:
-            rdata = json.loads(pl.rate_data or '{}')
-            countries = rdata.get('countries', {})
-            matched_c = None
-            if dest_clean in countries:
-                matched_c = dest_clean
-            else:
-                for c in countries.keys():
-                    if dest_clean in c or c in dest_clean:
-                        matched_c = c
-                        break
-                if not matched_c:
-                    dw = dest_clean.split()
-                    for c in countries.keys():
-                        cw = c.split()
-                        if any(len(d) > 2 and any(d in w or w in d for w in cw) for d in dw):
-                            matched_c = c
-                            break
-            if not matched_c:
-                continue
-
-            rate, wt_used, ptype = calculate_rate(rdata, matched_c, billable_wt)
-            if not rate or rate <= 0:
-                continue
-
-            eff_wt = wt_used or billable_wt
-            rate_per_kg = round(rate / eff_wt, 2) if eff_wt else 0
-
-            # Internal purchase cost & margin
-            purch_cost = None
-            margin_amt = None
-            margin_pct = None
-            purch_pl = purch_map.get(c_name.upper())
-            if purch_pl:
-                try:
-                    pr_data = json.loads(purch_pl.rate_data or '{}')
-                    pr_countries = pr_data.get('countries', {})
-                    pr_matched = matched_c if matched_c in pr_countries else None
-                    if not pr_matched:
-                        for pc in pr_countries.keys():
-                            if dest_clean in pc or pc in dest_clean:
-                                pr_matched = pc
-                                break
-                    if pr_matched:
-                        pr_rate, _, _ = calculate_rate(pr_data, pr_matched, billable_wt)
-                        if pr_rate and pr_rate > 0:
-                            purch_cost = round(pr_rate, 2)
-                            margin_amt = round(rate - purch_cost, 2)
-                            margin_pct = round((margin_amt / rate) * 100, 1) if rate > 0 else 0
-                except Exception:
-                    pass
-
-            quotes.append({
-                "courier": c_name,
-                "destination_matched": matched_c,
-                "weight_entered": raw_wt,
-                "weight_billed": eff_wt,
-                "pricing_type": ptype,
-                "rate": round(rate, 2),
-                "rate_per_kg": rate_per_kg,
-                "purchase_cost": purch_cost,
-                "margin_amount": margin_amt,
-                "margin_percent": margin_pct,
-            })
-        except Exception:
-            pass
-
-    quotes.sort(key=lambda x: x['rate'])
-    if quotes:
-        quotes[0]['is_best_price'] = True
-
-    return {
-        "intent": "calculate_rate_quote",
-        "found": bool(quotes),
-        "destination": destination,
-        "weight": raw_wt,
-        "billable_weight": billable_wt,
-        "quotes_count": len(quotes),
-        "quotes": quotes,
-    }
 
 
 def get_receivables_intelligence(cdb, company_id: str, from_date, to_date, prev_from, prev_to, filters=None) -> Dict[str, Any]:
@@ -3811,6 +3152,23 @@ def get_receivables_intelligence(cdb, company_id: str, from_date, to_date, prev_
             return None
 
     def _get_filtered_invoices(d_from, d_to):
+        q_ci = cdb.query(CustomerInvoice).filter(
+            CustomerInvoice.company_id == company_id,
+            CustomerInvoice.invoice_date >= d_from,
+            CustomerInvoice.invoice_date <= d_to,
+            CustomerInvoice.status.notin_(['Void', 'Draft', 'Cancelled'])
+        )
+        if filters:
+            if getattr(filters, 'client_id', None):
+                q_ci = q_ci.filter(CustomerInvoice.client_id == filters.client_id)
+            if getattr(filters, 'employee_id', None):
+                q_ci = q_ci.filter(CustomerInvoice.created_by == filters.employee_id)
+            if getattr(filters, 'category', None):
+                q_ci = q_ci.filter(CustomerInvoice.invoice_category == filters.category)
+        ci_invs = q_ci.all()
+        if ci_invs:
+            return ci_invs
+
         q = cdb.query(Invoice).filter(
             Invoice.company_id == company_id,
             Invoice.date >= d_from,

@@ -1,5 +1,5 @@
 """
-intent_router.py  (Logistics ERP / Magnustic ERP version)
+intent_router.py  (Qiyadah ERP version)
 ────────────────────────────────────────────────────────
 Deterministic keyword → function dispatch. No AI involved in routing.
 company_id ALWAYS comes from the logged-in session server-side — this
@@ -57,28 +57,8 @@ INTENT_MAP = [
       "company profile settings"], "company_settings_guide"),
 
     # Common ERP Workflows & How-to
-    (["how to create booking", "how to make booking", "how to add booking",
-      "how to generate customer invoice", "how to create customer invoice",
-      "how to make customer invoice", "how to add purchase invoice",
-      "how to create manifest", "how to make manifest", "how to upload price list",
-      "how to record payment", "how to check client statement", "how to track awb"], "how_to_workflow_guide"),
 
-    # General Tax, Accounting & Logistics Statutory Knowledge
-    (["what is todays gst rate", "what is today's gst rate", "todays gst rate", "today's gst rate",
-      "what is the gst rate on courier", "what is gst rate on courier", "gst rate on courier",
-      "gst rate on logistics", "gst on courier", "gst on freight", "gst on transport", "courier gst rate",
-      "logistics gst rate", "freight gst rate", "parcel gst rate", "current gst rate", "gst tax rates",
-      "gst slabs", "gst tax slabs", "rate of gst", "what is the gst rate", "what is gst rate",
-      "gst rate for cargo", "what is rcm", "reverse charge mechanism", "rcm in gst", "rcm on freight",
-      "rcm in logistics", "rcm for gta", "reverse charge on transport",
-      "eway bill limit", "e-way bill limit", "eway bill threshold", "e-way bill threshold",
-      "when is eway bill required", "eway bill rules", "e-way bill rules", "e-way bill validity",
-      "sac code for courier", "sac code for transport", "hsn code for courier", "sac 9968", "sac 9965",
-      "sac code for cargo", "tds on transporter", "tds on transport", "tds under 194c", "tds on freight",
-      "difference between cgst sgst and igst", "difference between cgst and igst", "what is igst",
-      "what is cgst", "what is sgst", "how does igst work", "difference between debit note and credit note",
-      "what is debit note", "what is credit note", "what is input tax credit", "what is itc", "how does itc work"],
-     "general_tax_knowledge"),
+    (["gst rate", "gst slabs", "current tax", "what is gst", "what is rcm", "reverse charge", "input tax credit", "what is itc", "what is cgst", "what is sgst", "what is igst", "difference between cgst", "e-way bill", "eway bill", "tds"], "general_tax_knowledge"),
 
     # Company Specific GST / Tax Calculations (scoped to DB)
     (["my gst payable", "gst payable", "gst receivable", "my gst report", "gst report",
@@ -93,9 +73,6 @@ INTENT_MAP = [
       "today sale", "sales for today", "today's revenue", "today revenue",
       "today's income", "today's billing", "what did we sell today"], "todays_sales"),
 
-    (["today's bookings", "todays bookings", "bookings today", "how many bookings today",
-      "shipments today", "today's shipments", "dispatched today",
-      "today's dispatch", "today's dockets"], "todays_bookings"),
 
     (["today's expenses", "todays expenses", "expenses today", "what did we spend today",
       "today's spending", "today spending", "daily expenses today"], "todays_expenses"),
@@ -141,16 +118,6 @@ INTENT_MAP = [
       "amount payable to", "amount payble to", "supplier payable balance",
       "vendor payable balance", "payable for supplier", "payable for vendor"], "party_outstanding"),
 
-    # AWB / docket lookup — specific shipment search
-    (["search according to the awb number", "search according to awb number",
-      "search according to awb", "search awb number", "search awb",
-      "all details of booking", "booking details of awb", "booking details of",
-      "booking detail of", "booking details", "booking detail",
-      "find awb", "track awb", "awb number", "awb no", "awb details", "awb detail",
-      "find docket", "search docket", "track docket", "docket number", "docket details", "docket detail",
-      "docket no", "track shipment", "shipment status", "where is my shipment",
-      "find booking", "search booking", "booking status", "track booking",
-      "find invoice awb", "lookup awb", "lookup docket"], "awb_detail"),
 
     # Category-specific expenses — before generic expenses
     (["fuel expense", "fuel expenses", "salary expense", "salary expenses",
@@ -192,7 +159,7 @@ INTENT_MAP = [
       "what is total payable", "what is the total payable", "show total payable",
       "how much is total payable", "how much total payable",
       "who do we owe", "outstanding payable", "pending payable", "payables",
-      "unpaid purchase", "suppliers pending", "we owe", "amount payable",
+      "unpaid purchase invoices", "unpaid purchase bills", "unpaid purchase", "suppliers pending", "we owe", "amount payable",
       "suppliers with highest payable",
       "which supplier should i pay",
       "pending amount to pay", "balance pending to pay",
@@ -251,7 +218,7 @@ INTENT_MAP = [
       "monthly sales", "total billed", "billed amount", "how much billed", "billed sales"], "sales_summary"),
 
     # Purchase aggregate
-    (["this month purchase", "purchase this month", "current month purchase",
+    (["total purchases", "purchases this month", "this month purchases", "this month purchase", "purchase this month", "current month purchase",
       "last month purchase", "purchase last month", "previous month purchase",
       "last 3 months purchase", "last three months purchase", "3 months purchase", "quarterly purchase",
       "last 6 months purchase", "last six months purchase", "6 months purchase",
@@ -295,10 +262,6 @@ INTENT_MAP = [
       "this month expenses", "expenses this month", "expenses last month"], "expenses_summary"),
 
     # Manifest
-    (["pending manifest", "pending manifests", "manifest pending",
-      "manifests not dispatched", "open manifests", "unprocessed manifests",
-      "manifest queue"], "pending_manifests"),
-    (["manifest", "boxes received", "courier allocation"], "manifest_summary"),
 
     # Stock
     (["stock", "inventory", "low stock", "reorder", "warehouse", "out of stock",
@@ -307,8 +270,8 @@ INTENT_MAP = [
       "how much stock"], "stock_summary"),
 
     # Single Invoices
-    (["purchase invoice", "purchase bill", "supplier invoice", "purchase order"], "purchase_invoice_detail"),
-    (["invoice", "booking invoice", "awb", "docket"], "invoice_detail"),
+    (["purchase invoice", "purchase bill", "supplier invoice"], "purchase_invoice_detail"),
+    (["invoice", "sales invoice"], "invoice_detail"),
 
     # Estimates
     (["find estimate", "show estimate", "estimate detail",
@@ -330,13 +293,6 @@ INTENT_MAP = [
       "gross profit percentage", "percent of gross profit", "percentage of gross profit",
       "total gross profit", "gross profit summary", "gross profit report", "gross profit"], "gross_profit_summary"),
 
-    # Bookings & Void
-    (["list of bookings", "all bookings", "booking list", "show bookings",
-      "recent bookings", "how many bookings"], "bookings_list"),
-    (["void", "voided", "void invoice", "void booking", "void bookings",
-      "cancelled invoice", "cancelled invoices", "cancelled booking",
-      "cancelled bookings", "list of cancelled", "list of void",
-      "how many cancelled", "how many void"], "void_cancelled_list"),
 
     # Counts & Directories
     (["new customer", "new customers", "new client", "new clients",
@@ -352,30 +308,8 @@ INTENT_MAP = [
     (["client", "customer", "debtor"], "client_lookup"),
 
     # Analytics
-    (["country wise", "country-wise", "country analysis", "country report", "country breakdown",
-      "country bookings", "country booking", "country sales", "country profit",
-      "destination wise", "destination analysis", "city wise shipments",
-      "city analysis", "state wise", "which city most shipments",
-      "which city has highest revenue", "which destination received most",
-      "top destination", "top city", "shipping city", "most shipped to",
-      "where do we ship most", "destination report", "city report",
-      "most profitable destination", "top shipping city", "top countries", "countrywise"], "country_bookings_summary"),
-    (["employee wise", "employee-wise", "employee analysis", "employee report", "employee breakdown",
-      "employee bookings", "employee booking", "employee sales", "employee profit",
-      "employee performance", "staff performance", "team performance", "staff sales", "staff bookings",
-      "top employees", "top employee", "best employee", "employee ranking", "sales by employee",
-      "bookings by employee", "profit by employee", "sales by team", "staff report",
-      "employee revenue", "employee productivity", "employeewise"], "employee_bookings_summary"),
-    (["courier wise", "courier analysis", "carrier analysis",
-      "which courier handled most", "carrier performance",
-      "courier performance", "courier comparison", "best courier",
-      "which courier is best", "top courier", "courier report",
-      "courier shipment count", "carrier report", "courier trend"], "courier_analysis"),
 
     # System & Settings
-    (["price list uploaded", "last price list", "price list date",
-      "when was price list", "price list update", "company price list",
-      "price list for", "rate list uploaded", "rate list date"], "price_list_status"),
     (["whatsapp connected", "is whatsapp connected", "whatsapp status",
       "whatsapp working", "whatsapp integration status",
       "check whatsapp"], "whatsapp_status"),
@@ -383,13 +317,6 @@ INTENT_MAP = [
       "number of users", "how many owners", "owner count",
       "how many employees", "employee count", "users in company",
       "staff count", "list of users", "list of employees"], "user_count_summary"),
-    # Rate Calculator & Instant Shipping Quotes
-    (["calculate rate", "rate for", "rate of", "price for", "price of",
-      "quote for", "shipping rate", "courier rate", "rate calculator",
-      "price calculator", "shipping cost to", "how much to ship",
-      "cost to ship", "freight rate", "freight charge", "rate to", "price to",
-      "quote to", "calculate quote", "rate check"], "calculate_rate_quote"),
-
     (["dashboard", "overview", "how is business", "give me a summary",
       "how are we doing", "business summary", "today's summary",
       "company overview", "today's activity", "current business status",
@@ -397,70 +324,25 @@ INTENT_MAP = [
 ]
 
 
-KNOWN_COUNTRIES = [
-    "united arab emirates", "uae", "emirates", "dubai", "abu dhabi", "sharjah",
-    "united states", "usa", "us", "america",
-    "united kingdom", "uk", "britain", "england", "london",
-    "canada", "australia", "india", "saudi arabia", "saudi", "ksa",
-    "germany", "france", "singapore", "malaysia", "qatar", "oman",
-    "kuwait", "bahrain", "china", "japan", "italy", "spain",
-    "netherlands", "turkey", "egypt", "south africa", "new zealand", "nz",
-    "sri lanka", "bangladesh", "nepal", "pakistan", "indonesia", "thailand",
-    "philippines", "vietnam", "kenya", "nigeria", "ghana", "tanzania", "uganda",
-    "brazil", "mexico", "argentina", "russia", "switzerland", "sweden",
-    "norway", "denmark", "finland", "poland", "ireland", "belgium", "austria",
-]
-
-
-def extract_country(message: str) -> Optional[str]:
-    msg = message.lower().replace("'", "")
-    for country in KNOWN_COUNTRIES:
-        pattern = r'\b' + re.escape(country) + r'\b'
-        if re.search(pattern, msg):
-            return country
-    return None
-
-
-def extract_employee(message: str) -> Optional[str]:
-    msg = message.strip()
-    m = re.search(r'\b(?:by|employee|staff|user|for)\s+([a-zA-Z0-9_\.\@\s]{2,30})', msg, re.IGNORECASE)
-    if m:
-        name = m.group(1).strip()
-        stop_words = ["this month", "last month", "today", "yesterday", "sales", "booking", "bookings", "profit", "purchase", "purchases", "report", "summary", "performance"]
-        for sw in stop_words:
-            if name.lower().endswith(sw):
-                name = name[:-len(sw)].strip()
-        if len(name) >= 2:
-            return name
-    return None
-
-
 def classify_intent(message: str) -> Optional[str]:
-    msg = message.lower().replace("'", "")
-
-    # Prioritize country queries e.g. "total united arab emirates booking", "Canada sales"
-    if extract_country(message) and any(w in msg for w in ["booking", "bookings", "sale", "sales", "profit", "purchase", "purchases", "revenue", "shipment", "shipments"]):
-        return "country_bookings_summary"
-
-    # Prioritize employee queries e.g. "bookings by Ibrahim", "sales by fatema", "Ibrahim performance"
-    if extract_employee(message) and any(w in msg for w in ["booking", "bookings", "sale", "sales", "profit", "performance", "revenue", "purchase"]):
-        return "employee_bookings_summary"
-
-    for keywords, intent in INTENT_MAP:
-        if any(kw.replace("'", "") in msg for kw in keywords):
-            return intent
-    return None
+    from utils.assistant_catalog import guide_intent, phrase_matches
+    if any(phrase_matches(message, phrase) for phrase in ("track awb", "track shipment", "docket", "manifest", "manifests", "booking", "bookings", "courier rate", "shipping rate", "rate calculator", "price list", "carrier performance")):
+        return "unsupported_logistics"
+    guidance = guide_intent(message) if not re.search(r"\b(?:expense|expenses)\b", message.lower()) else None
+    if guidance:
+        return guidance
+    # Prefer complete, specific phrases over generic words such as invoice or balance.
+    matches = [(len(kw), -index, intent) for index, (keywords, intent) in enumerate(INTENT_MAP)
+               for kw in keywords if phrase_matches(message, kw)]
+    return max(matches)[2] if matches else None
 
 
-# Filler words to strip so what remains is a name/code/AWB/etc.
+# Filler words to strip so what remains is a customer, supplier or document identifier.
 _FILLER = re.compile(
     r"(?i)\b("
     r"total outstanding of|total outsating of|total outstandng of|total outstnding of|total out standing of|"
     r"total outstanding for|total outsating for|total outstanding from|total outsating from|"
     r"how much is outstanding for|how much outstanding for|how much is outstanding from|how much outstanding from|how much outstanding of|how much outsating of|"
-    r"search according to the awb number|search according to awb number|search according to the awb|search according to awb|"
-    r"search according to the docket number|search according to docket number|search according to docket|"
-    r"all details of booking|all booking details|booking details of awb|booking details of|booking detail of|booking details|booking detail|"
     r"total payable from purchase|total payble from purchase|total payables from purchase|total payable in purchase|total payble in purchase|"
     r"outstanding balance of|outsating balance of|outstanding of|outsating of|outstandng of|outstnding of|out standing of|outstanding for|outsating for|outstanding from|outsating from|"
     r"pending amount of|pending amount for|pending amount from|pending balance of|pending from|pending of|pending for|"
@@ -470,13 +352,14 @@ _FILLER = re.compile(
     r"tell me about|details of|info on|information on|what is|what's|"
     r"show me|give me|find|search|lookup|look up|track|"
     r"customer invoice|purchase invoice|purchase bill|invoice|"
-    r"client|customer|supplier|vendor|stock item|item|awb|docket|manifest|estimate|booking|"
+    r"client|customer|supplier|vendor|stock item|item|estimate|"
     r"according|number|no|the|my|our|please|for|of|to|from|status|detail|details|about|owe|owes"
     r")\b"
 )
 
 
 def _clean_identifier(message: str) -> str:
+    message = re.sub(r"(?i)\bsales invoice\b", "invoice", message)
     cleaned = _FILLER.sub("", message)
     return re.sub(r"\s+", " ", cleaned).strip()
 
@@ -585,23 +468,32 @@ def extract_category_from_expense_message(message: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────
 
 def dispatch(message: str, company_id: str) -> Dict[str, Any]:
+    from utils.assistant_catalog import GUIDES, guide_data, help_catalog
+    intent = classify_intent(message)
+    if not company_id:
+        return {"intent": None, "error": "no_company_context"}
+    if intent in GUIDES:
+        return guide_data(intent)
+    if intent == "help":
+        return help_catalog()
+    if intent == "unsupported_logistics":
+        return {"intent": intent, "kind": "guidance", "content": "Shipment tracking, bookings, manifests and courier rates belong to your separate logistics application. In Qiyadah ERP, ask about sales invoices, purchases, balances, inventory, finance, HR or CRM."}
     from utils.query_engine import (
         get_dashboard_summary, get_client_detail, get_all_clients_summary,
         get_supplier_detail, get_all_suppliers_summary, get_invoice_detail,
         get_pending_receivables, get_pending_payables, get_purchase_invoice_detail,
         get_cash_summary, get_bank_summary, get_expenses_summary,
-        get_stock_summary, get_stock_item_detail, get_manifest_summary,
+        get_stock_summary, get_stock_item_detail, 
         get_loans_summary, get_cheques_summary, get_sales_summary,
         get_purchase_summary, get_gst_summary,
         # Extended intents:
-        get_net_profit_summary, get_gross_profit_summary, get_bookings_list,
-        get_void_cancelled_list, get_client_count, get_supplier_count,
-        get_price_list_status, get_whatsapp_status, get_user_count_summary,
+        get_net_profit_summary, get_gross_profit_summary, 
+         get_client_count, get_supplier_count,
+         get_whatsapp_status, get_user_count_summary,
         get_worst_clients_by_sales,
         # Guide & Plan intents:
         get_company_plan_status, get_employee_access_guide, get_change_password_guide,
-        get_upgrade_plan_guide, get_company_settings_guide, get_how_to_workflow_guide,
-        calculate_rate_quote,
+        get_upgrade_plan_guide, get_company_settings_guide, 
     )
 
     if not company_id:
@@ -610,7 +502,6 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
 
     msg_lower = message.lower()
     intent = classify_intent(message)
-    print(f"[ROUTER] company={company_id} message='{message[:60]}' intent='{intent}'")
 
     if intent is None:
         return {"intent": None, "message": message}
@@ -657,18 +548,15 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
     if intent == "invoice_detail":
         identifier = _clean_identifier(message)
         if identifier and len(identifier) >= 2:
-            result = get_invoice_detail(company_id, identifier)
-            if result.get("found"):
-                return result
-        return get_pending_receivables(company_id)
+            return get_invoice_detail(company_id, identifier)
+        from utils.query_engine import get_customer_invoice_summary
+        return get_customer_invoice_summary(company_id)
 
     if intent == "purchase_invoice_detail":
         identifier = _clean_identifier(message)
         if identifier and len(identifier) >= 2:
-            result = get_purchase_invoice_detail(company_id, identifier)
-            if result.get("found"):
-                return result
-        return get_pending_payables(company_id)
+            return get_purchase_invoice_detail(company_id, identifier)
+        return get_purchase_summary(company_id)
 
     if intent == "pending_receivables":
         return get_pending_receivables(company_id)
@@ -697,9 +585,6 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
                 return result
         return get_stock_summary(company_id)
 
-    if intent == "manifest_summary":
-        days = extract_days(message, default=30)
-        return get_manifest_summary(company_id, days=days)
 
     if intent == "loans_summary":
         return get_loans_summary(company_id)
@@ -717,15 +602,7 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
         months = extract_months(message, default=None)
         return get_gross_profit_summary(company_id, start_date=start, end_date=end, months=months)
  
-    if intent == "bookings_list":
-        # reuse extract_days for "bookings this month" style ranges;
-        # confirm with Ibrahim what date field bookings should filter on
-        days = extract_days(message, default=30)
-        return get_bookings_list(company_id, days=days)
  
-    if intent == "void_cancelled_list":
-        days = extract_days(message, default=30)
-        return get_void_cancelled_list(company_id, days=days)
  
     if intent == "client_count":
         return get_client_count(company_id)
@@ -733,11 +610,6 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
     if intent == "supplier_count":
         return get_supplier_count(company_id)
  
-    if intent == "price_list_status":
-        # if the message names a specific company/supplier, pass it through;
-        # get_price_list_status decides per-company vs. all-companies view
-        identifier = _clean_identifier(message)
-        return get_price_list_status(company_id, identifier or None)
  
     if intent == "whatsapp_status":
         return get_whatsapp_status(company_id)
@@ -748,28 +620,17 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
     # ── NEW DISPATCH BRANCHES ────────────────────────────────────────────────
     from utils.query_engine import (
         get_todays_sales, get_top_clients_by_sales, get_top_clients_by_outstanding,
-        get_overdue_invoices, get_invoice_by_awb, get_todays_expenses,
+        get_overdue_invoices,  get_todays_expenses,
         get_expenses_by_category, get_todays_cash, get_receipts_payments_summary,
         get_client_statement_summary, get_supplier_statement_summary,
         get_estimate_summary, get_estimate_detail, get_top_suppliers_by_purchase,
-        get_destination_analysis, get_courier_analysis, get_new_clients,
+          get_new_clients,
         get_customer_invoice_summary, get_customer_invoice_detail, get_bank_account_detail,
-        get_todays_bookings, get_pending_manifests, get_client_pending_amount,
+          get_client_pending_amount,
         get_supplier_payable_amount, get_party_outstanding, get_help_catalog,
-        get_country_booking_summary, get_employee_booking_summary, get_general_tax_knowledge,
+          get_general_tax_knowledge,
     )
 
-    if intent == "country_bookings_summary":
-        start, end = extract_date_range(message)
-        months = extract_months(message, default=None)
-        country = extract_country(message)
-        return get_country_booking_summary(company_id, country=country, start_date=start, end_date=end, months=months)
-
-    if intent == "employee_bookings_summary":
-        start, end = extract_date_range(message)
-        months = extract_months(message, default=None)
-        employee = extract_employee(message)
-        return get_employee_booking_summary(company_id, employee_identifier=employee, start_date=start, end_date=end, months=months)
 
     if intent in ("party_outstanding", "client_pending_amount", "supplier_payable_amount"):
         identifier = _clean_identifier(message)
@@ -780,8 +641,6 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
     if intent == "todays_sales":
         return get_todays_sales(company_id)
 
-    if intent == "todays_bookings":
-        return get_todays_bookings(company_id)
 
     if intent == "overdue_invoices":
         return get_overdue_invoices(company_id)
@@ -800,11 +659,6 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
         limit = extract_limit(message, default=10)
         return get_top_clients_by_outstanding(company_id, limit=limit)
 
-    if intent == "awb_detail":
-        identifier = _clean_identifier(message)
-        if identifier and len(identifier) >= 2:
-            return get_invoice_by_awb(company_id, identifier)
-        return {"intent": "awb_detail", "found": False, "query": identifier}
 
     if intent == "todays_expenses":
         return get_todays_expenses(company_id)
@@ -850,13 +704,6 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
         months = extract_months(message, default=None)
         return get_top_suppliers_by_purchase(company_id, limit=limit, months=months)
 
-    if intent == "destination_analysis":
-        months = extract_months(message, default=1)
-        return get_destination_analysis(company_id, months=months)
-
-    if intent == "courier_analysis":
-        months = extract_months(message, default=1)
-        return get_courier_analysis(company_id, months=months)
 
     if intent == "new_clients":
         months = extract_months(message, default=1)
@@ -870,14 +717,13 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
 
     if intent == "customer_invoice_summary":
         months = extract_months(message, default=1)
-        return get_customer_invoice_summary(company_id, months=months)
+        start, end = extract_date_range(message)
+        return get_customer_invoice_summary(company_id, months=months, start_date=start, end_date=end)
 
     if intent == "bank_account_detail":
         identifier = _clean_identifier(message)
         return get_bank_account_detail(company_id, identifier or "")
 
-    if intent == "pending_manifests":
-        return get_pending_manifests(company_id)
 
     if intent == "company_plan_status":
         return get_company_plan_status(company_id)
@@ -894,29 +740,6 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
     if intent == "company_settings_guide":
         return get_company_settings_guide(company_id)
 
-    if intent == "how_to_workflow_guide":
-        return get_how_to_workflow_guide(company_id, topic=message)
-
-    if intent == "calculate_rate_quote":
-        # Extract weight
-        wt_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:kg|kgs|kilo|kilos|gm|grams)?', message, re.IGNORECASE)
-        weight = float(wt_match.group(1)) if wt_match else 1.0
-
-        # Extract destination
-        dest = extract_country(message)
-        if not dest:
-            dest = _clean_identifier(message)
-            if wt_match:
-                dest = dest.replace(wt_match.group(0), "").strip()
-
-        # Extract courier if mentioned
-        courier = None
-        for c_kw in ["dhl", "fedex", "aramex", "ups", "bluedart", "tcs", "skynet", "self"]:
-            if c_kw in msg_lower:
-                courier = c_kw
-                break
-
-        return calculate_rate_quote(company_id, destination=dest or "UAE", weight=weight, courier=courier)
 
     if intent == "help":
         return get_help_catalog()
@@ -924,5 +747,4 @@ def dispatch(message: str, company_id: str) -> Dict[str, Any]:
     if intent == "general_tax_knowledge":
         return get_general_tax_knowledge(topic=message)
 
-    print(f"[ROUTER] WARNING: unhandled intent '{intent}'")
     return {"intent": None, "message": message}

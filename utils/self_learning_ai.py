@@ -1,5 +1,5 @@
 """
-AssetPro Self-Learning AI
+Qiyadah compatibility assistant
 Wraps AIAssistant with pattern learning.
 Learning activates after 10 successful interactions to avoid noise.
 """
@@ -11,10 +11,10 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 from collections import defaultdict
 
-from .ai_assistant import LogisticsAIAssistant
+from .ai_assistant import QiyadahAIAssistant
 
 
-class SelfLearningAssetAI(LogisticsAIAssistant):
+class SelfLearningAssetAI(QiyadahAIAssistant):
 
     def __init__(self, model_name: str = "llama3.2"):
         super().__init__(model_name)
@@ -28,57 +28,8 @@ class SelfLearningAssetAI(LogisticsAIAssistant):
 
     # ── Public entry point ────────────────────────────────────────────────────
 
-    def chat(self, user_message: str, company_id: int) -> Dict[str, Any]:
-        if self._classify_greeting(user_message):
-            return {"response": random.choice(self.GREETING_RESPONSES), "data": None, "source": "greeting"}
-
-        meta = self._classify_app_meta(user_message)
-        if meta == "owner_info":
-            return {"response": self.OWNER_INFO_RESPONSE, "data": None, "source": "app_meta_refused"}
-        if meta == "app_info":
-            return {"response": self.APP_INFO_RESPONSE, "data": None, "source": "app_meta"}
-        try:
-            # 1. Try learned patterns first
-            learned_intent = self._classify_with_learned_patterns(user_message)
-            if learned_intent:
-                data = self._dispatch_with_intent(user_message, company_id, learned_intent)
-                if isinstance(data, dict) and data.get("intent"):
-                    self._store_interaction(user_message, data, "learned_pattern")
-                    return self._build_response(data, user_message)
-
-            # 2. Fall back to keyword router
-            from .intent_router import dispatch
-            data = dispatch(user_message, company_id)
-            print(f"[DEBUG] dispatch → intent={data.get('intent') if isinstance(data, dict) else 'N/A'}")
-
-            if not isinstance(data, dict):
-                response = self._general_answer(user_message)
-                return {"response": response, "data": None, "source": "ai_fallback"}
-
-            # 3. Store for learning
-            self._store_interaction(user_message, data, "router")
-
-            # 4. Batch-update patterns every 10 interactions
-            if len(self.feedback_cache) >= 10:
-                self._update_learned_patterns()
-                self._update_intent_map()
-
-            # 5. Return response
-            if data.get("intent"):
-                return self._build_response(data, user_message)
-
-            response = self._general_answer(user_message)
-            return {"response": response, "data": None, "source": "ai_fallback"}
-
-        except Exception as e:
-            print(f"[ERROR] SelfLearningAssetAI.chat: {e}")
-            import traceback
-            traceback.print_exc()
-            return {
-                "response": "I encountered an error. Please try again.",
-                "data": None,
-                "source": "error",
-            }
+    def chat(self, user_message: str, company_id: str, has_permission=None) -> Dict[str, Any]:
+        return super().chat(user_message, company_id, has_permission=has_permission)
 
     def give_feedback(self, user_message: str, rating: int):
         key = user_message.lower().strip()
