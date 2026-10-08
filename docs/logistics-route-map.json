@@ -1,0 +1,651 @@
+{
+  "renamed": [
+    {
+      "endpoint": "price_lists",
+      "old": "/price-lists",
+      "new": "/logistics/carrier-price-lists",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='pricelist'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "view_price_list",
+      "old": "/price-lists/view/<int:price_list_id>",
+      "new": "/logistics/carrier-price-lists/view/<int:price_list_id>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='pricelist'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "delete_price_list",
+      "old": "/price-lists/delete/<int:price_list_id>",
+      "new": "/logistics/carrier-price-lists/delete/<int:price_list_id>",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Name(id='owner_required', ctx=Load())",
+        "Name(id='require_admin_password', ctx=Load())"
+      ]
+    },
+    {
+      "endpoint": "upload_price_list",
+      "old": "/price-lists/upload",
+      "new": "/logistics/carrier-price-lists/upload",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='pricelist'), Constant(value='view')], keywords=[keyword(arg='method_actions', value=Dict(keys=[Constant(value='POST')], values=[Constant(value='create')]))])"
+      ]
+    },
+    {
+      "endpoint": "api_rate_lookup",
+      "old": "/api/rate-lookup",
+      "new": "/api/logistics/rates/sales-lookup",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='pricelist'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "rate_calculator",
+      "old": "/rate-calculator",
+      "new": "/logistics/rates/calculator",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='pricelist'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "api_rate_calculator",
+      "old": "/api/rate-calculator",
+      "new": "/api/logistics/rates/calculate",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='pricelist'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "api_rate_calculator_destinations",
+      "old": "/api/rate-calculator/destinations",
+      "new": "/api/logistics/rates/destinations",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='pricelist'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "api_purchase_rate_lookup",
+      "old": "/api/purchase-rate-lookup",
+      "new": "/api/logistics/rates/purchase-lookup",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='pricelist'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "api_price_lists_list",
+      "old": "/api/price-lists/list",
+      "new": "/api/logistics/carrier-price-lists/list",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='pricelist'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "purchase_generate_from_booking",
+      "old": "/purchase/generate-from-booking",
+      "new": "/purchase-invoices/from-logistics-booking",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='purchase'), Constant(value='view')], keywords=[keyword(arg='method_actions', value=Dict(keys=[Constant(value='POST')], values=[Constant(value='create')]))])"
+      ]
+    },
+    {
+      "endpoint": "invoice_list",
+      "old": "/booking/list",
+      "new": "/logistics/bookings/list",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "invoice_list_update_tracking",
+      "old": "/booking/list/update-tracking/<invoice_id>",
+      "new": "/logistics/bookings/list/update-tracking/<invoice_id>",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='edit')])"
+      ]
+    },
+    {
+      "endpoint": "invoice_list_update_tracking_status",
+      "old": "/booking/list/update-tracking-status/<invoice_id>",
+      "new": "/logistics/bookings/list/update-tracking-status/<invoice_id>",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='edit')])"
+      ]
+    },
+    {
+      "endpoint": "invoice_list_record_payment",
+      "old": "/booking/list/record-payment/<invoice_id>",
+      "new": "/logistics/bookings/list/record-payment/<invoice_id>",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='edit')])"
+      ]
+    },
+    {
+      "endpoint": "invoice_hard_delete",
+      "old": "/booking/hard-delete/<invoice_id>",
+      "new": "/logistics/bookings/hard-delete/<invoice_id>",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Name(id='owner_required', ctx=Load())",
+        "Name(id='require_admin_password', ctx=Load())"
+      ]
+    },
+    {
+      "endpoint": "invoice_deleted_log",
+      "old": "/booking/deleted-log",
+      "new": "/logistics/bookings/deleted-log",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Name(id='owner_required', ctx=Load())"
+      ]
+    },
+    {
+      "endpoint": "invoice_new",
+      "old": "/booking/new",
+      "new": "/logistics/bookings/new",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='view')], keywords=[keyword(arg='method_actions', value=Dict(keys=[Constant(value='POST')], values=[Constant(value='create')]))])"
+      ]
+    },
+    {
+      "endpoint": "invoice_edit",
+      "old": "/booking/edit/<invoice_id>",
+      "new": "/logistics/bookings/edit/<invoice_id>",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='view')], keywords=[keyword(arg='method_actions', value=Dict(keys=[Constant(value='POST')], values=[Constant(value='edit')]))])"
+      ]
+    },
+    {
+      "endpoint": "invoice_customer_update",
+      "old": "/booking/customer/update",
+      "new": "/logistics/bookings/customer/update",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='edit')])"
+      ]
+    },
+    {
+      "endpoint": "invoice_view",
+      "old": "/booking/view/<invoice_id>",
+      "new": "/logistics/bookings/view/<invoice_id>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "invoice_pdf",
+      "old": "/booking/pdf/<invoice_id>",
+      "new": "/logistics/bookings/pdf/<invoice_id>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": []
+    },
+    {
+      "endpoint": "invoice_resale_charges",
+      "old": "/booking/<invoice_id>/resale-charges",
+      "new": "/logistics/bookings/<invoice_id>/resale-charges",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='view')], keywords=[keyword(arg='method_actions', value=Dict(keys=[Constant(value='POST')], values=[Constant(value='edit')]))])"
+      ]
+    },
+    {
+      "endpoint": "invoice_customer_check_credit_limit",
+      "old": "/booking/customer/check-credit-limit",
+      "new": "/logistics/bookings/customer/check-credit-limit",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())"
+      ]
+    },
+    {
+      "endpoint": "invoice_void",
+      "old": "/booking/void/<invoice_id>",
+      "new": "/logistics/bookings/void/<invoice_id>",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='delete')])"
+      ]
+    },
+    {
+      "endpoint": "invoice_clone",
+      "old": "/booking/clone/<invoice_id>",
+      "new": "/logistics/bookings/clone/<invoice_id>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='create')])"
+      ]
+    },
+    {
+      "endpoint": "invoice_customer_new",
+      "old": "/booking/customer",
+      "new": "/logistics/bookings/customer",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "invoice_customer_save",
+      "old": "/booking/customer/save",
+      "new": "/logistics/bookings/customer/save",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='invoices'), Constant(value='create')])"
+      ]
+    },
+    {
+      "endpoint": "api_docket_info",
+      "old": "/api/docket-info/<docket_no>",
+      "new": "/api/logistics/dockets/<docket_no>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "api_purchase_awb_list",
+      "old": "/api/purchase/awb-list",
+      "new": "/api/logistics/purchase-dockets",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='purchase'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "api_purchase_awb_info",
+      "old": "/api/purchase/awb-info/<docket_no>",
+      "new": "/api/logistics/purchase-dockets/details/<docket_no>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='purchase'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_list",
+      "old": "/manifest/list",
+      "new": "/logistics/manifests/list",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_create",
+      "old": "/manifest/create",
+      "new": "/logistics/manifests/create",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "shipper_last_dockets",
+      "old": "/manifest/shipper-dockets/<int:client_id>",
+      "new": "/logistics/manifests/shipper-dockets/<int:client_id>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "invoice_packages",
+      "old": "/manifest/invoice-packages/<int:client_id>/<docket_no>",
+      "new": "/logistics/manifests/invoice-packages/<int:client_id>/<docket_no>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_save",
+      "old": "/manifest/save",
+      "new": "/logistics/manifests/save",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='create')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_view",
+      "old": "/manifest/view/<int:manifest_db_id>",
+      "new": "/logistics/manifests/view/<int:manifest_db_id>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_print",
+      "old": "/manifest/print/<int:manifest_db_id>",
+      "new": "/logistics/manifests/print/<int:manifest_db_id>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_print_day",
+      "old": "/manifest/print/day/<date_str>",
+      "new": "/logistics/manifests/print/day/<date_str>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_print_selected",
+      "old": "/manifest/print/selected",
+      "new": "/logistics/manifests/print/selected",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_generate_company",
+      "old": "/manifest/generate/company",
+      "new": "/logistics/manifests/generate/company",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='edit')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_revert_to_pending",
+      "old": "/manifest/revert-to-pending",
+      "new": "/logistics/manifests/revert-to-pending",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='edit')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_print_company",
+      "old": "/manifest/print/company/<company_name>",
+      "new": "/logistics/manifests/print/company/<company_name>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_edit",
+      "old": "/manifest/edit/<int:manifest_db_id>",
+      "new": "/logistics/manifests/edit/<int:manifest_db_id>",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='edit')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_update",
+      "old": "/manifest/update/<int:manifest_db_id>",
+      "new": "/logistics/manifests/update/<int:manifest_db_id>",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='edit')])"
+      ]
+    },
+    {
+      "endpoint": "manifest_delete",
+      "old": "/manifest/delete/<int:manifest_db_id>",
+      "new": "/logistics/manifests/delete/<int:manifest_db_id>",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Name(id='owner_required', ctx=Load())",
+        "Name(id='require_admin_password', ctx=Load())"
+      ]
+    },
+    {
+      "endpoint": "manifest_print_selected_generated",
+      "old": "/manifest/print/selected/generated",
+      "new": "/logistics/manifests/print/selected/generated",
+      "methods": [
+        "GET"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())",
+        "Call(func=Name(id='require_permission', ctx=Load()), args=[Constant(value='manifest'), Constant(value='view')])"
+      ]
+    },
+    {
+      "endpoint": "mark_entry_dispatched",
+      "old": "/manifest/entry/<int:entry_id>/dispatch",
+      "new": "/logistics/manifests/entry/<int:entry_id>/dispatch",
+      "methods": [
+        "POST"
+      ],
+      "access_decorators": [
+        "Name(id='login_required', ctx=Load())"
+      ]
+    }
+  ],
+  "removed": [
+    {
+      "file": "app.py",
+      "line": 6285,
+      "endpoint": "debug_price_lists_data",
+      "path": "/debug/price-lists-data",
+      "methods": [
+        "GET"
+      ],
+      "start": 6285,
+      "end": 6319,
+      "references": []
+    },
+    {
+      "file": "app.py",
+      "line": 6356,
+      "endpoint": "debug_price_list",
+      "path": "/debug/price-list/<int:price_list_id>",
+      "methods": [
+        "GET"
+      ],
+      "start": 6356,
+      "end": 6380,
+      "references": []
+    },
+    {
+      "file": "app.py",
+      "line": 6382,
+      "endpoint": "debug_excel_columns",
+      "path": "/debug/excel-columns",
+      "methods": [
+        "POST"
+      ],
+      "start": 6382,
+      "end": 6401,
+      "references": []
+    },
+    {
+      "file": "app.py",
+      "line": 16149,
+      "endpoint": "debug_suppliers",
+      "path": "/debug/suppliers",
+      "methods": [
+        "GET"
+      ],
+      "start": 16149,
+      "end": 16155,
+      "references": []
+    }
+  ],
+  "changed_files": [
+    "app.py",
+    "templates/base.html",
+    "templates/booking.html",
+    "templates/booking_edit.html",
+    "templates/booking_list.html",
+    "templates/booking_resale.html",
+    "templates/booking_view.html",
+    "templates/confirm_price_list.html",
+    "templates/manifest_form.html",
+    "templates/manifest_list.html",
+    "templates/manifest_view.html",
+    "templates/price_lists.html",
+    "templates/purchases.html",
+    "templates/rate_calculator.html",
+    "templates/upload_price_list.html"
+  ]
+}

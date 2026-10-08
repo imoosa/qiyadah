@@ -1,0 +1,500 @@
+{
+  "removed_routes": [
+    {
+      "endpoint": "rate_calculator",
+      "path": "/rate-calculator"
+    },
+    {
+      "endpoint": "rate_calculator",
+      "path": "/logistics/rates/calculator"
+    },
+    {
+      "endpoint": "manifest_print_day",
+      "path": "/manifest/print/day/<date_str>"
+    },
+    {
+      "endpoint": "manifest_print_day",
+      "path": "/logistics/manifests/print/day/<date_str>"
+    },
+    {
+      "endpoint": "manifest_save",
+      "path": "/manifest/save"
+    },
+    {
+      "endpoint": "manifest_save",
+      "path": "/logistics/manifests/save"
+    },
+    {
+      "endpoint": "fix_duplicate_awbs",
+      "path": "/admin/fix-duplicate-awbs"
+    },
+    {
+      "endpoint": "invoice_customer_save",
+      "path": "/booking/customer/save"
+    },
+    {
+      "endpoint": "invoice_customer_save",
+      "path": "/logistics/bookings/customer/save"
+    },
+    {
+      "endpoint": "api_purchase_awb_info",
+      "path": "/api/purchase/awb-info/<docket_no>"
+    },
+    {
+      "endpoint": "api_purchase_awb_info",
+      "path": "/api/logistics/purchase-dockets/details/<docket_no>"
+    },
+    {
+      "endpoint": "manifest_edit",
+      "path": "/manifest/edit/<int:manifest_db_id>"
+    },
+    {
+      "endpoint": "manifest_edit",
+      "path": "/logistics/manifests/edit/<int:manifest_db_id>"
+    },
+    {
+      "endpoint": "upload_price_list",
+      "path": "/price-lists/upload"
+    },
+    {
+      "endpoint": "upload_price_list",
+      "path": "/logistics/carrier-price-lists/upload"
+    },
+    {
+      "endpoint": "manifest_list",
+      "path": "/manifest/list"
+    },
+    {
+      "endpoint": "manifest_list",
+      "path": "/logistics/manifests/list"
+    },
+    {
+      "endpoint": "invoice_deleted_log",
+      "path": "/booking/deleted-log"
+    },
+    {
+      "endpoint": "invoice_deleted_log",
+      "path": "/logistics/bookings/deleted-log"
+    },
+    {
+      "endpoint": "invoice_customer_update",
+      "path": "/booking/customer/update"
+    },
+    {
+      "endpoint": "invoice_customer_update",
+      "path": "/logistics/bookings/customer/update"
+    },
+    {
+      "endpoint": "manifest_view",
+      "path": "/manifest/view/<int:manifest_db_id>"
+    },
+    {
+      "endpoint": "manifest_view",
+      "path": "/logistics/manifests/view/<int:manifest_db_id>"
+    },
+    {
+      "endpoint": "view_price_list",
+      "path": "/price-lists/view/<int:price_list_id>"
+    },
+    {
+      "endpoint": "view_price_list",
+      "path": "/logistics/carrier-price-lists/view/<int:price_list_id>"
+    },
+    {
+      "endpoint": "shipper_last_dockets",
+      "path": "/manifest/shipper-dockets/<int:client_id>"
+    },
+    {
+      "endpoint": "shipper_last_dockets",
+      "path": "/logistics/manifests/shipper-dockets/<int:client_id>"
+    },
+    {
+      "endpoint": "track_magic_link",
+      "path": "/t/<company_id>/<docket_no>"
+    },
+    {
+      "endpoint": "invoice_hard_delete",
+      "path": "/booking/hard-delete/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_hard_delete",
+      "path": "/logistics/bookings/hard-delete/<invoice_id>"
+    },
+    {
+      "endpoint": "api_price_lists_list",
+      "path": "/api/price-lists/list"
+    },
+    {
+      "endpoint": "api_price_lists_list",
+      "path": "/api/logistics/carrier-price-lists/list"
+    },
+    {
+      "endpoint": "invoice_clone",
+      "path": "/booking/clone/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_clone",
+      "path": "/logistics/bookings/clone/<invoice_id>"
+    },
+    {
+      "endpoint": "manifest_print_selected",
+      "path": "/manifest/print/selected"
+    },
+    {
+      "endpoint": "manifest_print_selected",
+      "path": "/logistics/manifests/print/selected"
+    },
+    {
+      "endpoint": "manifest_generate_company",
+      "path": "/manifest/generate/company"
+    },
+    {
+      "endpoint": "manifest_generate_company",
+      "path": "/logistics/manifests/generate/company"
+    },
+    {
+      "endpoint": "invoice_list",
+      "path": "/booking/list"
+    },
+    {
+      "endpoint": "invoice_list",
+      "path": "/logistics/bookings/list"
+    },
+    {
+      "endpoint": "price_lists",
+      "path": "/price-lists"
+    },
+    {
+      "endpoint": "price_lists",
+      "path": "/logistics/carrier-price-lists"
+    },
+    {
+      "endpoint": "invoice_pdf",
+      "path": "/booking/pdf/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_pdf",
+      "path": "/logistics/bookings/pdf/<invoice_id>"
+    },
+    {
+      "endpoint": "repair_manifest_shippers",
+      "path": "/admin/repair-manifest-shippers"
+    },
+    {
+      "endpoint": "invoice_edit",
+      "path": "/booking/edit/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_edit",
+      "path": "/logistics/bookings/edit/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_customer_check_credit_limit",
+      "path": "/booking/customer/check-credit-limit"
+    },
+    {
+      "endpoint": "invoice_customer_check_credit_limit",
+      "path": "/logistics/bookings/customer/check-credit-limit"
+    },
+    {
+      "endpoint": "api_rate_calculator",
+      "path": "/api/rate-calculator"
+    },
+    {
+      "endpoint": "api_rate_calculator",
+      "path": "/api/logistics/rates/calculate"
+    },
+    {
+      "endpoint": "manifest_print",
+      "path": "/manifest/print/<int:manifest_db_id>"
+    },
+    {
+      "endpoint": "manifest_print",
+      "path": "/logistics/manifests/print/<int:manifest_db_id>"
+    },
+    {
+      "endpoint": "manifest_delete",
+      "path": "/manifest/delete/<int:manifest_db_id>"
+    },
+    {
+      "endpoint": "manifest_delete",
+      "path": "/logistics/manifests/delete/<int:manifest_db_id>"
+    },
+    {
+      "endpoint": "invoice_void",
+      "path": "/booking/void/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_void",
+      "path": "/logistics/bookings/void/<invoice_id>"
+    },
+    {
+      "endpoint": "mark_entry_dispatched",
+      "path": "/manifest/entry/<int:entry_id>/dispatch"
+    },
+    {
+      "endpoint": "mark_entry_dispatched",
+      "path": "/logistics/manifests/entry/<int:entry_id>/dispatch"
+    },
+    {
+      "endpoint": "invoice_list_update_tracking",
+      "path": "/booking/list/update-tracking/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_list_update_tracking",
+      "path": "/logistics/bookings/list/update-tracking/<invoice_id>"
+    },
+    {
+      "endpoint": "manifest_print_company",
+      "path": "/manifest/print/company/<company_name>"
+    },
+    {
+      "endpoint": "manifest_print_company",
+      "path": "/logistics/manifests/print/company/<company_name>"
+    },
+    {
+      "endpoint": "api_purchase_awb_list",
+      "path": "/api/purchase/awb-list"
+    },
+    {
+      "endpoint": "api_purchase_awb_list",
+      "path": "/api/logistics/purchase-dockets"
+    },
+    {
+      "endpoint": "purchase_generate_from_booking",
+      "path": "/purchase/generate-from-booking"
+    },
+    {
+      "endpoint": "purchase_generate_from_booking",
+      "path": "/purchase-invoices/from-logistics-booking"
+    },
+    {
+      "endpoint": "manifest_revert_to_pending",
+      "path": "/manifest/revert-to-pending"
+    },
+    {
+      "endpoint": "manifest_revert_to_pending",
+      "path": "/logistics/manifests/revert-to-pending"
+    },
+    {
+      "endpoint": "invoice_packages",
+      "path": "/manifest/invoice-packages/<int:client_id>/<docket_no>"
+    },
+    {
+      "endpoint": "invoice_packages",
+      "path": "/logistics/manifests/invoice-packages/<int:client_id>/<docket_no>"
+    },
+    {
+      "endpoint": "invoice_view",
+      "path": "/booking/view/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_view",
+      "path": "/logistics/bookings/view/<invoice_id>"
+    },
+    {
+      "endpoint": "api_rate_lookup",
+      "path": "/api/rate-lookup"
+    },
+    {
+      "endpoint": "api_rate_lookup",
+      "path": "/api/logistics/rates/sales-lookup"
+    },
+    {
+      "endpoint": "invoice_list_record_payment",
+      "path": "/booking/list/record-payment/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_list_record_payment",
+      "path": "/logistics/bookings/list/record-payment/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_customer_new",
+      "path": "/booking/customer"
+    },
+    {
+      "endpoint": "invoice_customer_new",
+      "path": "/logistics/bookings/customer"
+    },
+    {
+      "endpoint": "manifest_create",
+      "path": "/manifest/create"
+    },
+    {
+      "endpoint": "manifest_create",
+      "path": "/logistics/manifests/create"
+    },
+    {
+      "endpoint": "public_tracking_generic",
+      "path": "/track"
+    },
+    {
+      "endpoint": "invoice_resale_charges",
+      "path": "/booking/<invoice_id>/resale-charges"
+    },
+    {
+      "endpoint": "invoice_resale_charges",
+      "path": "/logistics/bookings/<invoice_id>/resale-charges"
+    },
+    {
+      "endpoint": "manifest_update",
+      "path": "/manifest/update/<int:manifest_db_id>"
+    },
+    {
+      "endpoint": "manifest_update",
+      "path": "/logistics/manifests/update/<int:manifest_db_id>"
+    },
+    {
+      "endpoint": "api_rate_calculator_destinations",
+      "path": "/api/rate-calculator/destinations"
+    },
+    {
+      "endpoint": "api_rate_calculator_destinations",
+      "path": "/api/logistics/rates/destinations"
+    },
+    {
+      "endpoint": "invoice_new",
+      "path": "/booking/new"
+    },
+    {
+      "endpoint": "invoice_new",
+      "path": "/logistics/bookings/new"
+    },
+    {
+      "endpoint": "invoice_list_update_tracking_status",
+      "path": "/booking/list/update-tracking-status/<invoice_id>"
+    },
+    {
+      "endpoint": "invoice_list_update_tracking_status",
+      "path": "/logistics/bookings/list/update-tracking-status/<invoice_id>"
+    },
+    {
+      "endpoint": "delete_price_list",
+      "path": "/price-lists/delete/<int:price_list_id>"
+    },
+    {
+      "endpoint": "delete_price_list",
+      "path": "/logistics/carrier-price-lists/delete/<int:price_list_id>"
+    },
+    {
+      "endpoint": "manifest_print_selected_generated",
+      "path": "/manifest/print/selected/generated"
+    },
+    {
+      "endpoint": "manifest_print_selected_generated",
+      "path": "/logistics/manifests/print/selected/generated"
+    },
+    {
+      "endpoint": "public_tracking",
+      "path": "/track/<company_slug>"
+    },
+    {
+      "endpoint": "api_docket_info",
+      "path": "/api/docket-info/<docket_no>"
+    },
+    {
+      "endpoint": "api_docket_info",
+      "path": "/api/logistics/dockets/<docket_no>"
+    },
+    {
+      "endpoint": "api_purchase_rate_lookup",
+      "path": "/api/purchase-rate-lookup"
+    },
+    {
+      "endpoint": "api_purchase_rate_lookup",
+      "path": "/api/logistics/rates/purchase-lookup"
+    },
+    {
+      "endpoint": "generate_company_api_key",
+      "path": "/company/api-keys/generate"
+    },
+    {
+      "endpoint": "revoke_company_api_key",
+      "path": "/company/api-keys/<int:key_id>/revoke"
+    }
+  ],
+  "removed_helpers": [
+    "_auto_fetch_purchase_rate",
+    "_build_tiers_and_bands",
+    "_check_credit_limit",
+    "_docket_no_in_use",
+    "_extract_weight_from_label",
+    "_find_header_row",
+    "_get_invoice_payment_history",
+    "_is_weight_label",
+    "_manifest_entry_shipment_data",
+    "_next_awb_number",
+    "_post_booking_cash_or_bank_payment",
+    "_rebuild_additional_receivers_from_form",
+    "_rebuild_booking_form_data_from_request",
+    "_rebuild_packages_from_form",
+    "_recalculate_customer_invoice_totals",
+    "_recompute_manifest_status",
+    "_rerender_booking_form_on_failure",
+    "_split_country_label",
+    "_sync_and_repair_manifest_entries",
+    "_sync_auto_manifest_entry",
+    "_sync_auto_purchase_invoice_line",
+    "compute_invoice_gst",
+    "find_price_list",
+    "normalize_courier",
+    "parse_price_list",
+    "save_shipper_id_doc",
+    "sync_tracking_index",
+    "update_customer_invoice_from_booking",
+    "verify_pdf_token",
+    "calculate_rate",
+    "generate_pdf_token",
+    "round_billable_weight"
+  ],
+  "template_candidates": [
+    "booking.html",
+    "booking_deleted_log.html",
+    "booking_edit.html",
+    "booking_list.html",
+    "booking_pdf.html",
+    "booking_resale.html",
+    "booking_view.html",
+    "manifest_form.html",
+    "manifest_list.html",
+    "manifest_print.html",
+    "manifest_print_day.html",
+    "manifest_view.html",
+    "price_lists.html",
+    "rate_calculator.html",
+    "tracking_status.html",
+    "upload_price_list.html",
+    "view_price_list.html"
+  ],
+  "deleted_templates": [
+    "booking_deleted_log.html",
+    "booking_edit.html",
+    "booking_list.html",
+    "booking_pdf.html",
+    "booking_resale.html",
+    "booking_view.html",
+    "confirm_price_list.html",
+    "manifest_form.html",
+    "manifest_list.html",
+    "manifest_print.html",
+    "manifest_print_day.html",
+    "manifest_view.html",
+    "price_lists.html",
+    "rate_calculator.html",
+    "upload_price_list.html",
+    "view_price_list.html",
+    "booking.html",
+    "tracking_status.html"
+  ],
+  "deleted_files": [
+    "tasks.py",
+    "seed_carrier_config.py",
+    "status_timeline.py"
+  ],
+  "verification": {
+    "unit_tests": 120,
+    "result": "passed",
+    "remaining_app_url_rules": 218,
+    "live_database_started": false
+  }
+}

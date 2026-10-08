@@ -1,0 +1,12 @@
+const assert = require('node:assert/strict');
+const {bounds,csv} = require('../static/bi_business.js');
+const data = {labels:['=unsafe','Quoted "label"'],currency:'INR',series:[{name:'Profit',values:[-20,100]}]};
+assert.ok(bounds(data).min < -20);
+assert.ok(bounds(data).max > 100);
+assert.equal(bounds({labels:[],series:[]}),null);
+assert.equal(bounds({labels:['x'],series:[{values:[NaN]}]}),null);
+assert.equal(bounds({labels:['x'],series:[{values:[0]}]}).min,0);
+assert.ok(csv(data).includes('"\'=unsafe","-20"'));
+assert.ok(csv(data).includes('"Quoted ""label"""'));
+assert.ok(csv(data).includes('Profit (INR)'));
+console.log('Chart bounds and CSV checks passed');
