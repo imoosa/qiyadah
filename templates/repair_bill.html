@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Repair Bill & Service Sheet — Job Card #{{ jc.job_card_no }} · {{ company.company_name if company else 'Qiyadah ERP' }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='qiyadah_icon.png') }}?v=2">
+  <style>
+    :root {
+      --primary: #F59E0B;
+      --primary-dark: #D97706;
+      --header-bg: #012926;
+      --border: #E2E8F0;
+      --text: #1E293B;
+      --text-muted: #64748B;
+      --bg-body: #F8FAFC;
+      --bg-card: #ffffff;
+      --bg-table-alt: #F8FAFC;
+      --primary-light: #FEF3C7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body {
+      background: var(--bg-body);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 30px 16px;
+    }
+    .bill-wrap {
+      max-width: 820px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 36px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #012926;
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+    }
+    .brand-col h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #012926;
+      letter-spacing: -0.5px;
+    }
+    .brand-meta {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .invoice-tag-col {
+      text-align: right;
+    }
+    .inv-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--primary-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .inv-num {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 2px;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      background: var(--bg-body);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .meta-box h3 {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .meta-box p {
+      font-size: 13.5px;
+      color: var(--text);
+    }
+    .plate-badge {
+      display: inline-block;
+      background: var(--primary-light);
+      border: 1.5px solid var(--primary);
+      color: #92400E;
+      font-weight: 800;
+      font-size: 14px;
+      padding: 2px 8px;
+      border-radius: 5px;
+      letter-spacing: 0.5px;
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+    }
+    table.data-table th {
+      background: var(--header-bg);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    table.data-table td {
+      padding: 11px 12px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+    .totals-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 30px;
+    }
+    .totals-box {
+      width: 280px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: var(--bg-table-alt);
+    }
+    .tot-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .tot-grand {
+      display: flex;
+      justify-content: space-between;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--primary-dark);
+      border-top: 1.5px solid var(--border);
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+    .footer-notes {
+      border-top: 1px dashed var(--border);
+      padding-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .btn-row {
+      max-width: 820px;
+      margin: 20px auto 0;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      border: 1px solid transparent;
+    }
+    .btn-print { background: var(--primary); color: #fff; }
+    .btn-print:hover { background: var(--primary-dark); }
+    .btn-wa { background: #25D366; color: #fff; }
+    .btn-back { background: var(--bg-card); border-color: var(--border); color: var(--text); }
+    body.dark-theme {
+      --bg-body:#0A0A0A; --bg-card:#1A1A1A; --bg-table-alt:#141414;
+      --text:#E8E8E8; --text-muted:#A0A0A0; --border:#2A2A2A;
+    }
+    body.dark-theme .brand-col h1 { color:var(--primary); }
+    .btn:focus-visible { outline:3px solid var(--primary); outline-offset:3px; }
+    .data-table td { overflow-wrap:anywhere; }
+    @media screen and (max-width:600px) {
+      body { padding:16px 8px; }
+      .bill-wrap { padding:18px 12px; }
+      .header-row, .footer-notes { flex-direction:column; gap:16px; }
+      .invoice-tag-col { text-align:left; }
+      .meta-grid { grid-template-columns:1fr; padding:12px; }
+      .bill-items { overflow-x:auto; }
+      .data-table { min-width:620px; }
+      .btn-row { flex-wrap:wrap; }
+    }
+    @page { size:A4; margin:12mm; }
+    @media print {
+      body, body.dark-theme { background:#fff; padding:0; --bg-body:#fff; --bg-card:#fff; --bg-table-alt:#F8FAFC; --text:#1E293B; --text-muted:#64748B; --border:#E2E8F0; }
+      body.dark-theme .brand-col h1 { color:#012926; }
+      table.data-table th { background:#fff; color:#012926; border-bottom:2px solid #012926; }
+      tr, .totals-box, .footer-notes { break-inside:avoid; }
+      thead { display:table-header-group; }
+      .bill-wrap { border: none; box-shadow: none; padding: 0; }
+      .btn-row, .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <script>
+    try { document.body.classList.toggle('dark-theme', localStorage.getItem('darkTheme') === 'true'); } catch (e) {}
+  </script>
+
+  <div class="bill-wrap">
+    <!-- Header -->
+    <div class="header-row">
+      <div class="brand-col">
+        <h1>{{ company.company_name if company else 'QIYADAH AUTOMOTIVE WORKSHOP' }}</h1>
+        <div class="brand-meta">
+          <div>Authorized Multi-Brand Automotive Service Station</div>
+          <div>{{ tax_id_label or ('TRN' if billing_tax.is_vat else 'GSTIN') }}: {{ company.gstin or company.gst_number or '—' }}</div>
+          <div>Contact: {{ company.phone if company and company.phone else '—' }} | {{ company.email if company and company.email else '—' }}</div>
+        </div>
+      </div>
+      <div class="invoice-tag-col">
+        <div class="inv-title">REPAIR BILL</div>
+        <div class="inv-num">{{ invoice.invoice_number if invoice else ('INV-WS-' + jc.job_card_no) }}</div>
+        <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+          Date: {{ invoice.invoice_date.strftime('%d-%b-%Y') if invoice.invoice_date else '—' }}
+        </div>
+        <div style="margin-top:6px;">
+          <span style="background:var(--primary-light); color:#92400E; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:800; text-transform:uppercase;">
+            Payment: {{ invoice.status }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meta Details Grid -->
+    <div class="meta-grid">
+      <div class="meta-box">
+        <h3>Customer Details</h3>
+        <p><strong>{{ client.name if client else (vehicle.client_obj.name if (vehicle and vehicle.client_obj) else 'Customer') }}</strong></p>
+        <p>Mobile: {{ client.phone if client else (vehicle.client_obj.phone if (vehicle and vehicle.client_obj) else 'N/A') }}</p>
+        <p>Address: {{ client.address_line1 if client and client.address_line1 else 'On-site counter' }}</p>
+      </div>
+      <div class="meta-box">
+        <h3>Vehicle & Service Info</h3>
+        <p>
+          Plate: <span class="plate-badge">{{ vehicle.registration_no if vehicle else jc.vehicle_reg }}</span>
+        </p>
+        <p>Vehicle: <strong>{{ vehicle.brand if vehicle else '' }} {{ vehicle.model if vehicle else '' }}</strong> ({{ vehicle.vehicle_type if vehicle else '' }})</p>
+        <p>Job Card: <strong>#{{ jc.job_card_no }}</strong> | Advisor: {{ jc.service_advisor or 'Staff' }}</p>
+        <p>Odometer: <strong>{{ (jc.current_odometer or 0)|int }} KM</strong> | Fuel: {{ jc.fuel_level or '50%' }}</p>
+      </div>
+    </div>
+
+    <!-- Items Table -->
+    <div class="bill-items">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width:40px;">#</th>
+          <th>Service / Spare Part Description</th>
+          <th style="width:55px; text-align:center;">Qty</th>
+          <th style="width:85px; text-align:right;">Rate ({{ currency_symbol or "₹" }})</th>
+          <th>Discount %</th>
+          <th style="width:65px; text-align:center;">{{ billing_tax.label or ('VAT' if billing_tax.is_vat else 'GST') }} %</th>
+          <th style="width:95px; text-align:right;">Amount ({{ currency_symbol or "₹" }})</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in invoice.items %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td><strong>{{ it.item_name }}</strong><br>{{ it.item_description or '' }}</td>
+            <td>{{ it.quantity or 0 }}</td>
+            <td style="text-align:right;">{{ "%.2f"|format(it.rate or 0) }}</td>
+            <td>{{ it.discount_percent or 0 }}%</td>
+            <td>{{ it.gst_percent or 0 }}%</td>
+            <td style="text-align:right;">{{ "%.2f"|format(it.total_amount or 0) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+
+    <!-- Totals Summary -->
+    <div class="totals-row">
+      <div class="totals-box">
+        {% if billing_tax.is_vat %}
+          {% for label, amount in [('Subtotal', invoice.subtotal), ((billing_tax.label or 'VAT') + ' (Tax)', invoice.tax_amount), ('Paid', invoice.paid_amount), ('Balance Due', invoice.balance)] %}
+          <div class="tot-line"><span>{{ label }}:</span><strong>{{ currency_symbol or '₹' }} {{ "%.2f"|format(amount or 0) }}</strong></div>
+          {% endfor %}
+        {% else %}
+          {% for label, amount in [('Subtotal', invoice.subtotal), ('CGST', invoice.cgst_total), ('SGST', invoice.sgst_total), ('IGST', invoice.igst_total), ('Paid', invoice.paid_amount), ('Balance Due', invoice.balance)] %}
+          <div class="tot-line"><span>{{ label }}:</span><strong>{{ currency_symbol or '₹' }} {{ "%.2f"|format(amount or 0) }}</strong></div>
+          {% endfor %}
+        {% endif %}
+        <div class="tot-grand"><span>Grand Total:</span><span>{{ currency_symbol or '₹' }} {{ "%.2f"|format(invoice.grand_total or 0) }}</span></div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer-notes">
+      <div>
+        <strong>Terms & Conditions:</strong><br>
+        1. 30-day / 1,000 KM workshop warranty on service labour.<br>
+        2. Manufacturer warranty applies to original spare parts.<br>
+        3. Scanned QR code on vehicle windshield tracks complete maintenance history.
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px; font-weight:700;">For {{ company.company_name if company else 'Qiyadah Workshop' }}</div>
+        <div style="margin-top:28px; font-weight:800; border-top:1px solid #000; padding-top:4px;">Authorized Signatory</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-row no-print">
+    <button class="btn btn-back" onclick="window.history.back()">← Back</button>
+    <button class="btn btn-print" onclick="window.print()">🖨️ Print Repair Bill</button>
+  </div>
+
+</body>
+</html>

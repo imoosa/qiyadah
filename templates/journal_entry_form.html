@@ -1,0 +1,24 @@
+{% extends "base.html" %}{% block title %}New Journal Entry{% endblock %}{% block page_title %}New Journal Entry{% endblock %}
+{% block extra_style %}
+<style>
+.jh{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px}.jh h2{margin:0;font-size:22px;font-weight:800}.muted{font-size:12px;color:var(--gray-500);margin-top:4px}
+.cardx{background:#fff;border:1px solid var(--gray-100);border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.05);overflow:hidden}.cardh{padding:14px 16px;background:var(--gray-50);border-bottom:1px solid var(--gray-100);font-weight:800}
+.jtable{width:100%;border-collapse:collapse}.jtable th{background:#012926;color:#F59E0B;text-align:left;font-size:10.5px;text-transform:uppercase;padding:10px 12px}.jtable td{padding:10px 12px;border-bottom:1px solid var(--gray-100);font-size:12.5px}.num{text-align:right!important;font-variant-numeric:tabular-nums}.badge{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:10.5px;font-weight:800}.Draft{background:#fef3c7;color:#92400e}.Posted{background:#dcfce7;color:#166534}.Reversed{background:#fee2e2;color:#991b1b}
+.formgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.fg label{display:block;font-size:10.5px;font-weight:700;color:var(--gray-600);margin-bottom:5px}.fg input,.fg textarea,.fg select{width:100%;box-sizing:border-box}.linewrap{overflow:auto}.lines{min-width:800px}.lines input,.lines select{width:100%;box-sizing:border-box}.actions{display:flex;gap:8px;flex-wrap:wrap}.total{font-weight:800;background:var(--gray-50)}.warn{padding:10px 13px;background:#fffbeb;color:#92400e;border-radius:9px;font-size:11.5px;margin-bottom:15px}
+@media(max-width:800px){.formgrid{grid-template-columns:1fr}}
+</style>
+{% endblock %}{% block content %}
+<div class="jh"><div><h2>＋ New Journal Entry</h2><div class="muted">Every entry must have equal debits and credits.</div></div><a class="btn btn-ghost" href="{{ url_for('journal_entries') }}">← Journal Register</a></div>
+<form method="post" id="journalForm">
+<div class="cardx" style="margin-bottom:16px"><div class="cardh">Journal Header</div><div style="padding:16px"><div class="formgrid"><div class="fg"><label>Date *</label><input type="date" name="entry_date" value="{{ today.isoformat() }}" required></div><div class="fg"><label>Reference</label><input name="reference" maxlength="100" placeholder="Optional voucher/reference"></div><div class="fg"><label>Narration *</label><input name="narration" maxlength="500" required placeholder="Purpose of this journal"></div></div></div></div>
+<div class="cardx"><div class="cardh">Debit / Credit Lines</div><div class="linewrap"><table class="jtable lines" id="lineTable"><thead><tr><th style="width:34%">Account</th><th>Description</th><th style="width:15%">Debit</th><th style="width:15%">Credit</th><th></th></tr></thead><tbody id="lineBody">
+{% for n in range(2) %}<tr><td><select name="account_id[]" required><option value="">Select account</option>{% for a in accounts %}<option value="{{ a.id }}">{{ a.code }} · {{ a.name }}</option>{% endfor %}</select></td><td><input name="description[]" placeholder="Optional"></td><td><input class="debit" type="number" name="debit[]" min="0" step="0.01" value="0"></td><td><input class="credit" type="number" name="credit[]" min="0" step="0.01" value="0"></td><td><button type="button" class="btn btn-ghost btn-sm" onclick="removeLine(this)">×</button></td></tr>{% endfor %}
+</tbody><tfoot><tr class="total"><td colspan="2">Totals</td><td class="num" id="td">0.00</td><td class="num" id="tc">0.00</td><td></td></tr></tfoot></table></div><div style="padding:14px 16px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><button type="button" class="btn btn-ghost" onclick="addLine()">＋ Add Line</button><div class="actions"><button class="btn btn-ghost" name="action" value="draft">Save Draft</button><button class="btn btn-primary" name="action" value="post">Post Journal</button></div></div></div>
+</form>
+<script>
+const body=document.getElementById('lineBody'); function calc(){let d=0,c=0;document.querySelectorAll('.debit').forEach(x=>d+=Number(x.value||0));document.querySelectorAll('.credit').forEach(x=>c+=Number(x.value||0));document.getElementById('td').textContent=d.toFixed(2);document.getElementById('tc').textContent=c.toFixed(2)}
+document.addEventListener('input',e=>{if(e.target.matches('.debit,.credit'))calc()});
+function addLine(){let r=body.rows[0].cloneNode(true);r.querySelectorAll('input').forEach(x=>x.value=x.name==='description[]'?'':'0');r.querySelector('select').value='';body.appendChild(r);calc()}
+function removeLine(b){if(body.rows.length>2)b.closest('tr').remove();calc()} calc();
+</script>
+{% endblock %}

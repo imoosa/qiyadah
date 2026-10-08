@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+{% if invoice is defined and invoice.currency and currency_info is defined %}{% set currency_symbol = currency_info(invoice.currency).symbol %}{% endif %}
+{% block title %}Purchase Bill · {{ invoice.invoice_id or invoice.invoice_number }}{% endblock %}
+{% block page_title %}Purchase Bill View{% endblock %}
+{% set active = 'purchases' %}
+
+{% block extra_style %}
+<style>
+  .inv-paper {
+    background: #fff; border: 1.5px solid #E5E7EB; border-radius: 12px;
+    padding: 36px 42px; max-width: 960px; margin: 0 auto; box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  }
+  body.dark-theme .inv-paper {
+    background: var(--bg-card, #1e293b); border-color: var(--border-color);
+  }
+  .inv-top-bar {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    border-bottom: 2px solid #0D9488; padding-bottom: 20px; margin-bottom: 24px;
+  }
+  .company-title { font-size: 24px; font-weight: 800; color: #012926; }
+  body.dark-theme .company-title { color: #F59E0B; }
+  .doc-title-badge {
+    background: #012926; color: #F59E0B; padding: 6px 18px; border-radius: 6px;
+    font-size: 15px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;
+    display: inline-block; text-align: right;
+  }
+  .parties-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 30px;
+    background: var(--bg-table-alt, #f8fafc); border-radius: 8px; padding: 18px 20px;
+    margin-bottom: 24px; border: 1px solid var(--border-color, #E5E7EB);
+  }
+  .party-block h4 {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    color: var(--text-muted); margin: 0 0 8px 0; letter-spacing: .5px;
+  }
+  .party-name { font-size: 16px; font-weight: 700; color: var(--text-body); margin-bottom: 4px; }
+  .party-info { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+
+  .inv-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  .inv-table th {
+    background: #012926; color: #F59E0B;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    padding: 10px 8px; border: 1px solid rgba(255,255,255,0.1); text-align: left;
+  }
+  .inv-table td {
+    padding: 10px 8px; border-bottom: 1px solid var(--border-color, #E5E7EB);
+    font-size: 13px; color: var(--text-body);
+  }
+  .inv-table tr:nth-child(even) { background: var(--bg-table-alt, #fafafa); }
+
+  .calc-summary-box {
+    width: 380px; margin-left: auto; border: 1.5px solid var(--border-color, #E5E7EB);
+    border-radius: 8px; padding: 16px; background: var(--bg-table-alt, #f8fafc);
+  }
+  .calc-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13.5px; }
+  .calc-row.grand {
+    border-top: 2px solid #012926; margin-top: 8px; padding-top: 10px;
+    font-size: 18px; font-weight: 800; color: #012926;
+  }
+  body.dark-theme .calc-row.grand { color: #F59E0B; border-top-color: #F59E0B; }
+
+  .pay-status-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 14px;
+    border-radius: 20px; font-size: 12px; font-weight: 700;
+  }
+  .pay-status-pill.paid    { background: #DCFCE7; color: #16A34A; }
+  .pay-status-pill.partial { background: #FEF3C7; color: #D97706; }
+  .pay-status-pill.pending { background: #FEE2E2; color: #DC2626; }
+
+  @media print {
+    .no-print, nav, header, aside, .sidebar, .app-header { display: none !important; }
+    body { background: #fff !important; color: #000 !important; }
+    .inv-paper { border: none !important; box-shadow: none !important; padding: 0 !important; max-width: 100% !important; }
+    .main, .content { margin: 0 !important; padding: 0 !important; }
+    @page { margin: 10mm; size: A4; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="no-print" style="max-width:960px; margin:0 auto 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+  <div style="display:flex; align-items:center; gap:12px;">
+    <a href="{{ url_for('purchase_invoice_list') }}" class="btn btn-secondary">← Back to Purchases</a>
+    {% if can('finance', 'create') and can('purchase', 'create') and invoice.balance > 0 and invoice.status not in ['Void', 'Cancelled', 'Draft'] %}
+    <a class="btn btn-secondary" href="{{ url_for('finance_note_new', kind='debit', invoice_id=invoice.id) }}">Create Debit Note</a>
+    {% endif %}
+    {% if invoice.note_adjustment %}<span>Debit notes: {{ invoice.currency }} {{ '{:,.2f}'.format(invoice.note_adjustment) }}</span>{% endif %}
+    {% set st = (invoice.status or 'Pending')|lower %}
+    <span class="pay-status-pill {{ st }}">
+      {% if st=='paid' %}✓ Paid in Full{% elif st=='partial' %}⏳ Partial ({{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(invoice.paid_amount or 0) }} Paid){% else %}⚠️ Unpaid / Pending{% endif %}
+    </span>
+  </div>
+
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <button type="button" class="btn btn-primary" onclick="document.getElementById('payModal').style.display='flex';" style="font-weight:700; background:#0D9488;">
+      💳 Record Payment
+    </button>
+
+    <a href="{{ url_for('purchase_invoice_edit', invoice_id=invoice.invoice_id) }}" class="btn btn-secondary" style="font-weight:600;">
+      ✏️ Edit Bill
+    </a>
+
+    <button type="button" class="btn btn-secondary" onclick="window.print()" style="font-weight:600;">
+      🖨️ Print Bill
+    </button>
+
+    {% if invoice.file_path %}
+    <a href="/purchase/file/{{ invoice.file_path }}" target="_blank" class="btn btn-secondary" style="font-weight:600;">
+      📎 View Attachment
+    </a>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('purchase_invoice_delete', invoice_id=invoice.invoice_id) }}" onsubmit="return confirm('Are you sure you want to delete this purchase bill?');" style="display:inline;">
+      <button type="submit" class="btn btn-secondary" style="color:#DC2626; font-weight:600;">🗑️ Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="inv-paper">
+  <!-- Top Letterhead -->
+  <div class="inv-top-bar">
+    <div>
+      <div class="company-title">{{ company.company_name if company else 'QIYADAH ERP' }}</div>
+      <div style="font-size:13px; color:var(--text-muted); margin-top:4px; line-height:1.4;">
+        {{ company.address or '' }}<br>
+        {% if company.city or company.state %}{{ company.city or '' }}{% if company.state %}, {{ company.state }}{% endif %}{% if company.pincode %} - {{ company.pincode }}{% endif %}<br>{% endif %}
+        {% if company.gst_number %}<strong>{{ tax_id_label|default("Tax ID") }}:</strong> {{ company.gst_number }}<br>{% endif %}
+        {% if company.phone %}<strong>Phone:</strong> {{ company.phone }} | {% endif %}
+        {% if company.email %}<strong>Email:</strong> {{ company.email }}{% endif %}
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div class="doc-title-badge">PURCHASE INVOICE / BILL</div>
+      <div style="font-family:monospace; font-size:16px; font-weight:800; margin-top:8px; color:var(--text-body);">
+        Ref: {{ invoice.invoice_id }}
+      </div>
+      <div style="font-size:14px; font-weight:700; color:#0D9488; margin-top:4px;">
+        Vendor Bill #: {{ invoice.invoice_number or '—' }}
+      </div>
+      {% set doc_curr = invoice.currency or base_currency %}
+      {% set doc_sym = curr_sym(doc_curr) %}
+      {% if doc_curr != base_currency %}
+      <div style="margin-top:6px;">
+        <span style="background:#EFF6FF; color:#2563EB; font-weight:700; font-size:12px; padding:3px 10px; border-radius:12px; border:1px solid #BFDBFE;">
+          {{ doc_curr }} {{ doc_sym }} Invoice
+        </span>
+        {% if invoice.exchange_rate and invoice.exchange_rate != 1.0 %}
+        <span style="font-size:11px; color:var(--text-muted); margin-left:6px;">
+          @ {{ "%.4f"|format(invoice.exchange_rate) }} {{ base_currency }}
+        </span>
+        {% endif %}
+      </div>
+      {% endif %}
+      <div style="font-size:13px; color:var(--text-muted); margin-top:4px;">
+        <strong>Bill Date:</strong> {{ invoice.date.strftime('%d-%m-%Y') if invoice.date else '—' }}
+      </div>
+      {% if invoice.due_date %}
+      <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">
+        <strong>Due Date:</strong> {{ invoice.due_date.strftime('%d-%m-%Y') }}
+      </div>
+      {% endif %}
+      {% if invoice.reference_po_no %}
+      <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">
+        <strong>PO Ref:</strong> {{ invoice.reference_po_no }}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Parties Info -->
+  <div class="parties-grid">
+    <div class="party-block">
+      <h4>Billed By / Supplier:</h4>
+      <div class="party-name">{{ invoice.supplier_name or (invoice.supplier.name if invoice.supplier else 'Vendor / Supplier') }}</div>
+      <div class="party-info">
+        {% if invoice.supplier_address %}{{ invoice.supplier_address|nl2br }}<br>{% endif %}
+        {% if invoice.supplier_gstin %}<strong>{{ tax_id_label|default("Tax ID") }}:</strong> <span style="font-family:monospace;">{{ invoice.supplier_gstin }}</span><br>{% endif %}
+        {% if invoice.supplier_state %}<strong>Place of Supply:</strong> {{ invoice.supplier_state }}<br>{% endif %}
+        {% if invoice.supplier_phone %}<strong>Phone:</strong> {{ invoice.supplier_phone }}<br>{% endif %}
+        {% if invoice.supplier_email %}<strong>Email:</strong> {{ invoice.supplier_email }}{% endif %}
+      </div>
+    </div>
+
+    <div class="party-block">
+      <h4>Bill Summary & Status:</h4>
+      <div class="party-info" style="line-height:1.7;">
+        <strong>Payment Terms:</strong> {{ invoice.payment_terms or 'Net 30 Days' }}<br>
+        <strong>Status:</strong> <span style="font-weight:700; color:#0D9488;">{{ invoice.status or 'Pending' }}</span><br>
+        {% if invoice.created_by %}<strong>Recorded By:</strong> {{ invoice.created_by }}<br>{% endif %}
+        {% if invoice.created_at %}<strong>Recorded On:</strong> {{ invoice.created_at.strftime('%d-%m-%Y %H:%M') }}<br>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Line Items Table -->
+  <table class="inv-table">
+    <thead>
+      <tr>
+        <th style="width:40px; text-align:center;">#</th>
+        <th style="width:120px;">Product Code</th>
+        <th>Particulars / Item Description</th>
+        <th style="width:90px; text-align:center;">HSN/SAC</th>
+        <th style="width:70px; text-align:center;">Qty</th>
+        <th style="width:60px; text-align:center;">Unit</th>
+        <th style="width:100px; text-align:right;">Rate ({{ doc_sym }})</th>
+        <th style="width:70px; text-align:center;">Disc %</th>
+        <th style="width:80px; text-align:center;">Tax %</th>
+        <th style="width:120px; text-align:right;">Total ({{ doc_sym }})</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for itm in invoice.items %}
+      <tr>
+        <td style="text-align:center; font-weight:700; color:var(--text-muted);">{{ loop.index }}</td>
+        <td style="font-family:monospace; font-weight:600;">{{ itm.item_code or itm.code or '—' }}</td>
+        <td>
+          <strong>{{ itm.item_name or itm.description or 'Item' }}</strong>
+        </td>
+        <td style="text-align:center; font-family:monospace;">{{ itm.hsn or '—' }}</td>
+        <td style="text-align:center; font-weight:700;">{{ "{:g}".format(itm.quantity or 1) }}</td>
+        <td style="text-align:center;">{{ itm.unit or 'pcs' }}</td>
+        <td style="text-align:right; font-family:monospace;">{{ "{:,.2f}".format(itm.rate or itm.purchase_rate or 0) }}</td>
+        <td style="text-align:center;">{{ "{:g}%".format(itm.discount_percent or 0) if itm.discount_percent else '—' }}</td>
+        <td style="text-align:center;">{{ "{:g}%".format(itm.gst_percent or 0) if itm.gst_percent else '0%' }}</td>
+        <td style="text-align:right; font-weight:700; font-family:monospace;">{{ doc_sym }}{{ "{:,.2f}".format(itm.total_amount or 0) }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted);">No items recorded on this purchase invoice.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Bottom Details & Totals Grid -->
+  <div style="display:grid; grid-template-columns: 1fr 380px; gap:24px; align-items:start;">
+    <div>
+      {% if invoice.terms %}
+      <div style="margin-bottom:16px;">
+        <h4 style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 6px 0;">Terms & Conditions:</h4>
+        <div style="font-size:12.5px; color:var(--text-muted); line-height:1.5; white-space:pre-line;">{{ invoice.terms }}</div>
+      </div>
+      {% endif %}
+
+      {% if invoice.notes %}
+      <div style="margin-bottom:16px;">
+        <h4 style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 6px 0;">Purchase Notes / GRN Ref:</h4>
+        <div style="font-size:12.5px; color:var(--text-muted); line-height:1.5; white-space:pre-line;">{{ invoice.notes }}</div>
+      </div>
+      {% endif %}
+
+      {% if invoice.payments and invoice.payments|length > 0 %}
+      <div>
+        <h4 style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 8px 0;">Payment Transactions:</h4>
+        <table style="width:100%; border-collapse:collapse; font-size:12px;">
+          <thead>
+            <tr style="border-bottom:1px solid #E5E7EB; text-align:left; color:var(--text-muted);">
+              <th style="padding:4px 0;">Date</th>
+              <th style="padding:4px 0;">Mode</th>
+              <th style="padding:4px 0;">Narration</th>
+              <th style="padding:4px 0; text-align:right;">Amount ({{ doc_sym }})</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in invoice.payments %}
+            <tr style="border-bottom:1px solid #F1F5F9;">
+              <td style="padding:5px 0;">{{ p.date.strftime('%d-%m-%Y') if p.date else '' }}</td>
+              <td style="padding:5px 0; font-weight:600;">{{ p.pay_mode or 'Cash' }}</td>
+              <td style="padding:5px 0; color:var(--text-muted);">{{ p.narration or '—' }}</td>
+              <td style="padding:5px 0; text-align:right; font-weight:700; color:#16A34A;">{{ doc_sym }}{{ "{:,.2f}".format(p.amount) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="calc-summary-box">
+      <div class="calc-row">
+        <span>Taxable Subtotal:</span>
+        <strong style="font-family:monospace;">{{ doc_sym }}{{ "{:,.2f}".format(invoice.subtotal or 0) }}</strong>
+      </div>
+
+      {% if invoice.cgst_total and invoice.cgst_total > 0 %}
+      <div class="calc-row">
+        <span>CGST:</span>
+        <span style="font-family:monospace;">{{ doc_sym }}{{ "{:,.2f}".format(invoice.cgst_total) }}</span>
+      </div>
+      {% endif %}
+
+      {% if invoice.sgst_total and invoice.sgst_total > 0 %}
+      <div class="calc-row">
+        <span>SGST:</span>
+        <span style="font-family:monospace;">{{ doc_sym }}{{ "{:,.2f}".format(invoice.sgst_total) }}</span>
+      </div>
+      {% endif %}
+
+      {% if invoice.igst_total and invoice.igst_total > 0 %}
+      <div class="calc-row">
+        <span>IGST:</span>
+        <span style="font-family:monospace;">{{ doc_sym }}{{ "{:,.2f}".format(invoice.igst_total) }}</span>
+      </div>
+      {% endif %}
+
+      <div class="calc-row" style="border-top:1px dashed var(--border-color, #E5E7EB); padding-top:6px; margin-top:4px;">
+        <span>Total Tax:</span>
+        <strong style="color:#D97706; font-family:monospace;">{{ doc_sym }}{{ "{:,.2f}".format(invoice.tax_amount or 0) }}</strong>
+      </div>
+
+      <div class="calc-row grand">
+        <span>Grand Total:</span>
+        <span style="font-family:monospace;">{{ doc_sym }}{{ "{:,.2f}".format(invoice.grand_total or 0) }}</span>
+      </div>
+
+      {% if doc_curr != base_currency and invoice.exchange_rate and invoice.exchange_rate != 1.0 %}
+      <div class="calc-row" style="color:#2563EB; font-size:12px; border-top:1px dashed #CBD5E1; margin-top:6px; padding-top:6px;">
+        <span>Base Equivalent ({{ base_currency }}):</span>
+        <strong style="font-family:monospace;">
+          {{ curr_sym(base_currency) }}{{ "{:,.2f}".format((invoice.base_grand_total or (invoice.grand_total or 0) * (invoice.exchange_rate or 1))) }}
+        </strong>
+      </div>
+      {% endif %}
+
+      <div class="calc-row" style="margin-top:8px; border-top:1px solid #E5E7EB; padding-top:8px;">
+        <span style="color:#16A34A; font-weight:600;">Paid Amount:</span>
+        <span style="color:#16A34A; font-weight:700; font-family:monospace;">{{ doc_sym }}{{ "{:,.2f}".format(invoice.paid_amount or 0) }}</span>
+      </div>
+
+      <div class="calc-row">
+        <span style="color:#DC2626; font-weight:700;">Balance Due:</span>
+        <strong style="color:#DC2626; font-size:16px; font-family:monospace;">{{ doc_sym }}{{ "{:,.2f}".format(invoice.balance if invoice.balance is not none else ((invoice.grand_total or 0) - (invoice.paid_amount or 0))) }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Signatures -->
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:40px; margin-top:48px; padding-top:20px; border-top:1px solid var(--border-color, #E5E7EB);">
+    <div>
+      <p style="font-size:12px; color:var(--text-muted); margin:0;">Store Inward / Goods Received By:</p>
+      <div style="height:50px;"></div>
+      <div style="border-bottom:1px solid #999; width:200px;"></div>
+      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0;">Signature & Date</p>
+    </div>
+    <div style="text-align:right;">
+      <p style="font-size:12px; font-weight:700; color:var(--text-body); margin:0;">For {{ company.company_name if company else 'QIYADAH ERP' }}</p>
+      <div style="height:50px;"></div>
+      <div style="border-bottom:1px solid #999; width:200px; margin-left:auto;"></div>
+      <p style="font-size:11px; color:var(--text-muted); margin:4px 0 0;">Accounts Verification</p>
+    </div>
+  </div>
+</div>
+
+{% if invoice.file_path %}
+<!-- Original Uploaded Bill / Attachment Card -->
+<div class="no-print" style="max-width:960px; margin:24px auto 40px; background:#fff; border:1.5px solid #CBD5E1; border-radius:12px; padding:22px 24px; box-shadow:0 4px 16px rgba(0,0,0,0.06);">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid #E2E8F0; padding-bottom:12px; flex-wrap:wrap; gap:10px;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span style="font-size:22px;">📎</span>
+      <div>
+        <h3 style="margin:0; font-size:16px; font-weight:700; color:#012926;">Original Vendor Bill / Uploaded Attachment</h3>
+        <div style="font-size:12px; color:var(--text-muted); font-family:monospace;">File: {{ invoice.file_path }}</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <a href="/purchase/file/{{ invoice.file_path }}" target="_blank" class="btn btn-secondary btn-sm" style="font-size:12.5px; font-weight:600; padding:6px 14px;">
+        🔍 Open in New Tab
+      </a>
+      <a href="/purchase/file/{{ invoice.file_path }}" download class="btn btn-primary btn-sm" style="font-size:12.5px; font-weight:600; background:#0D9488; padding:6px 14px;">
+        📥 Download File
+      </a>
+    </div>
+  </div>
+  
+  <div style="background:#F8FAFC; border-radius:8px; overflow:hidden; border:1px solid #E2E8F0; text-align:center;">
+    {% if invoice.file_path.lower().endswith('.pdf') %}
+    <iframe src="/purchase/file/{{ invoice.file_path }}" width="100%" height="700px" style="border:none; display:block;"></iframe>
+    {% else %}
+    <img src="/purchase/file/{{ invoice.file_path }}" alt="Vendor Bill Attachment" style="max-width:100%; max-height:800px; object-fit:contain; padding:12px; display:inline-block;">
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Record Payment Modal -->
+<div id="payModal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:12px; max-width:440px; width:90%; padding:24px; box-shadow:0 8px 30px rgba(0,0,0,0.2);">
+    <h3 style="margin-top:0; font-size:18px;">💳 Record Supplier Payment</h3>
+    <p style="font-size:13px; color:var(--text-muted); margin-top:-6px;">Bill {{ invoice.invoice_id }} · Outstanding: {{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(invoice.balance if invoice.balance is not none else ((invoice.grand_total or 0) - (invoice.paid_amount or 0))) }}</p>
+    
+    <form method="POST" action="{{ url_for('purchase_make_payment', pk=invoice.id) }}">
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Payment Amount ({{ currency_symbol|default("₹") }}) *</label>
+        <input type="number" step="0.01" name="amount" value="{{ invoice.balance if invoice.balance is not none else ((invoice.grand_total or 0) - (invoice.paid_amount or 0)) }}" required style="width:100%; padding:8px 12px; border:1.5px solid #0D9488; border-radius:6px; font-size:14px; box-sizing:border-box;">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Payment Date *</label>
+        <input type="date" name="payment_date" value="{{ today_date }}" required style="width:100%; padding:8px 12px; border:1.5px solid #CBD5E1; border-radius:6px; font-size:14px; box-sizing:border-box;">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Payment Mode</label>
+        <select name="pay_mode" style="width:100%; padding:8px 12px; border:1.5px solid #CBD5E1; border-radius:6px; font-size:14px; box-sizing:border-box;">
+          <option value="Bank Transfer / NEFT / RTGS" selected>Bank Transfer / NEFT / RTGS</option>
+          <option value="UPI / Online">UPI / Online</option>
+          <option value="Cheque">Cheque</option>
+          <option value="Cash">Cash</option>
+        </select>
+      </div>
+
+      <div style="margin-bottom:18px;">
+        <label style="font-size:12px; font-weight:700; display:block; margin-bottom:4px;">Narration / Reference Note</label>
+        <input type="text" name="narration" placeholder="e.g. UTR # / Cheque #..." style="width:100%; padding:8px 12px; border:1.5px solid #CBD5E1; border-radius:6px; font-size:14px; box-sizing:border-box;">
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('payModal').style.display='none';">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="font-weight:700; background:#0D9488;">Save Payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

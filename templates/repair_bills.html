@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Repair Bills{% endblock %}
+{% set active = 'repair_bills' %}
+{% block extra_style %}{% include '_invoice_dashboard_style.html' %}{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <h2 style="margin:0;">Repair Bills</h2>
+  {% if can('customer_invoices', 'create') and (module_access is not defined or module_access('repair')) %}
+  <a href="{{ url_for('workshop_erp_view') }}" class="btn btn-primary">+ New Repair Bill</a>
+  {% endif %}
+</div>
+<div class="summary-strip">
+  <div><div class="s-label">Total Repair Bills</div><div class="s-val">{{ rows|length }}</div></div>
+  <div><div class="s-label">Total Amount</div><div class="s-val">&#8377;{{ "{:,.0f}".format(total_amount) }}</div></div>
+  <div><div class="s-label">Amount Received</div><div class="s-val green">&#8377;{{ "{:,.0f}".format(total_paid) }}</div></div>
+  <div><div class="s-label">Balance Pending</div><div class="s-val red">&#8377;{{ "{:,.0f}".format(total_balance) }}</div></div>
+</div>
+<form method="GET" action="{{ url_for('repair_bills_view') }}" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+  <input type="hidden" name="status" value="{{ current_status }}">
+  <input type="search" name="q" value="{{ current_search }}" aria-label="Search repair bills" placeholder="Search customer, bill, job card or vehicle..." style="flex:1;min-width:180px;max-width:420px;padding:10px 16px;border-radius:10px;border:1.5px solid var(--border-color);font-size:14px;background:var(--bg-table-alt);color:var(--text-body);">
+  <button type="submit" class="btn btn-primary btn-sm">Search</button>
+  {% if current_search %}<a href="{{ url_for('repair_bills_view', status=current_status) }}" class="btn btn-ghost btn-sm">Clear</a>{% endif %}
+</form>
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;">
+  {% for status in ['All', 'Pending', 'Paid', 'Partial', 'Void'] %}
+  <a href="{{ url_for('repair_bills_view', status=status, q=current_search) }}" class="tab {% if current_status == status %}active{% endif %}">{{ status }}</a>
+  {% endfor %}
+</div>
+<div class="card"><div class="table-wrap"><table>
+  <thead><tr><th>Repair Bill #</th><th>Job Card</th><th>Customer</th><th>Vehicle</th><th>Date</th><th>Items</th><th>Subtotal</th><th>{{ billing_tax.label if billing_tax is defined else "Tax" }}</th><th>Total</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+  <tbody>
+  {% for jc, inv in rows %}
+  <tr>
+    <td><strong>{{ inv.invoice_number or '—' }}</strong></td>
+    <td>{{ jc.job_card_no }}</td>
+    <td>{{ inv.client_name or (jc.client_obj.name if jc.client_obj else '—') }}</td>
+    <td>{{ jc.vehicle_obj.registration_no if jc.vehicle_obj else '—' }}</td>
+    <td>{{ inv.invoice_date.strftime('%d %b %Y') if inv.invoice_date else '—' }}</td>
+    <td>{{ inv.items|length }}</td>
+    <td>&#8377;{{ "{:,.0f}".format(inv.subtotal or 0) }}</td>
+    <td>&#8377;{{ "{:,.0f}".format(inv.tax_amount or 0) }}</td>
+    <td><strong>&#8377;{{ "{:,.0f}".format(inv.grand_total or 0) }}</strong></td>
+    <td><span class="badge {% if inv.status == 'Paid' %}badge-success{% elif inv.status in ['Partial', 'Partially Paid'] %}badge-warning{% elif inv.status in ['Void', 'Draft'] %}badge-draft{% else %}badge-danger{% endif %}">{{ inv.status or 'Pending' }}</span></td>
+    <td style="text-align:right;white-space:nowrap;">
+      <a href="{{ url_for('repair_bill_view', job_card_id=jc.id) }}" class="btn btn-ghost btn-sm">View</a>
+      <a href="{{ url_for('repair_bill_view', job_card_id=jc.id) }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Print</a>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="11" style="text-align:center;padding:48px;color:var(--text-muted);">No repair bills found.
+    {% if can('customer_invoices', 'create') and (module_access is not defined or module_access('repair')) %}
+    <br><a href="{{ url_for('workshop_erp_view') }}" class="btn btn-primary" style="margin-top:12px;">Create a repair bill in Workshop</a>
+    {% endif %}
+  </td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

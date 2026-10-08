@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Module Access{% endblock %}
+{% block content %}
+<div class="card" style="padding:32px;max-width:720px;margin:32px auto;">
+  <h2>{{ module_name }} is unavailable</h2>
+  <p style="color:var(--text-muted);margin:16px 0;">{{ reason }}. Contact your platform administrator to review access or extend your trial.</p>
+  <a class="btn btn-primary" href="{{ safe_url('apps_hub', '/apps') }}">Choose another workspace</a>
+</div>
+{% endblock %}

@@ -1,0 +1,861 @@
+{% extends "base.html" %}
+{% block title %}Product Inventory & Stock | Qiyadah ERP{% endblock %}
+{% block page_title %}Product Inventory & Stock{% endblock %}
+{% set active = 'stock' %}
+
+{% block extra_style %}
+<style>
+  /* ── KPI Metric Cards ── */
+  .inv-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .inv-kpi-card {
+    background: var(--bg-card, #ffffff);
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #E5E7EB);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+  }
+  .kpi-icon-box {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .kpi-val {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #0f172a;
+  }
+  .kpi-lbl {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #64748b;
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── Main Inventory Table Card ── */
+  .table-container-card {
+    background: var(--bg-card, #ffffff);
+    border-radius: 14px;
+    border: 1px solid var(--border-color, #E5E7EB);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    overflow: hidden;
+  }
+  .table-toolbar {
+    padding: 18px 24px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+  }
+  .search-filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+  .search-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 14px;
+    min-width: 260px;
+    max-width: 380px;
+    flex: 1;
+  }
+  .search-input-wrapper input {
+    border: none;
+    background: none;
+    outline: none;
+    font-size: 13.5px;
+    font-family: inherit;
+    color: #1e293b;
+    width: 100%;
+  }
+  .filter-select {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1.5px solid #cbd5e1;
+    background: #ffffff;
+    font-size: 13px;
+    color: #334155;
+    outline: none;
+  }
+  .toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* ── Inventory Table Styling ── */
+  .stock-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+  }
+  .stock-table th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+  }
+  .stock-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #1e293b;
+    vertical-align: middle;
+  }
+  .stock-table tr:hover td {
+    background: #f8fafc;
+  }
+
+  /* ── Status Badges ── */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .badge-instock {
+    background: #dcfce7;
+    color: #15803d;
+  }
+  .badge-lowstock {
+    background: #fef3c7;
+    color: #b45309;
+  }
+  .badge-outofstock {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .unit-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+  }
+
+  .btn-primary {
+    background: #0284c7;
+    color: white;
+    font-weight: 600;
+    padding: 9px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 13.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .btn-primary:hover {
+    background: #0369a1;
+  }
+  .btn-success {
+    background: #16a34a;
+    color: white;
+    font-weight: 600;
+    padding: 9px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 13.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .btn-success:hover {
+    background: #15803d;
+  }
+  .btn-ghost {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: 1.5px solid #cbd5e1;
+    font-size: 13px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .btn-ghost:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+  }
+
+  .action-btn-sm {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+  .action-btn-inward {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+  }
+  .action-btn-inward:hover {
+    background: #d1fae5;
+  }
+  .action-btn-ledger {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+  }
+  .action-btn-ledger:hover {
+    background: #dbeafe;
+  }
+  .action-btn-edit {
+    background: #f8fafc;
+    color: #475569;
+    border-color: #cbd5e1;
+  }
+  .action-btn-edit:hover {
+    background: #e2e8f0;
+    color: #0f172a;
+  }
+  .action-btn-del {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fecaca;
+  }
+  .action-btn-del:hover {
+    background: #fee2e2;
+  }
+
+  /* ── Modal Styles ── */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(3px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 16px;
+  }
+  .modal-overlay.active {
+    display: flex;
+  }
+  .modal-box {
+    background: #ffffff;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+    animation: modalPop 0.2s ease-out;
+  }
+  @keyframes modalPop {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .modal-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+  }
+  .modal-close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #94a3b8;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .modal-close-btn:hover {
+    color: #0f172a;
+  }
+  .modal-body {
+    padding: 24px;
+  }
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Top Header ── -->
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; margin-bottom:20px;">
+  <div>
+    <h2 style="font-size:22px; font-weight:800; color:#0f172a; margin:0;">📦 Product Inventory & Stock</h2>
+    <p style="font-size:13px; color:#64748b; margin:4px 0 0;">
+      Real-time stock ledger, product valuation, inward management & sales stock deduction
+    </p>
+  </div>
+  <div style="display:flex; gap:10px; flex-wrap:wrap;">
+    <a href="{{ url_for('customer_invoice_list') }}" class="btn-ghost" title="View Sales Tax Invoices">
+      🧾 Sales Invoices
+    </a>
+    <a href="{{ url_for('purchase_invoice_list') }}" class="btn-ghost" title="View Purchase Bills">
+      🛒 Purchase Bills
+    </a>
+    <button type="button" onclick="openDirectInwardModal()" class="btn-success">
+      📥 Direct Stock Inward
+    </button>
+    <a href="{{ url_for('inventory_add') }}" class="btn-primary">
+      ➕ Add Product
+    </a>
+  </div>
+</div>
+
+<!-- ── KPI Summary Cards ── -->
+<div class="inv-kpi-grid">
+  <div class="inv-kpi-card">
+    <div class="kpi-icon-box" style="background:#e0f2fe; color:#0284c7;">📦</div>
+    <div>
+      <div class="kpi-val">{{ total_products or 0 }}</div>
+      <div class="kpi-lbl">Total Products</div>
+    </div>
+  </div>
+
+  <div class="inv-kpi-card">
+    <div class="kpi-icon-box" style="background:#f0fdf4; color:#16a34a;">📊</div>
+    <div>
+      <div class="kpi-val">{{ '{:,.0f}'.format(total_stock_qty or 0) }}</div>
+      <div class="kpi-lbl">Total Stock in Hand</div>
+    </div>
+  </div>
+
+  <div class="inv-kpi-card">
+    <div class="kpi-icon-box" style="background:#fae8ff; color:#a21caf;">💰</div>
+    <div>
+      <div class="kpi-val">{{ currency_symbol|default("₹") }}{{ '{:,.2f}'.format(total_valuation or 0) }}</div>
+      <div class="kpi-lbl">Total Stock Valuation</div>
+    </div>
+  </div>
+
+  <div class="inv-kpi-card">
+    <div class="kpi-icon-box" style="background:#fef3c7; color:#d97706;">⚠️</div>
+    <div>
+      <div class="kpi-val" style="color:#d97706;">{{ low_stock_count or 0 }}</div>
+      <div class="kpi-lbl">Low Stock Alerts</div>
+    </div>
+  </div>
+
+  <div class="inv-kpi-card">
+    <div class="kpi-icon-box" style="background:#fee2e2; color:#dc2626;">🚫</div>
+    <div>
+      <div class="kpi-val" style="color:#dc2626;">{{ out_of_stock_count or 0 }}</div>
+      <div class="kpi-lbl">Out of Stock</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Main Inventory Table Card ── -->
+<div class="table-container-card">
+  <!-- Toolbar: Search & Filters -->
+  <div class="table-toolbar">
+    <div class="search-filter-group">
+      <div class="search-input-wrapper">
+        <span style="font-size:14px; color:#94a3b8;">🔍</span>
+        <input type="text" id="invSearchInput" placeholder="Search by Product Name, Code, HSN, Category…" oninput="filterInventoryTable()">
+      </div>
+
+      <select id="categoryFilter" class="filter-select" onchange="filterInventoryTable()">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+          {% if cat %}
+            <option value="{{ cat }}">{{ cat }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+
+      <select id="statusFilter" class="filter-select" onchange="filterInventoryTable()">
+        <option value="">All Stock Status</option>
+        <option value="in_stock">In Stock</option>
+        <option value="low_stock">Low Stock (≤ Reorder)</option>
+        <option value="out_of_stock">Out of Stock (0)</option>
+      </select>
+    </div>
+
+    <div class="toolbar-actions">
+      <span style="font-size:12.5px; color:#64748b; font-weight:600;">
+        Showing <span id="visibleRowCount">{{ items|length }}</span> of {{ items|length }} items
+      </span>
+    </div>
+  </div>
+
+  <!-- Product List Table -->
+  <div style="overflow-x:auto;">
+    <table class="stock-table" id="inventoryTable">
+      <thead>
+        <tr>
+          <th style="width:50px; text-align:center;">#</th>
+          <th style="width:110px;">Item Code</th>
+          <th>Product Name & Category</th>
+          <th style="width:90px;">HSN</th>
+          <th style="text-align:right; width:120px;">Current Stock</th>
+          <th style="text-align:center; width:110px;">Status</th>
+          <th style="text-align:right; width:110px;">Cost ({{ currency_symbol|default("₹") }})</th>
+          <th style="text-align:right; width:110px;">Selling ({{ currency_symbol|default("₹") }})</th>
+          <th style="text-align:right; width:130px;">Valuation ({{ currency_symbol|default("₹") }})</th>
+          <th style="text-align:center; width:70px;">{{ billing_tax.label if billing_tax is defined else "Tax" }} %</th>
+          <th style="text-align:center; width:170px;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+          {% set qty = it.quantity or 0.0 %}
+          {% set reorder = it.reorder_level or 10.0 %}
+          {% set cost = it.purchase_rate or it.last_purchase_rate or it.unit_price or 0.0 %}
+          {% set sell = it.selling_price or it.unit_price or 0.0 %}
+          {% set val = qty * cost %}
+          
+          {% set status_key = 'out_of_stock' if qty <= 0 else ('low_stock' if qty <= reorder else 'in_stock') %}
+          
+          <tr class="inv-item-row" 
+              data-code="{{ it.code|upper }}" 
+              data-name="{{ it.name|lower }}" 
+              data-cat="{{ (it.category or '')|lower }}" 
+              data-hsn="{{ (it.hsn or '')|lower }}"
+              data-status="{{ status_key }}">
+            
+            <td style="text-align:center; color:#94a3b8; font-size:12px;">{{ loop.index }}</td>
+            
+            <td>
+              <span style="font-family:monospace; font-weight:700; color:#0284c7; background:#e0f2fe; padding:2px 6px; border-radius:4px;">
+                {{ it.code }}
+              </span>
+            </td>
+
+            <td>
+              <div style="font-weight:700; color:#0f172a;">{{ it.name }}</div>
+              <div style="font-size:11.5px; color:#64748b; margin-top:2px;">
+                <span style="background:#f1f5f9; padding:1px 6px; border-radius:3px;">{{ it.category or 'General' }}</span>
+              </div>
+            </td>
+
+            <td style="color:#64748b; font-family:monospace;">{{ it.hsn or '—' }}</td>
+
+            <td style="text-align:right; font-weight:800; font-size:14px; color:{{ '#dc2626' if qty <= 0 else ('#d97706' if qty <= reorder else '#0f172a') }};">
+              {{ '{:,.2f}'.format(qty)|replace('.00', '') }}
+              <span class="unit-badge">{{ it.unit or 'pcs' }}</span>
+            </td>
+
+            <td style="text-align:center;">
+              {% if qty <= 0 %}
+                <span class="status-badge badge-outofstock">● Out of Stock</span>
+              {% elif qty <= reorder %}
+                <span class="status-badge badge-lowstock">⚠️ Low Stock</span>
+              {% else %}
+                <span class="status-badge badge-instock">✓ In Stock</span>
+              {% endif %}
+            </td>
+
+            <td style="text-align:right; font-weight:600; color:#475569;">
+              {{ currency_symbol|default("₹") }}{{ '{:,.2f}'.format(cost) }}
+            </td>
+
+            <td style="text-align:right; font-weight:600; color:#0284c7;">
+              {{ currency_symbol|default("₹") }}{{ '{:,.2f}'.format(sell) }}
+            </td>
+
+            <td style="text-align:right; font-weight:700; color:#16a34a;">
+              {{ currency_symbol|default("₹") }}{{ '{:,.2f}'.format(val) }}
+            </td>
+
+            <td style="text-align:center; font-size:12px; color:#64748b;">
+              {{ it.gst_percent or 18 }}%
+            </td>
+
+            <td style="text-align:center; white-space:nowrap;">
+              <div style="display:inline-flex; gap:4px;">
+                <button type="button" class="action-btn-sm action-btn-inward" title="Quick Direct Inward Stock"
+                        data-id="{{ it.id }}"
+                        data-code="{{ it.code }}"
+                        data-name="{{ it.name }}"
+                        data-cost="{{ cost }}"
+                        data-unit="{{ it.unit or 'pcs' }}"
+                        onclick="handleInwardBtn(this)">
+                  📥 Inward
+                </button>
+                <button type="button" class="action-btn-sm action-btn-ledger" title="View Stock Movement Ledger"
+                        data-id="{{ it.id }}"
+                        data-code="{{ it.code }}"
+                        data-name="{{ it.name }}"
+                        onclick="handleLedgerBtn(this)">
+                  📊 Ledger
+                </button>
+                <a href="{{ url_for('inventory_edit', item_pk=it.id) }}" class="action-btn-sm action-btn-edit" title="Edit Product">
+                  ✏️
+                </a>
+                <button type="button" class="action-btn-sm action-btn-del" title="Delete Product"
+                        data-id="{{ it.id }}"
+                        data-name="{{ it.name }}"
+                        onclick="handleDeleteBtn(this)">
+                  🗑️
+                </button>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="11" style="text-align:center; padding:40px; color:#94a3b8;">
+              <div style="font-size:36px; margin-bottom:8px;">📦</div>
+              <div style="font-size:15px; font-weight:600; color:#475569;">No products in inventory yet</div>
+              <p style="font-size:13px; margin:6px 0 16px;">Add your first product or record a purchase bill to inward stock.</p>
+              <a href="{{ url_for('inventory_add') }}" class="btn-primary">➕ Add New Product</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── MODAL 1: Direct Stock Inward (Way 2: No Bill) ── -->
+<div class="modal-overlay" id="directInwardModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 class="modal-title">📥 Direct Stock Inward Entry (No Bill)</h3>
+      <button type="button" class="modal-close-btn" onclick="closeDirectInwardModal()">&times;</button>
+    </div>
+    <form method="POST" action="{{ url_for('stock_inward_direct') }}">
+      <div class="modal-body">
+        <p style="font-size:12.5px; color:#64748b; margin:0 0 16px;">
+          Inward stock directly into inventory without a purchase bill (Opening stock, direct market buy, or workshop batch).
+        </p>
+
+        <div class="form-group" style="display:flex; flex-direction:column; margin-bottom:14px;">
+          <label style="font-size:12.5px; font-weight:600; color:#475569; margin-bottom:6px;">Select Product <span style="color:#ef4444;">*</span></label>
+          <select name="stock_item_id" id="inwardStockId" class="form-control" style="padding:10px 14px; border-radius:8px; border:1.5px solid #cbd5e1; background:#ffffff; font-size:13.5px;" required onchange="onInwardProductSelect()">
+            <option value="">-- Choose Product --</option>
+            {% for it in items %}
+              <option value="{{ it.id }}" data-code="{{ it.code }}" data-rate="{{ it.purchase_rate or it.unit_price or 0 }}" data-unit="{{ it.unit or 'pcs' }}">
+                {{ it.code }} - {{ it.name }} (Current: {{ it.quantity }} {{ it.unit or 'pcs' }})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+          <div style="display:flex; flex-direction:column;">
+            <label style="font-size:12.5px; font-weight:600; color:#475569; margin-bottom:6px;">Inward Quantity <span style="color:#ef4444;">*</span></label>
+            <input type="number" name="quantity" id="inwardQty" class="form-control" style="padding:10px 14px; border-radius:8px; border:1.5px solid #cbd5e1; background:#ffffff; font-size:13.5px;" step="any" min="0.01" required placeholder="e.g. 50">
+          </div>
+
+          <div style="display:flex; flex-direction:column;">
+            <label style="font-size:12.5px; font-weight:600; color:#475569; margin-bottom:6px;">Purchase / Cost Rate ({{ currency_symbol|default("₹") }}) <span style="color:#ef4444;">*</span></label>
+            <input type="number" name="purchase_rate" id="inwardRate" class="form-control" style="padding:10px 14px; border-radius:8px; border:1.5px solid #cbd5e1; background:#ffffff; font-size:13.5px;" step="0.01" min="0" required placeholder="0.00">
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; margin-bottom:14px;">
+          <label style="font-size:12.5px; font-weight:600; color:#475569; margin-bottom:6px;">Source / Reference Note</label>
+          <input type="text" name="reference" class="form-control" style="padding:10px 14px; border-radius:8px; border:1.5px solid #cbd5e1; background:#ffffff; font-size:13.5px;" placeholder="e.g. Cash Market Purchase, Batch #402, Opening Count">
+        </div>
+
+        <div style="display:flex; flex-direction:column;">
+          <label style="font-size:12.5px; font-weight:600; color:#475569; margin-bottom:6px;">Inward Date</label>
+          <input type="date" name="inward_date" class="form-control" style="padding:10px 14px; border-radius:8px; border:1.5px solid #cbd5e1; background:#ffffff; font-size:13.5px;" value="{{ today_date }}">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" onclick="closeDirectInwardModal()">Cancel</button>
+        <button type="submit" class="btn-success">📥 Inward Stock</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── MODAL 2: Stock Movement Ledger (History) ── -->
+<div class="modal-overlay" id="movementLedgerModal">
+  <div class="modal-box" style="max-width:760px;">
+    <div class="modal-header">
+      <div>
+        <h3 class="modal-title" id="ledgerModalTitle">📊 Product Stock Ledger</h3>
+        <div style="font-size:12px; color:#64748b;" id="ledgerModalSubtitle">Movement history and audit trail</div>
+      </div>
+      <button type="button" class="modal-close-btn" onclick="closeMovementModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding:16px 24px;">
+      <div id="ledgerLoading" style="text-align:center; padding:30px; color:#64748b;">
+        <span style="font-size:24px;">⏳</span><br>Loading stock movements...
+      </div>
+      <div id="ledgerContent" style="display:none;">
+        <div style="display:flex; justify-content:space-between; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 18px; margin-bottom:16px;">
+          <div>
+            <div style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase;">Total Inward (IN)</div>
+            <div style="font-size:16px; font-weight:800; color:#16a34a;" id="ledgerTotalIn">+0</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase;">Total Outward (OUT)</div>
+            <div style="font-size:16px; font-weight:800; color:#dc2626;" id="ledgerTotalOut">-0</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:#64748b; font-weight:600; text-transform:uppercase;">Current Net Balance</div>
+            <div style="font-size:16px; font-weight:800; color:#0284c7;" id="ledgerNetBalance">0</div>
+          </div>
+        </div>
+
+        <div style="max-height:360px; overflow-y:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+            <thead>
+              <tr style="background:#f1f5f9; text-align:left; color:#475569;">
+                <th style="padding:8px 12px; border-bottom:1px solid #cbd5e1;">Date</th>
+                <th style="padding:8px 12px; border-bottom:1px solid #cbd5e1;">Type</th>
+                <th style="padding:8px 12px; border-bottom:1px solid #cbd5e1;">Reference / Details</th>
+                <th style="padding:8px 12px; border-bottom:1px solid #cbd5e1; text-align:right;">Rate ({{ currency_symbol|default("₹") }})</th>
+                <th style="padding:8px 12px; border-bottom:1px solid #cbd5e1; text-align:right;">Qty IN/OUT</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn-ghost" onclick="closeMovementModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL 3: Delete Product Confirmation ── -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 class="modal-title" style="color:#dc2626;">🗑️ Delete Product</h3>
+      <button type="button" class="modal-close-btn" onclick="closeDeleteModal()">&times;</button>
+    </div>
+    <form id="deleteForm" method="POST" action="">
+      <div class="modal-body">
+        <p style="font-size:13.5px; color:#334155; margin:0 0 12px;">
+          Are you sure you want to delete <strong id="deleteProductName">this product</strong> from inventory?
+        </p>
+        <p style="font-size:12px; color:#94a3b8; margin:0;">
+          This action will remove the product master item.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+        <button type="submit" class="action-btn-sm action-btn-del" style="padding:8px 18px; font-size:13.5px;">Delete Product</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // ── Search & Filter Logic ──
+  function filterInventoryTable() {
+    var search = (document.getElementById('invSearchInput').value || '').toLowerCase().trim();
+    var cat = (document.getElementById('categoryFilter').value || '').toLowerCase().trim();
+    var status = (document.getElementById('statusFilter').value || '').trim();
+
+    var rows = document.querySelectorAll('.inv-item-row');
+    var visibleCount = 0;
+
+    rows.forEach(function(row) {
+      var rCode = row.getAttribute('data-code') || '';
+      var rName = row.getAttribute('data-name') || '';
+      var rCat = row.getAttribute('data-cat') || '';
+      var rHsn = row.getAttribute('data-hsn') || '';
+      var rStatus = row.getAttribute('data-status') || '';
+
+      var matchesSearch = !search || rCode.includes(search) || rName.includes(search) || rCat.includes(search) || rHsn.includes(search);
+      var matchesCat = !cat || rCat === cat;
+      var matchesStatus = !status || rStatus === status;
+
+      if (matchesSearch && matchesCat && matchesStatus) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    document.getElementById('visibleRowCount').textContent = visibleCount;
+  }
+
+  // ── Button Handlers ──
+  function handleInwardBtn(btn) {
+    var id = btn.getAttribute('data-id');
+    var code = btn.getAttribute('data-code');
+    var name = btn.getAttribute('data-name');
+    var cost = btn.getAttribute('data-cost');
+    var unit = btn.getAttribute('data-unit');
+    openDirectInwardModal(id, code, name, cost, unit);
+  }
+
+  function handleLedgerBtn(btn) {
+    var id = btn.getAttribute('data-id');
+    var code = btn.getAttribute('data-code');
+    var name = btn.getAttribute('data-name');
+    openMovementModal(id, code, name);
+  }
+
+  function handleDeleteBtn(btn) {
+    var id = btn.getAttribute('data-id');
+    var name = btn.getAttribute('data-name');
+    confirmDeleteProduct(id, name);
+  }
+
+  // ── Direct Inward Modal ──
+  function openDirectInwardModal(id, code, name, rate, unit) {
+    var modal = document.getElementById('directInwardModal');
+    var select = document.getElementById('inwardStockId');
+    if (id) {
+      select.value = id;
+      onInwardProductSelect();
+    }
+    modal.classList.add('active');
+  }
+
+  function closeDirectInwardModal() {
+    document.getElementById('directInwardModal').classList.remove('active');
+  }
+
+  function onInwardProductSelect() {
+    var select = document.getElementById('inwardStockId');
+    var opt = select.options[select.selectedIndex];
+    if (opt && opt.value) {
+      var rate = opt.getAttribute('data-rate') || '0.00';
+      document.getElementById('inwardRate').value = parseFloat(rate).toFixed(2);
+    }
+  }
+
+  // ── Movement Ledger Modal ──
+  function openMovementModal(id, code, name) {
+    var modal = document.getElementById('movementLedgerModal');
+    document.getElementById('ledgerModalTitle').textContent = '📊 Stock Ledger: ' + name;
+    document.getElementById('ledgerModalSubtitle').textContent = 'Code: ' + code + ' | Movement Audit Log';
+    
+    document.getElementById('ledgerLoading').style.display = 'block';
+    document.getElementById('ledgerContent').style.display = 'none';
+    modal.classList.add('active');
+
+    fetch('/stock/movements/' + id)
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        document.getElementById('ledgerLoading').style.display = 'none';
+        document.getElementById('ledgerContent').style.display = 'block';
+
+        document.getElementById('ledgerTotalIn').textContent = '+' + (data.total_in || 0).toLocaleString();
+        document.getElementById('ledgerTotalOut').textContent = '-' + (data.total_out || 0).toLocaleString();
+        var net = (data.total_in || 0) - (data.total_out || 0);
+        document.getElementById('ledgerNetBalance').textContent = net.toLocaleString() + ' ' + (data.unit || 'pcs');
+
+        var tbody = document.getElementById('ledgerTableBody');
+        tbody.innerHTML = '';
+
+        if (!data.movements || data.movements.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#94a3b8;">No movements recorded yet.</td></tr>';
+          return;
+        }
+
+        data.movements.forEach(function(m) {
+          var tr = document.createElement('tr');
+          tr.style.borderBottom = '1px solid #f1f5f9';
+
+          var is_in = m.quantity > 0 || m.type === 'Purchase' || m.type === 'Purchase Bill' || m.type === 'Direct Inward' || m.type === 'Opening Stock';
+          var badgeColor = is_in ? '#15803d' : '#b91c1c';
+          var badgeBg = is_in ? '#dcfce7' : '#fee2e2';
+
+          tr.innerHTML = 
+            '<td style="padding:10px 12px; color:#64748b;">' + (m.date || '—') + '</td>' +
+            '<td style="padding:10px 12px;"><span style="background:' + badgeBg + '; color:' + badgeColor + '; font-weight:700; font-size:10.5px; padding:2px 8px; border-radius:12px;">' + (m.type || 'Movement') + '</span></td>' +
+            '<td style="padding:10px 12px; font-weight:600; color:#334155;">' + (m.ref || '—') + '</td>' +
+            '<td style="padding:10px 12px; text-align:right; color:#64748b;">{{ currency_symbol|default("₹") }}' + (parseFloat(m.rate || 0).toFixed(2)) + '</td>' +
+            '<td style="padding:10px 12px; text-align:right; font-weight:700; color:' + (is_in ? '#16a34a' : '#dc2626') + ';">' + (is_in ? '+' : '') + m.quantity + '</td>';
+          tbody.appendChild(tr);
+        });
+      })
+      .catch(function(err) {
+        document.getElementById('ledgerLoading').innerHTML = '<span style="color:#dc2626;">Error loading movements. Please try again.</span>';
+      });
+  }
+
+  function closeMovementModal() {
+    document.getElementById('movementLedgerModal').classList.remove('active');
+  }
+
+  // ── Delete Modal ──
+  function confirmDeleteProduct(id, name) {
+    document.getElementById('deleteProductName').textContent = name;
+    document.getElementById('deleteForm').action = '/inventory/delete/' + id;
+    document.getElementById('deleteModal').classList.add('active');
+  }
+
+  function closeDeleteModal() {
+    document.getElementById('deleteModal').classList.remove('active');
+  }
+
+  // Close modals on clicking overlay background
+  document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) {
+        overlay.classList.remove('active');
+      }
+    });
+  });
+</script>
+
+{% endblock %}

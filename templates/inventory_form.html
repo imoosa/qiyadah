@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if item else 'Add' }} Product | Inventory - Qiyadah ERP{% endblock %}
+{% block page_title %}{{ 'Edit' if item else 'Add' }} Product{% endblock %}
+{% set active = 'stock' %}
+
+{% block extra_style %}
+<style>
+  .product-form-container {
+    max-width: 920px;
+    margin: 0 auto;
+  }
+  .form-card {
+    background: var(--bg-card, #ffffff);
+    border-radius: 14px;
+    border: 1px solid var(--border-color, #E5E7EB);
+    padding: 28px 32px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    margin-bottom: 24px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1e293b;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin: 24px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #f1f5f9;
+  }
+  .section-header:first-of-type {
+    margin-top: 0;
+  }
+  .section-icon {
+    font-size: 18px;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 14px;
+  }
+  .form-group label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 6px;
+  }
+  .form-group label span.req {
+    color: #ef4444;
+  }
+  .form-control {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1.5px solid #cbd5e1;
+    background: #ffffff;
+    font-size: 13.5px;
+    color: #1e293b;
+    transition: all 0.2s ease;
+    font-family: inherit;
+  }
+  .form-control:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+    outline: none;
+  }
+  .form-control:disabled, .form-control[readonly] {
+    background: #f8fafc;
+    color: #64748b;
+    cursor: not-allowed;
+    border-color: #e2e8f0;
+  }
+  .help-hint {
+    font-size: 11.5px;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+  .summary-badge-box {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 20px;
+  }
+  .summary-item {
+    text-align: center;
+  }
+  .summary-item-val {
+    font-size: 20px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+  }
+  .summary-item-lbl {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-top: 4px;
+  }
+  .form-actions {
+    display: flex;
+    gap: 14px;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+  }
+  .btn-primary {
+    background: #0284c7;
+    color: white;
+    font-weight: 600;
+    padding: 10px 24px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.2s;
+  }
+  .btn-primary:hover {
+    background: #0369a1;
+  }
+  .btn-ghost {
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #cbd5e1;
+  }
+  .btn-ghost:hover {
+    background: #e2e8f0;
+    color: #1e293b;
+  }
+  @media (max-width: 768px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .form-card { padding: 20px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="product-form-container">
+  <div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+    <div>
+      <h2 style="font-size:22px; font-weight:800; color:#0f172a; margin:0;">
+        {{ '✏️ Edit Product' if item else '➕ Add New Product / Direct Stock Inward' }}
+      </h2>
+      <p style="font-size:13px; color:#64748b; margin:4px 0 0;">
+        {{ 'Update master specifications, prices and alert limits' if item else 'Create product in inventory with opening stock or direct inward entry (Way 2: No Bill Entry)' }}
+      </p>
+    </div>
+    <a href="{{ url_for('inventory_list') }}" class="btn-ghost">← Back to Inventory</a>
+  </div>
+
+  <div class="form-card">
+    <form method="POST" action="{{ url_for('inventory_edit', item_pk=item.id) if item else url_for('inventory_add') }}">
+      
+      <!-- ── Section 1: Product Master Info ────────────────── -->
+      <div class="section-header">
+        <span class="section-icon">📦</span>
+        <span>Product Identification & Classification</span>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Product Code / SKU {% if not item %}<span style="font-weight:normal;color:#64748b;">(leave empty to auto-generate)</span>{% endif %}</label>
+          {% if item %}
+            <input type="text" class="form-control" value="{{ item.code }}" disabled>
+            <input type="hidden" name="code" value="{{ item.code }}">
+            <span class="help-hint">Product code cannot be modified.</span>
+          {% else %}
+            <input type="text" name="code" class="form-control" placeholder="e.g. PROD-0001, SKU-101" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+            <span class="help-hint">Auto-generated (e.g. PROD-0001) if left blank.</span>
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <label>Product Name <span class="req">*</span></label>
+          <input type="text" name="name" class="form-control" required value="{{ item.name if item else '' }}" placeholder="e.g. Steel Pipe 2 inch / Wireless Mouse">
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="form-group">
+          <label>Category</label>
+          <input type="text" name="category" list="categoryList" class="form-control" value="{{ item.category if item else 'Finished Goods' }}" placeholder="Select or type category">
+          <datalist id="categoryList">
+            <option value="Finished Goods">
+            <option value="Raw Material">
+            <option value="Electronics">
+            <option value="Hardware">
+            <option value="Packaging">
+            <option value="Garments">
+            <option value="Chemicals">
+            <option value="Tools & Machinery">
+            <option value="Spare Parts">
+            <option value="General">
+          </datalist>
+        </div>
+
+        <div class="form-group">
+          <label>HSN / SAC Code</label>
+          <input type="text" name="hsn" class="form-control" value="{{ item.hsn if item else '' }}" placeholder="e.g. 8471, 7306">
+          <span class="help-hint">For GST compliance</span>
+        </div>
+
+        <div class="form-group">
+          <label>Unit of Measure <span class="req">*</span></label>
+          <select name="unit" class="form-control">
+            {% set current_unit = item.unit if item else 'pcs' %}
+            {% set units = [
+              ('pcs', 'Pieces (pcs)'),
+              ('nos', 'Numbers (nos)'),
+              ('kg', 'Kilograms (kg)'),
+              ('g', 'Grams (g)'),
+              ('box', 'Box / Carton (box)'),
+              ('set', 'Set (set)'),
+              ('mtr', 'Meters (mtr)'),
+              ('ltr', 'Litres (ltr)'),
+              ('ton', 'Ton (ton)'),
+              ('sq.ft', 'Sq. Feet (sq.ft)'),
+              ('pair', 'Pair (pair)'),
+              ('bag', 'Bag (bag)'),
+              ('roll', 'Roll (roll)')
+            ] %}
+            {% for u_val, u_lbl in units %}
+              <option value="{{ u_val }}" {% if current_unit|lower == u_val|lower %}selected{% endif %}>{{ u_lbl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- ── Section 2: Stock & Inventory Control ──────────── -->
+      <div class="section-header">
+        <span class="section-icon">📊</span>
+        <span>Stock Levels & Inventory Thresholds</span>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label>{{ 'Current Stock Quantity' if item else 'Opening / Direct Inward Quantity' }} <span class="req">*</span></label>
+          <input type="number" name="quantity" id="inputQty" class="form-control" step="any" required min="0" value="{{ item.quantity if item else '0' }}" oninput="recalcSummary()">
+          <span class="help-hint">{{ 'Available quantity on hand' if item else 'Initial inward stock (will be logged as IN in stock movement ledger)' }}</span>
+        </div>
+
+        <div class="form-group">
+          <label>Minimum Reorder Level (Low Stock Alert)</label>
+          <input type="number" name="reorder_level" id="inputReorder" class="form-control" step="1" min="0" value="{{ item.reorder_level if item else '10' }}">
+          <span class="help-hint">Alerts when stock falls to or below this quantity</span>
+        </div>
+      </div>
+
+      <!-- ── Section 3: Pricing & {{ billing_tax.label if billing_tax is defined else "Tax" }} Tax ──────────────────── -->
+      <div class="section-header">
+        <span class="section-icon">💰</span>
+        <span>Pricing & Taxation ({{ currency_symbol|default("₹") }})</span>
+      </div>
+
+      <div class="grid-3">
+        <div class="form-group">
+          <label>Purchase / Cost Rate ({{ currency_symbol|default("₹") }}) <span class="req">*</span></label>
+          <input type="number" name="purchase_rate" id="inputPurchaseRate" class="form-control" step="0.01" required min="0" value="{{ item.purchase_rate or item.last_purchase_rate or item.unit_price if item else '0.00' }}" oninput="recalcSummary()">
+          <span class="help-hint">Cost per unit excluding GST</span>
+        </div>
+
+        <div class="form-group">
+          <label>Selling Price / MRP ({{ currency_symbol|default("₹") }}) <span class="req">*</span></label>
+          <input type="number" name="selling_price" id="inputSellingPrice" class="form-control" step="0.01" required min="0" value="{{ item.selling_price or item.unit_price if item else '0.00' }}" oninput="recalcSummary()">
+          <span class="help-hint">Default sales rate per unit</span>
+        </div>
+
+        <div class="form-group">
+          <label>{{ billing_tax.label if billing_tax is defined else "Tax" }} Rate (%)</label>
+          <select name="gst_percent" id="inputGst" class="form-control" onchange="recalcSummary()">
+            {% set current_gst = item.gst_percent if item and item.gst_percent is not none else billing_tax.default_rate %}
+            {% for rate in (billing_tax.rates + [current_gst])|unique %}<option value="{{ rate }}" {% if rate == current_gst %}selected{% endif %}>{{ rate }}% {{ billing_tax.label }}</option>{% endfor %}
+          </select>
+          <span class="help-hint">Applicable tax rate</span>
+        </div>
+      </div>
+
+      <!-- ── Live Summary Calculation Box ──────────────────── -->
+      <div class="summary-badge-box">
+        <div class="summary-item">
+          <div class="summary-item-val" id="summaryValuation" style="color:#0284c7;">{{ currency_symbol|default("₹") }}0.00</div>
+          <div class="summary-item-lbl">Total Stock Valuation</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-item-val" id="summaryMargin" style="color:#16a34a;">0.0%</div>
+          <div class="summary-item-lbl">Profit Margin ({{ currency_symbol|default("₹") }}/%)</div>
+        </div>
+        <div class="summary-item">
+          <div class="summary-item-val" id="summaryTaxInc" style="color:#7c3aed;">{{ currency_symbol|default("₹") }}0.00</div>
+          <div class="summary-item-lbl">Selling Price (incl. GST)</div>
+        </div>
+      </div>
+
+      <!-- ── Form Actions ──────────────────────────────────── -->
+      <div class="form-actions">
+        <a href="{{ url_for('inventory_list') }}" class="btn-ghost">Cancel</a>
+        <button type="submit" class="btn-primary">
+          {{ '💾 Save Changes' if item else '➕ Create Product & Inward Stock' }}
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<script>
+  function recalcSummary() {
+    var qty = parseFloat(document.getElementById('inputQty').value) || 0;
+    var cost = parseFloat(document.getElementById('inputPurchaseRate').value) || 0;
+    var sell = parseFloat(document.getElementById('inputSellingPrice').value) || 0;
+    var gst = parseFloat(document.getElementById('inputGst').value) || 0;
+
+    // Total valuation
+    var valuation = qty * cost;
+    document.getElementById('summaryValuation').textContent = '{{ currency_symbol|default("₹") }}' + valuation.toLocaleString('{{ number_locale|default("en-IN") }}', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+    // Margin
+    var profit = sell - cost;
+    var marginPct = cost > 0 ? ((profit / cost) * 100).toFixed(1) : (sell > 0 ? '100.0' : '0.0');
+    var marginColor = profit >= 0 ? '#16a34a' : '#dc2626';
+    document.getElementById('summaryMargin').innerHTML = '<span style="color:' + marginColor + '">{{ currency_symbol|default("₹") }}' + profit.toFixed(2) + ' (' + marginPct + '%)</span>';
+
+    // Selling price incl GST
+    var taxInc = sell + (sell * (gst / 100));
+    document.getElementById('summaryTaxInc').textContent = '{{ currency_symbol|default("₹") }}' + taxInc.toLocaleString('{{ number_locale|default("en-IN") }}', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  }
+
+  document.addEventListener('DOMContentLoaded', recalcSummary);
+</script>
+{% endblock %}

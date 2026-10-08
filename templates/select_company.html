@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='qiyadah_icon.png') }}?v=2">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <title>Select Company — Qiyadah ERP</title>
+  <style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #062D30 0%, #011A18 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    color: #fff;
+  }
+
+  /* ── Header ── */
+  .page-header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+  .brand-logo-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+  .brand-logo-icon {
+    height: 72px;
+    width: auto;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.4));
+  }
+  .brand-word-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .brand-logo-word {
+    height: 52px;
+    width: auto;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.45));
+  }
+  .brand-tagline {
+    display: block;
+    color: #FCC605 !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.38em;
+    margin-top: 4px;
+    text-align: center;
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 1 !important;
+  }
+  .page-header h2 {
+    font-size: 26px;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin-top: 14px;
+    letter-spacing: -0.3px;
+  }
+  .page-header p {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.78);
+    margin-top: 6px;
+  }
+
+  /* ── Flash messages ── */
+  .flash { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;
+           font-size: 14px; max-width: 680px; width: 100%; }
+  .flash.error   { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+  .flash.success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+  .flash.info    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .flash.limit   { background: #fffbeb; color: #78350f; border: 1px solid #fde68a; }
+
+  /* ── Company grid ── */
+  .companies-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    width: 100%;
+    max-width: 980px;
+    margin-bottom: 24px;
+  }
+
+  .company-card {
+    background: #ffffff;
+    border: 2px solid transparent;
+    border-radius: 18px;
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    text-align: left;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  }
+  .company-card:hover {
+    border-color: #10B981;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px #10B981;
+    transform: translateY(-4px);
+  }
+  .company-card.active-card {
+    border-color: #10B981;
+    background: #ffffff;
+    box-shadow: 0 14px 35px rgba(16, 185, 129, 0.2), 0 0 0 2px #10B981;
+  }
+
+  /* Active badge */
+  .active-badge {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: #0D9488;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.3px;
+  }
+
+  /* Inactive / suspended badge */
+  .suspended-badge {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .company-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #0D9488 0%, #F59E0B 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 14px;
+    flex-shrink: 0;
+  }
+
+  .company-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 4px;
+    padding-right: 70px; /* avoid overlap with badge */
+  }
+  .company-id {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-bottom: 14px;
+  }
+
+  .company-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .meta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: #f3f4f6;
+    color: #374151;
+  }
+  .meta-pill.plan-basic    { background: #f0fdf4; color: #166534; }
+  .meta-pill.plan-premium  { background: #eff6ff; color: #1e40af; }
+  .meta-pill.plan-gold     { background: #fffbeb; color: #92400e; }
+  .meta-pill.plan-custom   { background: #faf5ff; color: #6b21a8; }
+  .meta-pill-gst      { background: #f0fdf4; color: #166534; }
+  .meta-pill-gst-none { background: #fef2f2; color: #991b1b; }
+
+  .company-address {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* Select button (hidden form submit) */
+  .card-form { width: 100%; }
+  .card-form button {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  /* Owner-only: hides/shows a company EVERYWHERE (desktop + mobile).
+     The toggle button itself only appears on mobile — desktop never shows
+     it, it just respects whatever was set from mobile. Sits above the
+     invisible full-card select button (z-index + stopPropagation) so
+     tapping it never triggers "switch to this company". */
+  .mobile-toggle-form { 
+    display: none; 
+    position: absolute; 
+    top: 44px; 
+    right: 14px; 
+    z-index: 5; 
+  }
+  .mobile-toggle-btn {
+    display: inline-flex; 
+    align-items: center; 
+    gap: 4px;
+    background: #fff; 
+    border: 1.5px solid #e5e7eb; 
+    border-radius: 20px;
+    padding: 3px 9px; 
+    font-size: 11px; 
+    font-weight: 600; 
+    color: #6b7280;
+    cursor: pointer; 
+    white-space: nowrap;
+    pointer-events: auto; /* Ensure button is clickable */
+  }
+  .mobile-toggle-btn:hover { border-color: #0D9488; color: #0D9488; }
+  .mobile-toggle-btn.is-hidden { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+
+  /* Default (desktop/tablet): a company marked hidden is gone entirely —
+     no card, no strip, nothing. There's no toggle here to bring it back;
+     that only lives on mobile below. */
+  .company-card.mobile-hidden { display: none; }
+
+  @media (max-width: 500px) {
+    /* Mobile: reveal the toggle button on every card... 
+       AND ensure it stays visible even on hidden cards */
+    .mobile-toggle-form { 
+      display: block !important; 
+    }
+
+    /* ...and re-show hidden companies as a thin strip so the "Show"
+       button on them is actually reachable. */
+    .company-card.mobile-hidden {
+      display: block !important;
+      padding: 12px 16px;
+    }
+    .company-card.mobile-hidden .company-icon,
+    .company-card.mobile-hidden .company-id,
+    .company-card.mobile-hidden .company-meta,
+    .company-card.mobile-hidden .company-address { display: none; }
+    .company-card.mobile-hidden .company-name {
+      padding-right: 0; 
+      margin-bottom: 0; 
+      font-size: 14px; 
+      color: #9ca3af;
+    }
+    .company-card.mobile-hidden .mobile-toggle-form { 
+      position: static; 
+      margin-top: 8px; 
+      display: block !important;
+    }
+    /* Hide the invisible select button on mobile so it doesn't interfere */
+    .company-card.mobile-hidden .card-form { display: none; }
+  }
+
+  /* ── Bottom actions ── */
+  .bottom-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    max-width: 980px;
+    width: 100%;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 11px 22px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #047857 0%, #059669 100%);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+    transform: translateY(-1px);
+  }
+  .btn-outline {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(8px);
+  }
+  .btn-outline:hover {
+    background: rgba(255, 255, 255, 0.22);
+  }
+  .btn-danger {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fca5a5;
+    border: 1.5px solid rgba(252, 165, 165, 0.35);
+    backdrop-filter: blur(8px);
+  }
+  .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.25);
+    color: #ffffff;
+    border-color: #ef4444;
+  }
+
+  /* Plan limit bar */
+  .limit-bar-wrap { margin-top: 12px; }
+  .limit-label {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .limit-bar {
+    height: 5px;
+    background: #e5e7eb;
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .limit-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: #0D9488;
+    transition: width 0.3s;
+  }
+  .limit-bar-fill.warn { background: #f59e0b; }
+  .limit-bar-fill.full { background: #ef4444; }
+
+  @media (max-width: 500px) {
+    .companies-grid { grid-template-columns: 1fr; }
+    .page-header h2 { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Logo & heading -->
+  <div class="page-header">
+    <div class="brand-logo-wrap">
+      <img src="{{ url_for('static', filename='qiyadah_icon.png') }}" alt="Qiyadah Logo" class="brand-logo-icon" />
+      <div class="brand-word-group">
+        <img src="{{ url_for('static', filename='qiyadah-word.png') }}" alt="QIYADAH" class="brand-logo-word" />
+        <span class="brand-tagline">LEAD WITH INTELLIGENCE</span>
+      </div>
+    </div>
+    <h2>Select a Company</h2>
+    <p>Hi {{ user.full_name }}, choose which company to work in.</p>
+  </div>
+
+  <!-- Flash messages.
+       'limit' category is a ONE-TIME event message: flash it server-side
+       from add_new_company() right after creation, only when the new
+       company count has reached first.max_companies_allowed. It must NOT
+       be recomputed on every load of this page — that's what made the
+       old persistent banner show up forever. -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash {{ 'error' if category == 'error' else 'success' if category == 'success' else 'limit' if category == 'limit' else 'info' }}">
+        {{ '⚠️ ' if category == 'limit' else '' }}{{ message }}
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- Company cards grid -->
+  <div class="companies-grid" id="companies-grid">
+    {% for company in companies %}
+    <div class="company-card {% if company.is_active_selection %}active-card{% endif %}{% if company.hidden_on_mobile %} mobile-hidden{% endif %}"
+         data-company-id="{{ company.company_id }}">
+
+      {% if company.is_active_selection %}
+        <span class="active-badge">✓ Active</span>
+      {% elif not company.is_active %}
+        <span class="suspended-badge">Suspended</span>
+      {% endif %}
+
+      <!-- Invisible form button covers entire card -->
+      {% if company.is_active %}
+      <form method="POST" action="{{ url_for('select_company') }}" class="card-form">
+        <input type="hidden" name="company_id" value="{{ company.company_id }}" />
+        <button type="submit" title="Switch to {{ company.company_name }}{% if company.branch_name %} — {{ company.branch_name }}{% endif %}" aria-label="Switch to {{ company.company_name }}{% if company.branch_name %} — {{ company.branch_name }}{% endif %}"></button>
+      </form>
+      {% endif %}
+
+      <!-- Owner-only: hide/show this company on the mobile Select Company screen -->
+      {% if user.role == 'owner' %}
+      <form method="POST" action="{{ url_for('toggle_company_mobile_visibility', company_id=company.company_id) }}"
+            class="mobile-toggle-form" 
+            onsubmit="event.stopPropagation();">
+        <button type="submit" class="mobile-toggle-btn {% if company.hidden_on_mobile %}is-hidden{% endif %}"
+                title="{{ 'Show this company' if company.hidden_on_mobile else 'Hide this company (from everywhere)' }}"
+                onclick="event.stopPropagation();">
+          {% if company.hidden_on_mobile %}🙈 Show{% else %}📱 Hide{% endif %}
+        </button>
+      </form>
+      {% endif %}
+
+      <!-- Company icon (first letter) -->
+      <div class="company-icon">{{ company.company_name[0] | upper }}</div>
+
+      <div class="company-name">{{ company.company_name }}</div>
+      {% if company.branch_name %}<div class="company-branch" style="font-size:14px;color:#4b5563;margin:4px 0 8px;overflow-wrap:anywhere;">{{ company.branch_name }}</div>{% endif %}
+      <div class="company-id">{{ company.company_id }}</div>
+
+      <div class="company-meta">
+        <!-- Plan badge -->
+        <span class="meta-pill plan-{{ company.subscription_plan }}">
+          🏷 {{ company.plan_name }}
+        </span>
+        <!-- Users assigned to THIS company (not a per-company cap — the seat limit is owner-wide, shown above) -->
+        <span class="meta-pill">
+          👥 {{ company.user_count }} assigned
+        </span>
+        <!-- GST registration status -->
+        {% if company.gst_number %}
+        <span class="meta-pill meta-pill-gst">
+          🧾 GST: {{ company.gst_number }}
+        </span>
+        {% else %}
+        <span class="meta-pill meta-pill-gst-none">
+          🧾 Not Registered
+        </span>
+        {% endif %}
+      </div>
+
+      {% if company.address %}
+      <div class="company-address">
+        📍 {{ company.address }}
+      </div>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Bottom action buttons -->
+  <div class="bottom-actions">
+    {% if user.role == 'owner' %}
+      <a href="{{ url_for('add_new_company') }}" class="btn btn-primary">
+        ＋ Add New Company
+      </a>
+    {% endif %}
+
+    {% if current_company_id %}
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline">
+        ← Back to Dashboard
+      </a>
+    {% endif %}
+
+    <a href="{{ url_for('logout') }}" class="btn btn-danger">
+      Logout
+    </a>
+  </div>
+
+  <!-- JavaScript: hide/show toggle happens instantly, no page reload,
+       AND is polled by every other open tab/device so they pick up the
+       change without a manual refresh. -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+      function applyHiddenState(card, hidden) {
+        var btn = card.querySelector('.mobile-toggle-btn');
+        card.classList.toggle('mobile-hidden', hidden);
+        if (btn) {
+          btn.classList.toggle('is-hidden', hidden);
+          btn.title = hidden ? 'Show this company' : 'Hide this company (from everywhere)';
+          btn.innerHTML = hidden ? '🙈 Show' : '📱 Hide';
+        }
+      }
+
+      // ── Click-to-toggle (instant local update) ──
+      document.querySelectorAll('.mobile-toggle-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          var card = form.closest('.company-card');
+          var btn = form.querySelector('.mobile-toggle-btn');
+          if (!card || !btn) return;
+
+          var willBeHidden = !card.classList.contains('mobile-hidden');
+
+          // Optimistic UI update — flip immediately, no waiting on the network
+          applyHiddenState(card, willBeHidden);
+          btn.disabled = true;
+
+          fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: new FormData(form)
+          })
+          .then(function (res) {
+            if (!res.ok) throw new Error('Toggle request failed: ' + res.status);
+          })
+          .catch(function (err) {
+            console.error(err);
+            // Roll back the optimistic update if the server didn't actually save it
+            applyHiddenState(card, !willBeHidden);
+            alert('Could not update visibility — please try again.');
+          })
+          .finally(function () {
+            btn.disabled = false;
+          });
+        });
+      });
+
+      // ── Cross-device / cross-tab sync via polling ──
+      // Requires a lightweight backend endpoint, e.g.:
+      //   GET /api/company-visibility-status
+      //   -> { "COMPANY_ID_1": true, "COMPANY_ID_2": false, ... }
+      // (hidden_on_mobile per company_id, owner-scoped to the logged-in user)
+      var POLL_INTERVAL_MS = 4000;
+
+      function pollVisibility() {
+        fetch('/api/company-visibility-status', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+          .then(function (res) {
+            if (!res.ok) throw new Error('status check failed: ' + res.status);
+            return res.json();
+          })
+          .then(function (statusMap) {
+            document.querySelectorAll('.company-card[data-company-id]').forEach(function (card) {
+              var id = card.getAttribute('data-company-id');
+              if (!(id in statusMap)) return;
+              var serverHidden = !!statusMap[id];
+              var currentlyHidden = card.classList.contains('mobile-hidden');
+              if (serverHidden !== currentlyHidden) {
+                applyHiddenState(card, serverHidden);
+              }
+            });
+          })
+          .catch(function (err) {
+            // Silent — a missed poll just means we retry on the next tick
+            console.debug('visibility poll skipped:', err);
+          });
+      }
+
+      // Only poll while the tab is visible, to avoid needless load
+      var pollTimer = setInterval(function () {
+        if (document.visibilityState === 'visible') pollVisibility();
+      }, POLL_INTERVAL_MS);
+
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') pollVisibility();
+      });
+    });
+  </script>
+
+</body>
+</html>

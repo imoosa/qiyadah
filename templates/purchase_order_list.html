@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Purchase Orders{% endblock %}
+{% set active = 'purchase_orders' %}
+
+{% block extra_style %}
+<style>
+  .summary-strip {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    padding: 16px 22px; background: var(--bg-table-alt);
+    border-radius: 12px; margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+  }
+  .s-label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); font-weight: 700; }
+  .s-val   { font-size: 20px; font-weight: 800; color: var(--text-body); margin-top: 2px; }
+  .s-val.green { color: #16A34A; }
+  .s-val.blue { color: #2563EB; }
+  .s-val.amber { color: #D97706; }
+
+  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .badge-draft { background: #F3F4F6; color: #4B5563; }
+  .badge-issued { background: #DBEAFE; color: #1D4ED8; }
+  .badge-received { background: #FEF3C7; color: #D97706; }
+  .badge-billed { background: #EDE9FE; color: #7C3AED; }
+  .badge-cancelled { background: #FEE2E2; color: #DC2626; }
+
+  .tab {
+    padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 600;
+    color: var(--text-muted); border: 1.5px solid var(--border-color);
+    text-decoration: none; transition: all .15s; background: var(--bg-card);
+  }
+  .tab:hover { border-color: var(--primary); color: var(--primary); }
+  .tab.active { background: #012926; color: #F59E0B; border-color: #012926; }
+  body.dark-theme .tab.active { background: #0D9488; color: #fff; border-color: #0D9488; }
+
+  .table-wrap { overflow: auto; max-height: 70vh; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-card); }
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  thead th {
+    padding: 12px 16px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .6px;
+    color: #F59E0B; background: #012926;
+    border-bottom: 1.5px solid var(--border-color); text-align: left; white-space: nowrap;
+    position: sticky; top: 0; z-index: 2;
+  }
+  tbody td { padding: 13px 16px; border-bottom: 1px solid var(--border-color); font-size: 13.5px; vertical-align: middle; color: var(--text-body); }
+  tbody tr:hover { background: var(--bg-table-alt); }
+  .po-link { font-weight: 700; color: var(--primary); text-decoration: none; font-family: 'Courier New', monospace; font-size: 14px; }
+  .po-link:hover { text-decoration: underline; }
+  .action-btns { display: flex; gap: 6px; align-items: center; }
+  .btn-icon {
+    padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 4px;
+    border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-body);
+  }
+  .btn-icon:hover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <div>
+    <h2 style="margin: 0; display: flex; align-items: center; gap: 8px;">🛒 Purchase Orders</h2>
+    <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Issue purchase orders to suppliers and track incoming shipments</div>
+  </div>
+  {% if can('purchase_orders', 'create') %}
+  <a href="{{ url_for('purchase_order_new') }}" class="btn btn-primary">
+    <span>+ New Purchase Order</span>
+  </a>
+  {% endif %}
+</div>
+
+{% set total_pos = purchase_orders | length %}
+{% set total_po_val = purchase_orders | sum(attribute='grand_total') %}
+{% set pending_pos = purchase_orders | selectattr('status', 'in', ['Draft', 'Issued']) | list | length %}
+{% set received_pos = purchase_orders | selectattr('status', 'equalto', 'Received') | list | length %}
+
+<div class="summary-strip">
+  <div><div class="s-label">Total POs</div><div class="s-val">{{ total_pos }}</div></div>
+  <div><div class="s-label">PO Value</div><div class="s-val green">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(total_po_val) }}</div></div>
+  <div><div class="s-label">Issued / Pending</div><div class="s-val blue">{{ pending_pos }}</div></div>
+  <div><div class="s-label">Received</div><div class="s-val amber">{{ received_pos }}</div></div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+  <form method="GET" action="{{ url_for('purchase_order_list') }}" style="display: flex; gap: 8px; flex: 1; max-width: 440px;">
+    <input type="hidden" name="status" value="{{ current_status }}">
+    <input type="text" name="q" value="{{ current_search or '' }}" placeholder="🔍 Search PO No, Supplier..."
+           style="flex: 1; padding: 9px 14px; border-radius: 8px; border: 1.5px solid var(--border-color); font-size: 13.5px; background: var(--bg-card); color: var(--text-body);">
+    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+    {% if current_search %}
+    <a href="?status={{ current_status }}" class="btn btn-ghost btn-sm">✕ Clear</a>
+    {% endif %}
+  </form>
+
+  <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+    {% for s in ['All', 'Draft', 'Issued', 'Received', 'Billed', 'Cancelled'] %}
+    <a href="?status={{ s }}{% if current_search %}&q={{ current_search }}{% endif %}" class="tab {% if current_status == s %}active{% endif %}">
+      {{ s }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>PO Number</th>
+        <th>Date</th>
+        <th>Supplier / Vendor</th>
+        <th>Expected Date</th>
+        <th>Items</th>
+        <th>Grand Total</th>
+        <th>Status</th>
+        <th style="text-align: right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if purchase_orders %}
+        {% for po in purchase_orders %}
+        <tr>
+          <td>
+            <a href="{{ url_for('purchase_order_view', po_id=po.id) }}" class="po-link">{{ po.po_number }}</a>
+            {% if po.reference_no %}<div style="font-size: 11px; color: var(--text-muted);">Ref: {{ po.reference_no }}</div>{% endif %}
+          </td>
+          <td>{{ po.po_date.strftime('%d %b %Y') if po.po_date else '-' }}</td>
+          <td>
+            <strong>{{ po.supplier_name or (po.supplier_obj.name if po.supplier_obj else '-') }}</strong>
+            {% if po.supplier_obj and po.supplier_obj.city %}<div style="font-size: 11px; color: var(--text-muted);">{{ po.supplier_obj.city }}</div>{% endif %}
+          </td>
+          <td>{{ po.expected_delivery_date.strftime('%d %b %Y') if po.expected_delivery_date else '-' }}</td>
+          <td><span style="font-weight: 700;">{{ po.items | length }}</span> items</td>
+          <td><strong style="color: var(--text-body);">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(po.grand_total or 0.0) }}</strong></td>
+          <td>
+            {% if po.status == 'Issued' %}
+              <span class="badge badge-issued">✓ Issued</span>
+            {% elif po.status == 'Received' %}
+              <span class="badge badge-received">📥 Received</span>
+            {% elif po.status == 'Billed' %}
+              <span class="badge badge-billed">🧾 Billed</span>
+            {% elif po.status == 'Cancelled' %}
+              <span class="badge badge-cancelled">✕ Cancelled</span>
+            {% else %}
+              <span class="badge badge-draft">📝 Draft</span>
+            {% endif %}
+          </td>
+          <td style="text-align: right;">
+            <div class="action-btns" style="justify-content: flex-end;">
+              <a href="{{ url_for('purchase_order_view', po_id=po.id) }}" class="btn-icon">👁️ View</a>
+              {% if can('purchase_orders', 'edit') and po.status not in ['Billed', 'Cancelled'] %}
+              <a href="{{ url_for('purchase_order_edit', po_id=po.id) }}" class="btn-icon">✏️ Edit</a>
+              {% endif %}
+              {% if can('purchase', 'create') and po.status != 'Billed' %}
+              <a href="{{ url_for('purchase_order_convert_to_bill', po_id=po.id) }}" class="btn-icon" style="color: #7C3AED;">🧾 Bill</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <div style="font-size: 32px; margin-bottom: 8px;">🛒</div>
+            <div style="font-weight: 600; font-size: 15px;">No purchase orders found</div>
+            {% if can('purchase_orders', 'create') %}
+            <div style="margin-top: 14px;">
+              <a href="{{ url_for('purchase_order_new') }}" class="btn btn-primary btn-sm">+ Create Purchase Order</a>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

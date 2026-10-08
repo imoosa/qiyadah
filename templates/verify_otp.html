@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='qiyadah_icon.png') }}?v=3">
+  <title>Verify Email · Qiyadah ERP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      --primary: #07383A;
+      --primary-dark: #042426;
+      --accent: #FCC605;
+      --accent-hover: #e5b304;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --bg-gradient: linear-gradient(135deg, #07383A 0%, #0c4d50 50%, #042426 100%);
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      color: var(--text-main);
+      position: relative;
+    }
+
+    body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(252, 198, 5, 0.08) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+    }
+
+    .verify-container {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 44px 36px;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.35);
+      position: relative;
+      z-index: 10;
+      text-align: center;
+    }
+
+    .brand-header {
+      margin-bottom: 24px;
+    }
+
+    .brand-logo {
+      height: 48px;
+      width: auto;
+      object-fit: contain;
+      margin-bottom: 12px;
+    }
+
+    .icon-badge {
+      width: 64px;
+      height: 64px;
+      background: rgba(7, 56, 58, 0.07);
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      color: var(--primary);
+      margin-bottom: 16px;
+      border: 1.5px solid rgba(7, 56, 58, 0.12);
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 8px;
+      letter-spacing: -0.3px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 13.5px;
+      line-height: 1.55;
+      margin-bottom: 28px;
+    }
+
+    .subtitle strong {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .flash-alert {
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .flash-error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fee2e2;
+    }
+    .flash-success {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #dcfce7;
+    }
+    .flash-warning {
+      background: #fffbeb;
+      color: #d97706;
+      border: 1px solid #fef3c7;
+    }
+
+    .form-group {
+      margin-bottom: 24px;
+    }
+
+    .otp-input-wrapper {
+      position: relative;
+    }
+
+    #otpInput {
+      width: 100%;
+      height: 56px;
+      font-size: 26px;
+      letter-spacing: 10px;
+      text-align: center;
+      font-weight: 800;
+      font-family: 'Plus Jakarta Sans', monospace;
+      color: var(--primary);
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      transition: all 0.2s ease;
+      padding-left: 10px;
+    }
+
+    #otpInput:focus {
+      outline: none;
+      background: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(7, 56, 58, 0.12);
+    }
+
+    .btn-verify {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: #042426;
+      border: none;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 8px 20px rgba(252, 198, 5, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    .btn-verify:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(252, 198, 5, 0.4);
+    }
+
+    .btn-verify:active {
+      transform: translateY(0);
+    }
+
+    .resend-box {
+      margin-top: 24px;
+      font-size: 13px;
+      color: var(--text-muted);
+      border-top: 1px solid #f1f5f9;
+      padding-top: 18px;
+    }
+
+    .resend-link {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 700;
+      transition: color 0.15s;
+    }
+
+    .resend-link:hover {
+      color: #0d9488;
+      text-decoration: underline;
+    }
+
+    .back-login {
+      margin-top: 14px;
+      font-size: 12.5px;
+    }
+
+    .back-login a {
+      color: var(--text-muted);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+    }
+
+    .back-login a:hover {
+      color: var(--primary);
+    }
+  </style>
+</head>
+<body>
+  <div class="verify-container">
+    <div class="brand-header">
+      <img src="{{ url_for('static', filename='qiyadah.png') }}?v=3" alt="Qiyadah ERP" class="brand-logo" onerror="this.style.display='none'">
+      <div class="icon-badge">
+        <i class="fa-solid fa-envelope-circle-check"></i>
+      </div>
+      <h1>Verify Your Email</h1>
+      <p class="subtitle">
+        Please enter the 6-digit verification code sent to<br>
+        <strong>{{ email }}</strong>
+      </p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash-alert flash-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'error') }}">
+          <i class="fa-solid fa-circle-{{ 'check' if category == 'success' else ('exclamation' if category == 'warning' else 'xmark') }}"></i>
+          <span>{{ message }}</span>
+        </div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('verify_otp') }}" id="otpForm">
+      <div class="form-group">
+        <div class="otp-input-wrapper">
+          <input 
+            id="otpInput" 
+            type="text" 
+            name="otp" 
+            inputmode="numeric" 
+            pattern="[0-9]*" 
+            maxlength="6" 
+            autocomplete="one-time-code" 
+            placeholder="······"
+            required 
+            autofocus
+          >
+        </div>
+      </div>
+
+      <button type="submit" class="btn-verify">
+        <span>Verify &amp; Continue</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </form>
+
+    <div class="resend-box">
+      Didn't receive the email? 
+      <a href="{{ url_for('resend_otp') }}" class="resend-link">
+        <i class="fa-solid fa-rotate-right" style="font-size: 11px;"></i> Resend Code
+      </a>
+    </div>
+
+    <div class="back-login">
+      <a href="{{ url_for('login') }}">
+        <i class="fa-solid fa-arrow-left" style="font-size: 10px;"></i> Back to Login
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const otpInput = document.getElementById('otpInput');
+    const otpForm = document.getElementById('otpForm');
+    
+    otpInput.addEventListener('input', function(e) {
+      this.value = this.value.replace(/[^0-9]/g, '');
+      if (this.value.length === 6) {
+        otpForm.submit();
+      }
+    });
+  </script>
+</body>
+</html>

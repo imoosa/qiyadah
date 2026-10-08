@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% block title %}Profit & Loss{% endblock %}{% block page_title %}Profit & Loss{% endblock %}
+{% block extra_style %}
+<style>
+.r-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+.r-head h2{margin:0;font-size:22px;font-weight:800;color:var(--gray-900)}
+.r-sub{font-size:12px;color:var(--gray-500);margin-top:4px}
+.r-filter,.r-card{background:#fff;border:1px solid var(--gray-100);border-radius:var(--radius);box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.r-filter{padding:14px 16px;margin-bottom:16px}
+.r-filter form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.r-filter label{font-size:10.5px;font-weight:700;color:var(--gray-600);display:block;margin-bottom:4px}
+.r-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.r-kpi{padding:15px}.r-kpi .l{font-size:10px;text-transform:uppercase;color:var(--gray-500);font-weight:700}.r-kpi .v{font-size:20px;font-weight:800;color:var(--gray-900);margin-top:5px}
+.r-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.r-title{padding:13px 16px;background:var(--gray-50);border-bottom:1px solid var(--gray-100);font-weight:800}
+.r-table{width:100%;border-collapse:collapse}.r-table td,.r-table th{padding:10px 14px;border-bottom:1px solid var(--gray-100);font-size:12.5px}.r-table th{text-align:left;background:#012926;color:#F59E0B;font-size:10.5px;text-transform:uppercase}.num{text-align:right!important;font-variant-numeric:tabular-nums}.total{font-weight:800;background:var(--gray-50)}
+.note{padding:10px 13px;border-radius:9px;background:#fffbeb;color:#92400e;font-size:11.5px;margin-bottom:15px}
+@media(max-width:900px){.r-kpis{grid-template-columns:1fr 1fr}.r-grid{grid-template-columns:1fr}}@media(max-width:560px){.r-kpis{grid-template-columns:1fr}.r-table-wrap{overflow:auto}}
+@media print{.r-filter,.btn,.sidebar,.topbar,.bottom-nav{display:none!important}.main{margin:0!important}.r-card{box-shadow:none}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="r-head"><div><h2>📈 Profit & Loss Statement</h2><div class="r-sub">{{ from_date.strftime('%d %b %Y') }} — {{ to_date.strftime('%d %b %Y') }}</div></div><button class="btn btn-primary" onclick="window.print()">🖨️ Print</button></div>
+<div class="note">Current basis: {{ report_basis }}. This report will move to journal-based accounting after the journal engine is connected.</div>
+<div class="r-filter"><form method="get"><div><label>Period</label><select name="period"><option value="month" {% if period=='month' %}selected{% endif %}>This Month</option><option value="quarter" {% if period=='quarter' %}selected{% endif %}>This Quarter</option><option value="year" {% if period=='year' %}selected{% endif %}>This Year</option><option value="custom" {% if period=='custom' %}selected{% endif %}>Custom</option></select></div><div><label>From</label><input type="date" name="from_date" value="{{ from_date.isoformat() }}"></div><div><label>To</label><input type="date" name="to_date" value="{{ to_date.isoformat() }}"></div><button class="btn btn-primary">Apply</button></form></div>
+<div class="r-kpis"><div class="r-card r-kpi"><div class="l">Revenue</div><div class="v">{{ '%.2f'|format(total_revenue) }}</div></div><div class="r-card r-kpi"><div class="l">Gross Profit</div><div class="v">{{ '%.2f'|format(gross_profit) }}</div></div><div class="r-card r-kpi"><div class="l">Operating Expenses</div><div class="v">{{ '%.2f'|format(total_expenses) }}</div></div><div class="r-card r-kpi"><div class="l">Net Profit</div><div class="v">{{ '%.2f'|format(net_profit) }}</div></div></div>
+<div class="r-card"><div class="r-title">Statement</div><table class="r-table"><tbody><tr><td>Sales Revenue</td><td class="num">{{ '%.2f'|format(total_revenue) }}</td></tr><tr><td>Less: Purchase / Material Cost</td><td class="num">({{ '%.2f'|format(cost_of_goods_sold) }})</td></tr><tr class="total"><td>Gross Profit</td><td class="num">{{ '%.2f'|format(gross_profit) }}</td></tr>{% for name, amount in expense_categories.items() %}<tr><td>{{ name }}</td><td class="num">({{ '%.2f'|format(amount) }})</td></tr>{% endfor %}<tr class="total"><td>Net Profit / (Loss)</td><td class="num">{{ '%.2f'|format(net_profit) }}</td></tr></tbody></table></div>
+{% endblock %}

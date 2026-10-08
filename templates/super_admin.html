@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qiyadah ERP | Super Admin Console</title>
+    <!-- Google Fonts & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='qiyadah_icon.png') }}?v=2">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #0C2340;
+            --primary-dark: #08182B;
+            --primary-light: #17549A;
+            --primary-accent: #2563EB;
+            --amber: #F59E0B;
+            --amber-light: #FEF3C7;
+            --bg-page: #F8FAFC;
+            --bg-card: #FFFFFF;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --border-color: #E2E8F0;
+            --border-subtle: #F1F5F9;
+            --success-bg: #DCFCE7;
+            --success-text: #15803D;
+            --danger-bg: #FEE2E2;
+            --danger-text: #B91C1C;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-page);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            width: 270px;
+            background: linear-gradient(180deg, #0C2340 0%, #08182B 100%);
+            color: #E2E8F0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 24px rgba(12, 35, 64, 0.15);
+            z-index: 20;
+            flex-shrink: 0;
+        }
+
+        .logo-area {
+            padding: 24px 20px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .logo-area .brand-title {
+            font-weight: 800;
+            font-size: 1.4rem;
+            letter-spacing: -0.3px;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-area .brand-subtitle {
+            font-size: 0.72rem;
+            color: #94A3B8;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 6px;
+        }
+
+        .nav-links {
+            flex: 1;
+            padding: 24px 12px;
+            overflow-y: auto;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 18px;
+            margin-bottom: 6px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #94A3B8;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .nav-item i {
+            width: 20px;
+            font-size: 1.1rem;
+            text-align: center;
+            color: #94A3B8;
+            transition: color 0.2s ease;
+        }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #FFFFFF;
+        }
+
+        .nav-item:hover i {
+            color: #60A5FA;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #17549A 0%, #0C2340 100%);
+            color: #FFFFFF;
+            box-shadow: 0 4px 14px rgba(23, 84, 154, 0.35);
+            border-left: 3px solid #F59E0B;
+        }
+
+        .nav-item.active i {
+            color: #F59E0B;
+        }
+
+        /* ── MAIN CONTENT ── */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 28px 36px;
+            background: var(--bg-page);
+        }
+
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .page-title h1 {
+            font-size: 1.7rem;
+            font-weight: 800;
+            color: var(--primary);
+            letter-spacing: -0.5px;
+        }
+
+        .page-title p {
+            color: var(--text-muted);
+            font-size: 0.88rem;
+            margin-top: 4px;
+            font-weight: 500;
+        }
+
+        .admin-badge {
+            background: white;
+            padding: 8px 18px;
+            border-radius: 30px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            font-weight: 600;
+            font-size: 0.88rem;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-register-client {
+            background: linear-gradient(135deg, #0C2340 0%, #17549A 100%);
+            color: #FFFFFF !important;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 0.88rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(12, 35, 64, 0.2);
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-register-client:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(12, 35, 64, 0.3);
+            background: linear-gradient(135deg, #17549A 0%, #2563EB 100%);
+        }
+
+        /* ── STAT CARDS ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 18px;
+            padding: 22px 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px rgba(12, 35, 64, 0.03);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(12, 35, 64, 0.07);
+        }
+
+        .stat-card .stat-icon-wrap {
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            margin-bottom: 14px;
+        }
+
+        .stat-card:nth-child(1) .stat-icon-wrap { background: #EFF6FF; color: #2563EB; }
+        .stat-card:nth-child(2) .stat-icon-wrap { background: #F5F3FF; color: #7C3AED; }
+        .stat-card:nth-child(3) .stat-icon-wrap { background: #ECFDF5; color: #059669; }
+        .stat-card:nth-child(4) .stat-icon-wrap { background: #FFFBEB; color: #D97706; }
+        .stat-card:nth-child(5) .stat-icon-wrap { background: #FEF2F2; color: #DC2626; }
+
+        .stat-card .stat-value {
+            font-size: 1.85rem;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1.1;
+        }
+
+        .stat-card .stat-label {
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-top: 6px;
+        }
+
+        /* ── SECTIONS & TABLES ── */
+        .companies-section {
+            background: white;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 10px rgba(12, 35, 64, 0.03);
+            margin-bottom: 28px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            background: #FFFFFF;
+        }
+
+        .section-header h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+            padding: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+
+        th {
+            text-align: left;
+            padding: 14px 20px;
+            background: #F8FAFC;
+            font-weight: 700;
+            color: #475569;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-main);
+            vertical-align: middle;
+        }
+
+        tbody tr {
+            transition: background 0.15s ease;
+        }
+
+        tbody tr:hover {
+            background: #F8FAFC;
+        }
+
+        /* ── BADGES & BUTTONS ── */
+        .badge-plan {
+            background: #EFF6FF;
+            color: #1D4ED8;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            display: inline-block;
+            border: 1px solid #DBEAFE;
+        }
+
+        .status-active {
+            color: #15803D;
+            background: #DCFCE7;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-active::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #15803D;
+        }
+
+        .status-inactive {
+            background: #FEE2E2;
+            color: #B91C1C;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .status-inactive::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #B91C1C;
+        }
+
+        /* Themed Manage Button */
+        .btn-manage {
+            background: linear-gradient(135deg, #0C2340 0%, #17549A 100%);
+            color: #FFFFFF !important;
+            border: none;
+            padding: 7px 15px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 6px rgba(12, 35, 64, 0.15);
+            transition: all 0.2s ease;
+            text-decoration: none;
+        }
+
+        .btn-manage:hover {
+            background: linear-gradient(135deg, #17549A 0%, #2563EB 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(12, 35, 64, 0.25);
+        }
+
+        .action-icon-btn {
+            background: #F1F5F9;
+            border: 1px solid var(--border-color);
+            color: #475569;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            transition: all 0.15s ease;
+            margin-left: 4px;
+        }
+
+        .action-icon-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        .action-icon-btn.btn-danger:hover {
+            background: #DC2626;
+            color: white;
+            border-color: #DC2626;
+        }
+
+        /* ── EDIT COMPANY MODAL (Qiyadah ERP Theme) ── */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(12, 35, 64, 0.6);
+            backdrop-filter: blur(5px);
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+
+        .edit-modal-content {
+            background: white;
+            width: 680px;
+            max-width: 94%;
+            max-height: 90vh;
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 60px rgba(12, 35, 64, 0.4);
+            border: 1px solid var(--border-color);
+            animation: modalSlideUp 0.25s ease-out;
+        }
+
+        #editUserForm, #editCompanyForm {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        @keyframes modalSlideUp {
+            from { opacity: 0; transform: translateY(16px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .edit-modal-header {
+            background: linear-gradient(135deg, #0C2340 0%, #17549A 100%);
+            padding: 20px 26px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .edit-modal-header h3 {
+            margin: 0;
+            font-size: 1.18rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #FFFFFF;
+        }
+
+        .edit-modal-header p {
+            margin: 4px 0 0 0;
+            font-size: 0.8rem;
+            color: #CBD5E1;
+            font-weight: 500;
+        }
+
+        .edit-modal-close-btn {
+            background: rgba(255, 255, 255, 0.15);
+            border: none;
+            color: white;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            transition: all 0.2s ease;
+        }
+
+        .edit-modal-close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+
+        .edit-modal-body {
+            padding: 22px 26px;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .edit-modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        .edit-modal-body::-webkit-scrollbar-track {
+            background: #F1F5F9;
+        }
+        .edit-modal-body::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 4px;
+        }
+        .edit-modal-body::-webkit-scrollbar-thumb:hover {
+            background: #94A3B8;
+        }
+
+        .edit-card-highlight {
+            background: linear-gradient(180deg, #F0F9FF 0%, #E0F2FE 100%);
+            border: 1.5px solid #BAE6FD;
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 20px;
+        }
+
+        .modal-section-title {
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin: 16px 0 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .edit-form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .edit-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .edit-form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .edit-form-group label {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #334155;
+        }
+
+        .edit-form-group input, .edit-form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #CBD5E1;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            background: #FFFFFF;
+            font-family: inherit;
+            color: #0F172A;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .edit-form-group input:focus, .edit-form-group select:focus {
+            outline: none;
+            border-color: #17549A;
+            box-shadow: 0 0 0 3px rgba(23, 84, 154, 0.15);
+        }
+
+        .edit-help-text {
+            font-size: 0.73rem;
+            color: #0369A1;
+            margin-top: 3px;
+            font-weight: 600;
+            line-height: 1.35;
+        }
+
+        .modal-footer {
+            padding: 16px 26px;
+            background: #F8FAFC;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .btn-cancel {
+            background: #E2E8F0;
+            color: #334155;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 0.88rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-cancel:hover {
+            background: #CBD5E1;
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #0C2340 0%, #17549A 100%);
+            color: white;
+            border: none;
+            padding: 10px 28px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 0.88rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(12, 35, 64, 0.25);
+            transition: all 0.2s;
+        }
+
+        .btn-save:hover {
+            background: linear-gradient(135deg, #17549A 0%, #2563EB 100%);
+            transform: translateY(-1px);
+        }
+
+        /* ── CHARTS & BILLING ── */
+        .dashboard-row {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 24px;
+            margin-bottom: 28px;
+        }
+
+        .chart-box, .plans-summary {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px rgba(12, 35, 64, 0.03);
+        }
+
+        .chart-box h3, .plans-summary h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ── DB MIGRATIONS ── */
+        .mig-section {
+            background: white;
+            border-radius: 20px;
+            padding: 26px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(12, 35, 64, 0.03);
+        }
+
+        .mig-section h3 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .mig-input, .mig-select, .mig-textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #CBD5E1;
+            border-radius: 12px;
+            font-size: 0.88rem;
+            background: #F8FAFC;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        .mig-textarea {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            min-height: 120px;
+        }
+
+        .mig-input:focus, .mig-select:focus, .mig-textarea:focus {
+            outline: none;
+            border-color: #17549A;
+            background: #FFF;
+        }
+
+        .mig-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 10px 22px;
+            border-radius: 30px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: all 0.15s;
+        }
+
+        .mig-btn-primary {
+            background: linear-gradient(135deg, #0C2340 0%, #17549A 100%);
+            color: #FFF;
+        }
+
+        .mig-btn-secondary {
+            background: #E2E8F0;
+            color: #334155;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 32px;
+            font-size: 0.78rem;
+            color: #94A3B8;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── SIDEBAR ── -->
+    <div class="sidebar">
+        <div class="logo-area">
+            <div class="brand-title">
+                <img src="{{ url_for('static', filename='qiyadah_icon.png') }}" alt="Qiyadah Icon" style="height:32px; width:auto;" />
+                <span>Qiyadah ERP</span>
+            </div>
+            <div class="brand-subtitle">Super Admin Console</div>
+        </div>
+
+        <div class="nav-links">
+            <div class="nav-item active" data-tab="overview">
+                <i class="fas fa-tachometer-alt"></i> <span>Overview</span>
+            </div>
+            <div class="nav-item" data-tab="access"><i class="fas fa-sliders"></i> <span>Access & Trials</span></div>
+            <div class="nav-item" data-tab="companies">
+                <i class="fas fa-building"></i> <span>Companies</span>
+            </div>
+            <div class="nav-item" data-tab="users">
+                <i class="fas fa-users"></i> <span>Users</span>
+            </div>
+            <div class="nav-item" data-tab="plans">
+                <i class="fas fa-crown"></i> <span>Plans & Billing</span>
+            </div>
+            <div class="nav-item" data-tab="migrations">
+                <i class="fas fa-database"></i> <span>DB Migrations</span>
+            </div>
+            <div class="nav-item" id="logoutBtn" style="margin-top: 20px;">
+                <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── MAIN CONTENT ── -->
+    <div class="main-content">
+        <div class="top-bar">
+            <div class="page-title">
+                <h1>Qiyadah Platform Control Center</h1>
+                <p>Manage customer workspaces, access overrides, trials, and subscriptions</p>
+            </div>
+            <div style="display:flex; align-items:center; gap:14px;">
+                <a href="{{ url_for('register_client') }}" class="btn-register-client">
+                    <i class="fas fa-user-plus"></i> Register New Client
+                </a>
+                <div class="admin-badge">
+                    <i class="fas fa-shield-halved" style="color:#17549A;"></i>
+                    <span>{{ user.full_name if user else 'Super Admin' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div style="background:#EFF6FF; border-left:4px solid #17549A; padding:12px 18px; border-radius:12px; margin-bottom:20px; font-weight:600; color:#1E3A8A;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- ── TAB: OVERVIEW ── -->
+        <div id="overviewTab" class="tab-pane active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon-wrap"><i class="fas fa-building"></i></div>
+                    <div class="stat-value">{{ stats.total_companies }}</div>
+                    <div class="stat-label">Total Companies</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon-wrap"><i class="fas fa-users"></i></div>
+                    <div class="stat-value">{{ stats.total_users }}</div>
+                    <div class="stat-label">Total Users (Employees)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon-wrap"><i class="fas fa-check-circle"></i></div>
+                    <div class="stat-value">{{ stats.active_companies }}</div>
+                    <div class="stat-label">Active Companies</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon-wrap"><i class="fas fa-chart-line"></i></div>
+                    <div class="stat-value">₹{{ stats.monthly_revenue | round(0) }}</div>
+                    <div class="stat-label">Monthly Revenue (est)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon-wrap"><i class="fas fa-user-clock"></i></div>
+                    <div class="stat-value">{{ stats.pending_setup }}</div>
+                    <div class="stat-label">Clients Awaiting Setup</div>
+                </div>
+            </div>
+
+            <!-- Recent Companies Table -->
+            <div class="companies-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-store" style="color:#17549A;"></i> Recent Companies</h3>
+                    <a href="#" class="btn-manage" id="viewAllCompaniesBtn" style="background:transparent; color:#17549A !important; border:1px solid #CBD5E1; box-shadow:none;">
+                        View All <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Company Name</th>
+                                <th>Owner Email</th>
+                                <th>Plan</th>
+                                <th>Status</th>
+                                <th>Expiry</th>
+                                <th style="text-align:right;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for company in companies[:5] %}
+                            <tr>
+                                <td><strong>{{ company.company_name }}</strong></td>
+                                <td>{{ company.owner_email }}</td>
+                                <td><span class="badge-plan">{{ company.subscription_plan|title }}</span></td>
+                                <td>{% if company.is_active %}<span class="status-active">Active</span>{% else %}<span class="status-inactive">Suspended</span>{% endif %}</td>
+                                <td>{{ company.subscription_end.strftime('%d %b %Y') if company.subscription_end else 'N/A' }}</td>
+                                <td style="text-align:right;">
+                                    {% if company.is_active %}<span class="status-active">Active</span>{% else %}<span class="status-inactive">Suspended</span>{% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6" style="text-align:center; padding:30px; color:#94A3B8;">No companies registered yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── TAB: COMPANIES (Full List) ── -->
+        <div id="companiesTab" class="tab-pane" style="display: none;">
+            <div class="companies-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-list-ul" style="color:#17549A;"></i> All Registered Companies</h3>
+                    <span class="badge-plan">Total: {{ companies|length }} companies</span>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Company</th>
+                                <th>Owner</th>
+                                <th>GST</th>
+                                <th>Plan</th>
+                                <th>Expiry</th>
+                                <th>Status</th>
+                                <th style="text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for company in companies %}
+                            {% set days_left = (company.subscription_end - today).days if company.subscription_end else None %}
+                            <tr>
+                                <td><code style="font-weight:700; color:#17549A;">#{{ company.company_id }}</code></td>
+                                <td><strong>{{ company.company_name }}</strong></td>
+                                <td>{{ company.owner_email }}</td>
+                                <td>{{ company.gst_number or '—' }}</td>
+                                <td><span class="badge-plan">{{ company.subscription_plan|upper }}</span></td>
+                                <td>
+                                    {% if company.subscription_end %}
+                                        {{ company.subscription_end.strftime('%d %b %Y') }}
+                                        {% if days_left is not none and days_left < 0 %}
+                                            <br><span class="status-inactive">Expired</span>
+                                        {% elif days_left is not none and days_left <= 14 %}
+                                            <br><span class="status-inactive">{{ days_left }}d left</span>
+                                        {% endif %}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td>{% if company.is_active %}<span class="status-active">Active</span>{% else %}<span class="status-inactive">Suspended</span>{% endif %}</td>
+                                <td style="text-align:right; white-space:nowrap;">
+                                    <button type="button" class="action-icon-btn renew-company" data-company-id="{{ company.company_id }}" data-company-name="{{ company.company_name }}" title="Renew 1 Year">
+                                        <i class="fas fa-rotate"></i>
+                                    </button>
+                                    <button type="button" class="action-icon-btn toggle-status" data-company-id="{{ company.company_id }}" data-status="{{ company.is_active }}" title="Activate / Suspend">
+                                        <i class="fas fa-power-off"></i>
+                                    </button>
+                                    <button type="button" class="action-icon-btn btn-danger delete-company" data-company-id="{{ company.company_id }}" data-company-name="{{ company.company_name }}" title="Delete Company">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── TAB: USERS ── -->
+        <div id="usersTab" class="tab-pane" style="display: none;">
+            <div class="companies-section">
+                <div class="section-header">
+                    <h3><i class="fas fa-users" style="color:#17549A;"></i> All Registered Users</h3>
+                    <span class="badge-plan">Total: {{ total_users }} users</span>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Plan</th>
+                                <th>Companies</th>
+                                <th>Payment</th>
+                                <th>Registered</th>
+                                <th style="text-align:right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for data in users_data %}
+                            {% set u = data.user %}
+                            {% set company_count = data.company_count %}
+                            <tr>
+                                <td><code>#{{ u.user_id }}</code></td>
+                                <td><strong>{{ u.full_name }}</strong></td>
+                                <td>{{ u.email }}</td>
+                                <td>{{ u.phone or '—' }}</td>
+                                <td><span class="badge-plan">{{ u.subscription_plan|upper if u.subscription_plan else '—' }}</span></td>
+                                <td>
+                                    {% if company_count > 0 %}
+                                        <span class="status-active">{{ company_count }} co.</span>
+                                        <br><small style="color:#64748B;">{{ data.companies|map(attribute='company_name')|join(', ') }}</small>
+                                    {% else %}
+                                        <span class="status-inactive">No companies</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if u.payment_status == 'paid' %}
+                                        <span class="status-active">Paid</span>
+                                    {% elif u.payment_status == 'partial' %}
+                                        <span class="badge-plan">₹{{ u.amount_paid }}/{{ u.amount_total }}</span>
+                                    {% else %}
+                                        <span class="status-inactive">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ u.created_at.strftime('%d %b %Y') if u.created_at else '—' }}</td>
+                                <td style="text-align:right; white-space:nowrap;">
+                                    <button type="button" class="btn-manage edit-user-btn"
+                                            data-user-id="{{ u.user_id }}"
+                                            data-full-name="{{ u.full_name }}"
+                                            data-email="{{ u.email }}"
+                                            data-phone="{{ u.phone or '' }}"
+                                            data-address="{{ u.address or '' }}"
+                                            data-plan="{{ u.subscription_plan or 'starter' }}"
+                                            data-duration="{{ u.plan_duration or '1_year' }}"
+                                            data-yearly-amount="{{ u.custom_yearly_amount if u.custom_yearly_amount is not none else '' }}"
+                                            data-start-date="{{ data.companies[0].subscription_start.strftime('%Y-%m-%d') if data.companies and data.companies[0].subscription_start else '' }}"
+                                            data-end-date="{{ data.companies[0].subscription_end.strftime('%Y-%m-%d') if data.companies and data.companies[0].subscription_end else '' }}"
+                                            data-maintenance-date="{{ u.maintenance_due_date.strftime('%Y-%m-%d') if u.maintenance_due_date else '' }}"
+                                            data-max-users="{{ u.custom_max_users or '' }}"
+                                            data-max-companies="{{ u.custom_max_companies or '' }}"
+                                            data-is-active="{{ '1' if u.is_active else '0' }}"
+                                            data-payment-status="{{ u.payment_status or 'pending' }}"
+                                            data-amount-paid="{{ u.amount_paid or '0' }}"
+                                            data-amount-total="{{ u.amount_total or '' }}"
+                                            title="Manage User & Subscription">
+                                        <i class="fas fa-sliders-h"></i> Manage
+                                    </button>
+                                    {% if u.email != 'admin@nexa.com' %}
+                                        <button type="button" class="action-icon-btn btn-danger delete-user-btn" 
+                                                data-user-id="{{ u.user_id }}"
+                                                data-user-name="{{ u.full_name }}"
+                                                data-user-email="{{ u.email }}"
+                                                data-company-count="{{ company_count }}"
+                                                data-companies="{{ data.companies|map(attribute='company_name')|join(', ') }}"
+                                                title="Delete user">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    {% else %}
+                                        <span style="color:#94A3B8; font-size:0.75rem; font-weight:700; margin-left:6px;">Protected</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── TAB: PLANS & BILLING ── -->
+        {% include '_admin_access_console.html' %}
+
+        <div id="plansTab" class="tab-pane" style="display: none;">
+            <div class="dashboard-row">
+                <div class="chart-box">
+                    <h3><i class="fas fa-chart-bar" style="color:#17549A;"></i> Companies per Plan</h3>
+                    <canvas id="planBarChart" style="max-height: 280px;"></canvas>
+                </div>
+                <div class="plans-summary">
+                    <h3><i class="fas fa-credit-card" style="color:#17549A;"></i> Catalog Plans Overview</h3>
+                    {% for plan_id, plan in plans.items() %}
+                    <div style="margin-bottom: 14px; background:#F8FAFC; border:1px solid #E2E8F0; border-radius: 14px; padding: 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items:center;">
+                            <span style="font-weight:700; color:#0C2340;">{{ plan.name }}</span>
+                            <span style="color:#17549A; font-weight:800;">₹{{ plan.price }}/year</span>
+                        </div>
+                        <div style="font-size: 0.75rem; color:#64748B; margin-top:4px;">{{ plan.max_companies }} co. | {{ plan.max_users }} users</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── TAB: DB MIGRATIONS ── -->
+        <div id="migrationsTab" class="tab-pane" style="display: none;">
+            <div class="mig-section">
+                <h3><i class="fas fa-play-circle" style="color:#17549A;"></i> Run Database Migration</h3>
+                <div class="edit-form-grid" style="margin-bottom:14px;">
+                    <div class="edit-form-group">
+                        <label>Migration Label</label>
+                        <input type="text" id="mig-label" class="mig-input" placeholder="e.g. add_custom_field" />
+                    </div>
+                    <div class="edit-form-group">
+                        <label>Target Company</label>
+                        <select id="mig-target" class="mig-select">
+                            <option value="all">— All Active Companies —</option>
+                            {% for company in companies %}
+                            <option value="{{ company.company_id }}">{{ company.company_name }} (#{{ company.company_id }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="edit-form-group full-width">
+                        <label>SQL Statements</label>
+                        <textarea id="mig-sql" class="mig-textarea" placeholder="ALTER TABLE ..."></textarea>
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button type="button" class="mig-btn mig-btn-secondary" onclick="runMigration(true)"><i class="fas fa-eye"></i> Dry Run</button>
+                    <button type="button" class="mig-btn mig-btn-primary" id="mig-run-btn" onclick="runMigration(false)"><i class="fas fa-bolt"></i> Run on Companies</button>
+                </div>
+            </div>
+        </div>
+
+        <footer>Qiyadah ERP Super Admin Console — Secure Multi-Tenant Enterprise Platform</footer>
+    </div>
+
+    <!-- ── UNIFIED EDIT USER & SUBSCRIPTION MODAL ── -->
+    <div id="editUserModal" class="modal">
+        <div class="edit-modal-content">
+            <div class="edit-modal-header">
+                <div>
+                    <h3><i class="fas fa-user-shield" style="color:#60A5FA;"></i> Manage User & Subscription</h3>
+                    <p>Change user plan, set custom yearly renewal (e.g. ₹1,500/yr), limits, and payment status.</p>
+                </div>
+                <button type="button" class="edit-modal-close-btn" id="closeEditUserModalHeaderBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="editUserForm">
+                <input type="hidden" id="editUserId" name="user_id">
+
+                <div class="edit-modal-body">
+                    <!-- 1. Highlighted Plan & Custom Pricing -->
+                    <div class="edit-card-highlight">
+                        <div class="modal-section-title" style="margin-top:0; color:#0369A1;"><i class="fas fa-bolt"></i> Subscription Plan & Custom Pricing</div>
+                        <div class="edit-form-grid">
+                            <div class="edit-form-group">
+                                <label>Subscription Plan</label>
+                                <select id="editSubPlan" name="subscription_plan">
+                                    <optgroup label="Qiyadah Modular & Unified Plans">
+                                        <option value="finance_workshop">Finance + Workshop (₹12,999/yr)</option>
+                                        <option value="finance">Finance (₹6,999/yr)</option>
+                                        <option value="finance_crm">Finance + CRM (₹9,999/yr)</option>
+                                        <option value="crm_hr">CRM + HR (₹14,999/yr)</option>
+                                        <option value="unified">Qiyadah Unified (₹29,999/yr)</option>
+                                    </optgroup>
+                                    <optgroup label="Standard & Enterprise Plans">
+                                        <option value="lifetime">Lifetime License ⭐</option>
+                                        <option value="starter">Starter Plan (₹7,999/yr)</option>
+                                        <option value="business">Business Plan (₹14,999/yr)</option>
+                                        <option value="growth">Growth Plan (₹29,999/yr)</option>
+                                        <option value="enterprise">Enterprise Plan (₹59,999/yr)</option>
+                                        <option value="unlimited">Unlimited Scale Plan (₹99,999/yr)</option>
+                                        <option value="trial">14-Day Free Trial</option>
+                                        <option value="custom">Custom Enterprise</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="edit-form-group">
+                                <label style="color:#0369A1; font-weight:800;">Yearly Renewal Amount (₹)</label>
+                                <input type="number" step="0.01" id="editCustomYearlyAmount" name="custom_yearly_amount" placeholder="e.g. 1500 or 2500" style="font-weight:800; color:#0369A1; border-color:#7DD3FC; background:#FFF;">
+                                <div class="edit-help-text">
+                                    💡 e.g. <strong>₹1,500/yr</strong>. Overrides catalog price & applies directly to this user's renewals.
+                                </div>
+                            </div>
+                            <div class="edit-form-group">
+                                <label>Plan Duration</label>
+                                <select id="editPlanDuration" name="plan_duration">
+                                    <option value="lifetime">Lifetime Access</option>
+                                    <option value="1_year">1 Year (Annual)</option>
+                                    <option value="3_years">3 Years</option>
+                                    <option value="14_days">14 Days (Trial)</option>
+                                </select>
+                            </div>
+                            <div class="edit-form-group">
+                                <label>Subscription Expiry Date</label>
+                                <input type="date" id="editSubEnd" name="subscription_end">
+                            </div>
+                            <div class="edit-form-group">
+                                <label>Subscription Start Date</label>
+                                <input type="date" id="editSubStart" name="subscription_start">
+                            </div>
+                            <div class="edit-form-group">
+                                <label>Annual Maintenance Due Date</label>
+                                <input type="date" id="editMaintenanceDue" name="maintenance_due_date">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. User Account Information -->
+                    <div class="modal-section-title"><i class="fas fa-user"></i> User Account Information</div>
+                    <div class="edit-form-grid" style="margin-bottom:14px;">
+                        <div class="edit-form-group">
+                            <label>Full Name</label>
+                            <input type="text" id="editUserFullName" name="full_name" required placeholder="User Full Name">
+                        </div>
+                        <div class="edit-form-group">
+                            <label>Email Address</label>
+                            <input type="email" id="editUserEmail" name="email" readonly style="background:#F1F5F9; color:#64748B; cursor:not-allowed;">
+                        </div>
+                        <div class="edit-form-group">
+                            <label>Contact Phone</label>
+                            <input type="text" id="editUserPhone" name="phone" placeholder="+91 98765 43210">
+                        </div>
+                        <div class="edit-form-group">
+                            <label>Registered Address</label>
+                            <input type="text" id="editUserAddress" name="address" placeholder="Address, City, State">
+                        </div>
+                    </div>
+
+                    <!-- 3. Resource Limits & Account Status -->
+                    <div class="modal-section-title"><i class="fas fa-shield-alt"></i> Resource Limits & Account Status</div>
+                    <div class="edit-form-grid">
+                        <div class="edit-form-group">
+                            <label>Max Companies Allowed</label>
+                            <input type="text" id="editMaxCompanies" name="max_companies_allowed" placeholder="e.g. 2 or Unlimited">
+                        </div>
+                        <div class="edit-form-group">
+                            <label>Max Users Allowed (per company)</label>
+                            <input type="text" id="editMaxUsers" name="max_users_per_company" placeholder="e.g. 10 or Unlimited">
+                        </div>
+                        <div class="edit-form-group">
+                            <label>Account Status</label>
+                            <select id="editIsActive" name="is_active">
+                                <option value="1">Active</option>
+                                <option value="0">Suspended / Inactive</option>
+                            </select>
+                        </div>
+                        <div class="edit-form-group">
+                            <label>Payment Status</label>
+                            <select id="editPaymentStatus" name="payment_status">
+                                <option value="paid">Paid</option>
+                                <option value="trial">Free Trial</option>
+                                <option value="pending">Pending</option>
+                                <option value="partial">Partial</option>
+                            </select>
+                        </div>
+                        <div class="edit-form-group">
+                            <label>Amount Paid (₹)</label>
+                            <input type="number" step="0.01" id="editAmountPaid" name="amount_paid" placeholder="0">
+                        </div>
+                        <div class="edit-form-group">
+                            <label>Total Plan Amount (₹)</label>
+                            <input type="number" step="0.01" id="editAmountTotal" name="amount_total" placeholder="e.g. 14999">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" id="closeEditUserModalBtn" class="btn-cancel">Cancel</button>
+                    <button type="submit" id="saveEditBtn" class="btn-save">
+                        <i class="fas fa-save"></i> Save & Apply Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── JAVASCRIPT LOGIC ── -->
+    <script>
+        // Tab Navigation
+        const tabs = document.querySelectorAll('.nav-item[data-tab]');
+        const panes = {
+            access: document.getElementById('accessTab'),
+            overview:   document.getElementById('overviewTab'),
+            companies:  document.getElementById('companiesTab'),
+            users:      document.getElementById('usersTab'),
+            plans:      document.getElementById('plansTab'),
+            migrations: document.getElementById('migrationsTab')
+        };
+
+        function activateTab(tabId) {
+            Object.values(panes).forEach(pane => {
+                if (pane) pane.style.display = 'none';
+            });
+            if (panes[tabId]) panes[tabId].style.display = 'block';
+            if (tabId === 'access' && !adminAccess.catalog) loadAccessCatalog();
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            const activeNav = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+            if (activeNav) activeNav.classList.add('active');
+        }
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.getAttribute('data-tab');
+                if (tabId) activateTab(tabId);
+            });
+        });
+
+        document.getElementById('viewAllCompaniesBtn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            activateTab('companies');
+        });
+
+        // Charts
+        try {
+            const planDistribution = {{ plan_distribution | tojson }};
+            const barCtx = document.getElementById('planBarChart')?.getContext('2d');
+            if (barCtx && Object.keys(planDistribution).length > 0) {
+                new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(planDistribution).map(p => p.toUpperCase()),
+                        datasets: [{
+                            label: '# Companies',
+                            data: Object.values(planDistribution),
+                            backgroundColor: '#17549A',
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: '#E2E8F0' } }
+                        }
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('Charts init warning:', e);
+        }
+
+        // ── MANAGE USER & SUBSCRIPTION MODAL LOGIC ──
+        const editUserModal = document.getElementById('editUserModal');
+        const editUserId = document.getElementById('editUserId');
+        const editUserForm = document.getElementById('editUserForm');
+        const closeEditUserModalBtn = document.getElementById('closeEditUserModalBtn');
+        const closeEditUserModalHeaderBtn = document.getElementById('closeEditUserModalHeaderBtn');
+
+        function openEditUserModalFromBtn(btn) {
+            if (!editUserModal) return;
+            editUserId.value = btn.getAttribute('data-user-id') || '';
+            document.getElementById('editUserFullName').value = btn.getAttribute('data-full-name') || '';
+            document.getElementById('editUserEmail').value = btn.getAttribute('data-email') || '';
+            document.getElementById('editUserPhone').value = btn.getAttribute('data-phone') || '';
+            document.getElementById('editUserAddress').value = btn.getAttribute('data-address') || '';
+
+            const planVal = (btn.getAttribute('data-plan') || 'starter').toLowerCase();
+            const planSelectEl = document.getElementById('editSubPlan');
+            if (planSelectEl) {
+                planSelectEl.value = planVal;
+                if (!planSelectEl.value) planSelectEl.value = 'starter';
+            }
+
+            const durationVal = (btn.getAttribute('data-duration') || '1_year').toLowerCase();
+            const durSelectEl = document.getElementById('editPlanDuration');
+            if (durSelectEl) {
+                durSelectEl.value = durationVal;
+                if (!durSelectEl.value) durSelectEl.value = '1_year';
+            }
+
+            document.getElementById('editCustomYearlyAmount').value = btn.getAttribute('data-yearly-amount') || '';
+            document.getElementById('editSubStart').value = btn.getAttribute('data-start-date') || '';
+            document.getElementById('editSubEnd').value = btn.getAttribute('data-end-date') || '';
+            document.getElementById('editMaintenanceDue').value = btn.getAttribute('data-maintenance-date') || '';
+            document.getElementById('editMaxUsers').value = btn.getAttribute('data-max-users') || '';
+            document.getElementById('editMaxCompanies').value = btn.getAttribute('data-max-companies') || '';
+
+            const isActiveVal = btn.getAttribute('data-is-active') === '1' ? '1' : '0';
+            document.getElementById('editIsActive').value = isActiveVal;
+
+            const payStatusVal = (btn.getAttribute('data-payment-status') || 'pending').toLowerCase();
+            const payStatusEl = document.getElementById('editPaymentStatus');
+            if (payStatusEl) {
+                payStatusEl.value = payStatusVal;
+                if (!payStatusEl.value) payStatusEl.value = 'pending';
+            }
+
+            document.getElementById('editAmountPaid').value = btn.getAttribute('data-amount-paid') || '0';
+            document.getElementById('editAmountTotal').value = btn.getAttribute('data-amount-total') || '';
+
+            editUserModal.style.display = 'flex';
+        }
+
+        function closeEditUserModal() {
+            if (editUserModal) editUserModal.style.display = 'none';
+        }
+
+        // Attach listener to all User Manage buttons
+        document.querySelectorAll('.edit-user-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                openEditUserModalFromBtn(btn);
+            });
+        });
+
+        if (closeEditUserModalBtn) closeEditUserModalBtn.addEventListener('click', closeEditUserModal);
+        if (closeEditUserModalHeaderBtn) closeEditUserModalHeaderBtn.addEventListener('click', closeEditUserModal);
+        window.addEventListener('click', (e) => { if (e.target === editUserModal) closeEditUserModal(); });
+        window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeEditUserModal(); });
+
+        // Save & Apply Changes (AJAX)
+        if (editUserForm) {
+            editUserForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const userId = editUserId.value;
+                const saveBtn = document.getElementById('saveEditBtn');
+                const originalBtnHtml = saveBtn.innerHTML;
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+                const formData = new FormData(editUserForm);
+                try {
+                    const response = await fetch(`/admin/user/${userId}/edit`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (response.ok && data.success) {
+                        showNotification('User account & subscription settings updated successfully!', 'success');
+                        setTimeout(() => location.reload(), 700);
+                    } else {
+                        showNotification(data.error || 'Failed to update user account.', 'error');
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = originalBtnHtml;
+                    }
+                } catch (err) {
+                    showNotification('Failed to update user account: ' + err.message, 'error');
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnHtml;
+                }
+            });
+        }
+
+        // ── TOGGLE STATUS ──
+        document.querySelectorAll('.toggle-status').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const companyId = btn.getAttribute('data-company-id');
+                const currentlyActive = btn.getAttribute('data-status') === 'True';
+                const companyName = btn.closest('tr').querySelector('td strong')?.textContent || 'Company';
+
+                const confirmed = await showConfirmDialog(
+                    currentlyActive ? 'Suspend Company' : 'Activate Company',
+                    `Are you sure you want to ${currentlyActive ? 'suspend' : 'activate'} "${companyName}"?`,
+                    currentlyActive ? 'Suspend' : 'Activate',
+                    currentlyActive ? '#DC2626' : '#17549A'
+                );
+
+                if (!confirmed) return;
+
+                try {
+                    const response = await fetch(`/admin/company/${companyId}/toggle-status`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (response.ok && data.success !== false) {
+                        showNotification(`"${companyName}" status updated!`, 'success');
+                        setTimeout(() => location.reload(), 600);
+                    } else {
+                        showNotification(data.error || 'Failed to update status.', 'error');
+                    }
+                } catch (err) {
+                    showNotification('Network error.', 'error');
+                }
+            });
+        });
+
+        // ── RENEW COMPANY ──
+        document.querySelectorAll('.renew-company').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const companyId = btn.getAttribute('data-company-id');
+                const companyName = btn.getAttribute('data-company-name');
+                const confirmed = await showConfirmDialog(
+                    'Renew Subscription',
+                    `Renew "${companyName}" for another 1 year?`,
+                    'Renew',
+                    '#17549A'
+                );
+                if (!confirmed) return;
+                try {
+                    const response = await fetch(`/admin/company/${companyId}/renew`, { method: 'POST' });
+                    if (response.ok) {
+                        showNotification(`"${companyName}" renewed successfully!`, 'success');
+                        setTimeout(() => location.reload(), 600);
+                    } else {
+                        showNotification('Failed to renew company', 'error');
+                    }
+                } catch (err) {
+                    showNotification('Network error: ' + err.message, 'error');
+                }
+            });
+        });
+
+        // ── DELETE COMPANY ──
+        document.querySelectorAll('.delete-company').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const companyId = btn.getAttribute('data-company-id');
+                const companyName = btn.getAttribute('data-company-name');
+                const confirmed = await showConfirmDialog(
+                    'Delete Company',
+                    `Delete "${companyName}"? This removes the company and its tenant database permanently!`,
+                    'Delete Permanently',
+                    '#DC2626'
+                );
+                if (!confirmed) return;
+                try {
+                    const response = await fetch(`/admin/company/${companyId}/delete`, { method: 'POST' });
+                    const data = await response.json().catch(() => ({}));
+                    if (response.ok && data.success) {
+                        showNotification(`"${companyName}" deleted successfully!`, 'success');
+                        setTimeout(() => location.reload(), 600);
+                    } else {
+                        showNotification(data.error || 'Failed to delete company', 'error');
+                    }
+                } catch (err) {
+                    showNotification('Network error: ' + err.message, 'error');
+                }
+            });
+        });
+
+        // ── DELETE USER ──
+        document.querySelectorAll('.delete-user-btn').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                const userId = this.getAttribute('data-user-id');
+                const userName = this.getAttribute('data-user-name');
+                const userEmail = this.getAttribute('data-user-email');
+
+                const confirmed = await showConfirmDialog(
+                    'Delete User Account',
+                    `Delete "${userName}" (${userEmail}) and all their companies? This action cannot be undone!`,
+                    'Delete Permanently',
+                    '#DC2626'
+                );
+                if (!confirmed) return;
+
+                try {
+                    const response = await fetch(`/admin/user/${userId}/delete`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (response.ok && data.success) {
+                        showNotification(`User "${userName}" deleted!`, 'success');
+                        this.closest('tr').remove();
+                    } else {
+                        showNotification(data.error || 'Failed to delete user', 'error');
+                    }
+                } catch (err) {
+                    showNotification('Network error: ' + err.message, 'error');
+                }
+            });
+        });
+
+        // ── CUSTOM CONFIRM DIALOG ──
+        function showConfirmDialog(title, message, confirmText = 'Confirm', confirmColor = '#17549A') {
+            return new Promise((resolve) => {
+                const existing = document.querySelector('.custom-confirm-overlay');
+                if (existing) existing.remove();
+
+                const overlay = document.createElement('div');
+                overlay.className = 'custom-confirm-overlay';
+                overlay.style.cssText = `
+                    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(12, 35, 64, 0.6); backdrop-filter: blur(5px);
+                    display: flex; align-items: center; justify-content: center; z-index: 99999;
+                `;
+
+                overlay.innerHTML = `
+                    <div style="background:white; border-radius:20px; padding:28px 32px; max-width:420px; width:90%; box-shadow:0 25px 60px rgba(0,0,0,0.3); border:1px solid #E2E8F0;">
+                        <h3 style="margin:0 0 12px 0; font-size:1.2rem; font-weight:800; color:#0C2340;">${title}</h3>
+                        <p style="color:#64748B; font-size:0.92rem; line-height:1.5; margin:0 0 24px 0;">${message}</p>
+                        <div style="display:flex; gap:12px; justify-content:flex-end;">
+                            <button class="confirm-cancel-btn" style="background:#E2E8F0; border:none; padding:10px 22px; border-radius:30px; color:#334155; font-weight:700; cursor:pointer;">Cancel</button>
+                            <button class="confirm-ok-btn" style="background:${confirmColor}; border:none; padding:10px 26px; border-radius:30px; color:white; font-weight:700; cursor:pointer;">${confirmText}</button>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(overlay);
+
+                overlay.querySelector('.confirm-cancel-btn').addEventListener('click', () => { overlay.remove(); resolve(false); });
+                overlay.querySelector('.confirm-ok-btn').addEventListener('click', () => { overlay.remove(); resolve(true); });
+                overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); resolve(false); } });
+            });
+        }
+
+        // ── NOTIFICATION TOAST ──
+        function showNotification(message, type = 'info') {
+            const colors = {
+                success: { bg: '#DCFCE7', border: '#15803D', text: '#15803D', icon: 'fa-check-circle' },
+                error: { bg: '#FEE2E2', border: '#DC2626', text: '#B91C1C', icon: 'fa-exclamation-circle' },
+                info: { bg: '#EFF6FF', border: '#17549A', text: '#1E40AF', icon: 'fa-info-circle' }
+            };
+            const style = colors[type] || colors.info;
+            const existing = document.querySelector('.custom-notification');
+            if (existing) existing.remove();
+
+            const notification = document.createElement('div');
+            notification.className = 'custom-notification';
+            notification.style.cssText = `position:fixed; top:24px; right:24px; z-index:100000; animation:slideDown 0.3s ease-out;`;
+            notification.innerHTML = `
+                <div style="display:flex; align-items:center; gap:12px; padding:14px 22px; border-radius:14px; background:${style.bg}; border-left:5px solid ${style.border}; box-shadow:0 10px 25px rgba(0,0,0,0.1); font-weight:600; color:${style.text}; font-size:0.9rem;">
+                    <i class="fas ${style.icon}"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            setTimeout(() => {
+                if (notification.parentNode) notification.remove();
+            }, 4000);
+        }
+
+        // Logout
+        document.getElementById('logoutBtn')?.addEventListener('click', () => {
+            window.location.href = '/logout';
+        });
+    
+        activateTab('access');
+</script>
+</body>
+</html>

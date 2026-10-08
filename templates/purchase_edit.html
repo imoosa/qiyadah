@@ -1,0 +1,994 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Purchase Bill · ' + (invoice.invoice_id or invoice.invoice_number) if is_edit else 'New Purchase Bill' }}{% endblock %}
+{% set active = 'purchases' %}
+
+{% block extra_style %}
+<style>
+  .form-card {
+    background: var(--bg-card, #fff); border: 1px solid var(--border-color, #E2E8F0);
+    border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .section-title {
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .8px; color: #0D9488; margin-bottom: 16px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border-color, #E2E8F0);
+  }
+  .form-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+  .form-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+  .form-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px; }
+  @media(max-width: 900px){ .form-grid-4, .form-grid-3, .form-grid-2 { grid-template-columns: 1fr; } }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted, #64748B); margin-bottom: 6px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%; padding: 8px 12px; border: 1.5px solid var(--border-color, #CBD5E1);
+    border-radius: 8px; font-size: 13.5px; background: var(--bg-input, #F8FAFC); color: var(--text-body, #0F172A);
+    box-sizing: border-box; transition: border-color .15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: #0D9488; box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15); background: #fff;
+  }
+
+  .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; min-width: 950px; }
+  .items-table th { padding: 10px 12px; background: #012926; color: #F59E0B; font-size: 11px; font-weight: 700; text-transform: uppercase; text-align: left; }
+  .items-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-color, #E2E8F0); vertical-align: middle; }
+  .items-table input, .items-table select {
+    width: 100%; padding: 7px 9px; border: 1.5px solid var(--border-color, #CBD5E1);
+    border-radius: 6px; font-size: 13px; background: var(--bg-input, #F8FAFC); color: var(--text-body, #0F172A); box-sizing: border-box;
+  }
+  .items-table input:focus, .items-table select:focus {
+    border-color: #0D9488; outline: none; background: #fff;
+  }
+
+  .btn-remove-row { background: #FEE2E2; border: none; cursor: pointer; color: #DC2626; font-size: 16px; padding: 4px 8px; border-radius: 6px; font-weight: bold; }
+  .btn-remove-row:hover { background: #DC2626; color: #fff; }
+
+  .totals-card {
+    background: var(--bg-table-alt, #F8FAFC); border-radius: 10px; padding: 18px 24px;
+    margin-top: 16px; margin-left: auto; max-width: 420px; border: 1.5px solid var(--border-color, #E2E8F0);
+  }
+  .tot-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13.5px; }
+  .tot-row.grand { font-size: 18px; font-weight: 800; border-top: 2px solid var(--border-color, #E2E8F0); margin-top: 8px; padding-top: 10px; color: var(--text-body, #0F172A); }
+
+  .supp-search-wrap { position: relative; }
+  .supp-search-list {
+    display: none; position: absolute; z-index: 50; top: calc(100% + 4px); left: 0; right: 0;
+    max-height: 220px; overflow-y: auto; background: var(--bg-card, #fff);
+    border: 1.5px solid #0D9488; border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  }
+  .supp-search-list.open { display: block; }
+  .supp-search-item { padding: 9px 12px; font-size: 13px; cursor: pointer; color: var(--text-body); border-bottom: 1px solid var(--border-color, #E2E8F0); }
+  .supp-search-item:hover { background: #EEF2FF; color: #4338CA; }
+
+  /* OCR Banner Styles */
+  .ocr-scan-banner {
+    background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 100%);
+    border: 1.5px dashed #10B981;
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.08);
+  }
+  .ocr-banner-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .ocr-icon-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #D1FAE5;
+    color: #059669;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+  .ocr-dropzone {
+    background: #FFFFFF;
+    border: 1.5px solid #CBD5E1;
+    border-radius: 10px;
+    padding: 16px 20px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  .ocr-dropzone:hover, .ocr-dropzone.dragover {
+    border-color: #0D9488;
+    background: #F0FDFA;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+  }
+  .ocr-spinner {
+    display: inline-block;
+    width: 26px;
+    height: 26px;
+    border: 3px solid rgba(13, 148, 136, 0.2);
+    border-radius: 50%;
+    border-top-color: #0D9488;
+    animation: ocr-spin 0.8s linear infinite;
+  }
+  @keyframes ocr-spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+  <div>
+    <h2 style="margin: 0; font-size: 24px;">{{ '✏️ Edit Purchase Bill' if is_edit else '🧾 New Purchase Bill / Invoice' }}</h2>
+    <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Record supplier/vendor purchase invoices, update inventory & track creditor accounts</div>
+  </div>
+  <a href="{{ url_for('purchase_invoice_list') }}" class="btn btn-secondary">← Back to Purchases</a>
+</div>
+
+<form method="POST" action="{{ url_for('purchase_invoice_edit', invoice_id=invoice.invoice_id) if is_edit else url_for('purchase_invoice_new') }}" enctype="multipart/form-data" id="purchaseForm">
+  {% if is_edit %}
+  <input type="hidden" name="is_edit" value="1">
+  {% endif %}
+
+  <!-- OCR Scanner Banner -->
+  <div class="ocr-scan-banner" id="ocrScanCard">
+    <div class="ocr-banner-header">
+      <div class="ocr-icon-circle">⚡</div>
+      <div>
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: #065F46;">Auto-Fill / Re-Scan from Bill (PDF / Image OCR)</h3>
+        <p style="margin: 2px 0 0; font-size: 12.5px; color: #047857;">Upload or drop vendor bill PDF/image to automatically re-populate supplier details and line items.</p>
+      </div>
+    </div>
+    
+    <div class="ocr-dropzone" id="ocrDropzone" onclick="if(event.target.tagName !== 'BUTTON') document.getElementById('ocrFileInput').click()">
+      <input type="file" id="ocrFileInput" accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none;" onchange="handleOcrFileSelect(this)">
+      
+      <div id="ocrInitialState" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="font-size: 30px;">📄</div>
+          <div>
+            <strong style="font-size: 13.5px; color: #0F172A;">Click or drag & drop invoice PDF here</strong>
+            <div style="font-size: 11.5px; color: #64748B;">Supported formats: PDF (Digital / Scanned), PNG, JPG, JPEG</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm" id="btnTriggerOcr" style="background:#0D9488; color:#fff; font-weight:600; padding:8px 18px; border-radius:6px; border:none; cursor:pointer;" onclick="document.getElementById('ocrFileInput').click()">
+          📂 Select Bill PDF / Image
+        </button>
+      </div>
+
+      <!-- Scanning Progress State -->
+      <div id="ocrScanningState" style="display: none; text-align: center; padding: 14px;">
+        <div class="ocr-spinner"></div>
+        <div style="font-size: 14px; font-weight: 700; color: #0D9488; margin-top: 8px;">Processing Bill with OCR Engine...</div>
+        <div style="font-size: 12px; color: #64748B;">Extracting supplier information, GST, dates, and product line items</div>
+      </div>
+
+      <!-- Extracted Feedback Banner -->
+      <div id="ocrSuccessState" style="display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 10px 14px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 20px;">✅</span>
+          <div>
+            <strong style="font-size: 13px; color: #065F46;" id="ocrSuccessTitle">Bill Extracted Successfully!</strong>
+            <div style="font-size: 12px; color: #047857;" id="ocrSuccessDesc">Supplier and product lines populated. Review below and click Update.</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-sm" style="font-size:11.5px; padding:5px 12px; background:#fff; color:#065F46; border:1px solid #A7F3D0; border-radius:6px; font-weight:600;" onclick="document.getElementById('ocrFileInput').click()">Scan Another Bill</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden input fields to persist OCR state & filename -->
+    <input type="hidden" name="scanned_file_path" id="scanned_file_path" value="">
+    <input type="hidden" name="ocr_json_data" id="ocr_json_data" value="">
+  </div>
+
+  <!-- Datalist for Product Codes -->
+  <datalist id="stockCodesDatalist">
+    {% for s in stock_items %}
+    <option value="{{ s.code }}" label="{{ s.name }} (Stock: {{ s.quantity|default(0, true) }} {{ s.unit or '' }})"></option>
+    {% endfor %}
+  </datalist>
+
+  <!-- Top Information Card -->
+  <div class="form-card">
+    <div class="section-title">📌 Purchase Bill Particulars</div>
+    
+    <div class="form-grid-4">
+      <div class="form-group">
+        <label>Purchase Bill Ref *</label>
+        <input type="text" name="invoice_id" value="{{ invoice.invoice_id if is_edit else default_bill_id }}" required style="font-weight:700; font-family:monospace; color:#0D9488;">
+      </div>
+
+      <div class="form-group">
+        <label>Supplier / Vendor Invoice No. *</label>
+        <input type="text" name="invoice_number" value="{{ invoice.invoice_number if is_edit else (prefill_invoice_number or '') }}" placeholder="Vendor's Bill / Tax Inv #" required>
+      </div>
+
+      <div class="form-group">
+        <label>Bill Date *</label>
+        <input type="date" name="date" value="{{ invoice.date.strftime('%Y-%m-%d') if is_edit and invoice.date else today_date }}" required>
+      </div>
+
+      <div class="form-group">
+        <label>Due Date</label>
+        <input type="date" name="due_date" value="{{ invoice.due_date.strftime('%Y-%m-%d') if is_edit and invoice.due_date else today_date }}">
+      </div>
+    </div>
+
+    <!-- Supplier Search Row -->
+    <div class="form-grid-3">
+      <div class="form-group supp-search-wrap">
+        <label>Supplier / Vendor *</label>
+        <input type="hidden" name="supplier_id" id="supplier_id" value="{{ invoice.supplier_id if is_edit else (prefill_supplier_id or '') }}">
+        <input type="text" id="supplier_name_input" name="supplier_name" value="{{ invoice.supplier_name or (invoice.supplier.name if invoice and invoice.supplier else (prefill_supplier_name or '')) }}" placeholder="Search or type vendor name..." autocomplete="off" required>
+        <div class="supp-search-list" id="supplierDropdown">
+          {% for s in suppliers %}
+          <div class="supp-search-item" data-id="{{ s.id }}" data-name="{{ s.name }}" data-gstin="{{ s.gst_number or s.gstin or '' }}" data-state="{{ s.state or '' }}" data-address="{{ s.address or '' }}" data-city="{{ s.city or '' }}" data-phone="{{ s.phone or '' }}" data-email="{{ s.email or '' }}">
+            <strong>{{ s.name }}</strong>
+            {% if s.city %}<span style="font-size: 11px; color: var(--text-muted);"> · {{ s.city }}, {{ s.state }}</span>{% endif %}
+            {% if s.gst_number %}<span style="font-size: 11px; color: #0D9488; font-family:monospace;"> · GST: {{ s.gst_number }}</span>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Supplier {{ tax_id_label|default("Tax ID") }}</label>
+        <input type="text" name="supplier_gstin" id="supplier_gstin" value="{{ invoice.supplier_gstin if is_edit else '' }}" placeholder="27AAAAA0000A1Z5">
+      </div>
+
+      <div class="form-group">
+        <label>Place of Supply / State *</label>
+        <input type="text" name="supplier_state" id="supplier_state" value="{{ invoice.supplier_state if is_edit else (company.state if company else 'Maharashtra') }}" placeholder="e.g. Maharashtra" required onchange="calcTotals()">
+      </div>
+    </div>
+
+    <div class="form-grid-4" style="margin-top:12px;">
+      <div class="form-group">
+        <label>Currency *</label>
+        <select name="currency" id="doc_currency" onchange="onFormCurrencyChange()">
+          {% for c in supported_currencies %}
+          <option value="{{ c.code }}" {% if (invoice.currency if is_edit and invoice and invoice.currency else base_currency) == c.code %}selected{% endif %}>
+            {{ c.flag }} {{ c.code }} ({{ c.symbol }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-group" id="exchangeRateGroup">
+        <label id="exchangeRateLabel">Exchange Rate (to {{ base_currency }})</label>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <input type="number" step="0.0001" name="exchange_rate" id="exchange_rate" value="{{ invoice.exchange_rate if is_edit and invoice and invoice.exchange_rate else 1.0 }}" oninput="calcTotals()" placeholder="1.0">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="fetchFormLiveRate()" title="Fetch live exchange rate" style="white-space:nowrap; padding:5px 8px; font-size:11px;">⚡ Live</button>
+        </div>
+        <div id="formLiveRateNotice" style="font-size:10px; color:var(--text-muted); margin-top:2px;"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Tax Treatment</label>
+        <select name="tax_type" id="form_tax_type" onchange="calcTotals()">
+          <option value="Domestic" {% if is_edit and invoice and invoice.tax_type == 'Domestic' %}selected{% endif %}>Domestic Purchase</option>
+          <option value="Import" {% if is_edit and invoice and invoice.tax_type == 'Import' %}selected{% endif %}>Import / Overseas (0% Tax)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Reference PO No.</label>
+        <input type="text" name="reference_po_no" value="{{ invoice.reference_po_no if is_edit else (prefill_po_no or '') }}" placeholder="e.g. PO-0001">
+      </div>
+    </div>
+
+    <div class="form-grid-2" style="margin-top:12px;">
+      <div class="form-group">
+        <label>Payment Terms</label>
+        <input type="text" name="payment_terms" value="{{ invoice.payment_terms if is_edit else 'Net 30 Days' }}" placeholder="e.g. Net 30, Advance">
+      </div>
+
+      <div class="form-group">
+        <label>Payment Status</label>
+        <select name="status">
+          <option value="Pending" {% if is_edit and invoice.status == 'Pending' %}selected{% endif %}>⚠️ Pending / Unpaid</option>
+          <option value="Paid" {% if is_edit and invoice.status == 'Paid' %}selected{% endif %}>✓ Paid in Full</option>
+          <option value="Partial" {% if is_edit and invoice.status == 'Partial' %}selected{% endif %}>⏳ Partial</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-top:12px;">
+      <div class="form-group">
+        <label>Supplier Billing / Dispatch Address</label>
+        <textarea name="supplier_address" id="supplier_address" rows="2" placeholder="Full vendor address...">{{ invoice.supplier_address if is_edit else '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label>Supplier Contact / Phone</label>
+        <input type="text" name="supplier_phone" id="supplier_phone" value="{{ invoice.supplier_phone if is_edit else '' }}" placeholder="Phone / Mobile" style="margin-bottom:6px;">
+        <input type="email" name="supplier_email" id="supplier_email" value="{{ invoice.supplier_email if is_edit else '' }}" placeholder="vendor@example.com">
+      </div>
+    </div>
+  </div>
+
+  <!-- Items Table Card -->
+  <div class="form-card">
+    <div class="section-title" style="display: flex; justify-content: space-between; align-items: center;">
+      <span>📦 Products / Materials Purchased</span>
+      <button type="button" class="btn btn-sm btn-primary" onclick="addRow()" style="display:inline-flex; align-items:center; gap:6px;">+ Add Product Line</button>
+    </div>
+
+    <div style="overflow-x: auto;">
+      <table class="items-table" id="itemsTable">
+        <thead>
+          <tr>
+            <th style="width: 40px; text-align:center;">#</th>
+            <th style="width: 130px;">Product Code</th>
+            <th style="min-width: 220px;">Item / Material Description *</th>
+            <th style="width: 100px;">HSN/SAC</th>
+            <th style="width: 85px;">Qty *</th>
+            <th style="width: 80px;">Unit</th>
+            <th style="width: 110px;">Rate (<span class="form-curr-sym">{{ curr_sym(invoice.currency if is_edit and invoice and invoice.currency else base_currency) }}</span>) *</th>
+            <th style="width: 80px;">Disc %</th>
+            <th style="width: 95px;">{{ billing_tax.label if billing_tax is defined else "Tax" }} %</th>
+            <th style="width: 120px; text-align: right;">Total Amount</th>
+            <th style="width: 45px; text-align: center;"></th>
+          </tr>
+        </thead>
+        <tbody id="itemsBody">
+          {% if is_edit and invoice.items %}
+            {% for itm in invoice.items %}
+            <tr class="item-row">
+              <td style="text-align:center; font-weight:700;" class="sno">{{ loop.index }}</td>
+              <td>
+                <input type="hidden" name="stock_item_id[]" value="{{ itm.stock_item_id or '' }}" class="row-stock-id">
+                <input type="text" name="item_code[]" value="{{ itm.item_code or itm.code or '' }}" class="row-code" placeholder="PROD-001" list="stockCodesDatalist" oninput="onProductCodeChange(this)" style="font-family:monospace;font-weight:600;">
+              </td>
+              <td><input type="text" name="item_name[]" value="{{ itm.item_name or itm.description or '' }}" class="row-name" placeholder="Item description" required oninput="onItemNameChange(this)"></td>
+              <td><input type="text" name="hsn[]" value="{{ itm.hsn or '' }}" class="row-hsn" placeholder="HSN"></td>
+              <td><input type="number" step="any" name="quantity[]" value="{{ itm.quantity or 1.0 }}" class="row-qty" required oninput="calcRow(this)"></td>
+              <td>
+                <select name="unit[]" class="row-unit">
+                  {% for u in ['pcs', 'nos', 'box', 'kg', 'mtr', 'set', 'ton', 'ltr'] %}
+                  <option value="{{ u }}" {% if itm.unit == u %}selected{% endif %}>{{ u }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td><input type="number" step="0.01" name="rate[]" value="{{ itm.rate or itm.purchase_rate or 0.0 }}" class="row-rate" required oninput="calcRow(this)"></td>
+              <td><input type="number" step="0.01" name="discount_percent[]" value="{{ itm.discount_percent or 0.0 }}" class="row-disc" oninput="calcRow(this)"></td>
+              <td>
+                <select name="gst_percent[]" class="row-gst" onchange="calcRow(this)">
+                  {% for g in [0, 5, 12, 18, 28] %}
+                  <option value="{{ g }}" {% if (itm.gst_percent | int) == g %}selected{% endif %}>{{ g }}%</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td style="text-align:right; font-weight:700;">
+                <span class="row-total-display">{{ curr_sym(invoice.currency if is_edit and invoice and invoice.currency else base_currency) }}{{ "{:,.2f}".format(itm.total_amount or 0.0) }}</span>
+              </td>
+              <td style="text-align:center;">
+                <button type="button" class="btn-remove-row" onclick="removeRow(this)">×</button>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr class="item-row">
+              <td style="text-align:center; font-weight:700;" class="sno">1</td>
+              <td>
+                <input type="hidden" name="stock_item_id[]" class="row-stock-id" value="">
+                <input type="text" name="item_code[]" class="row-code" placeholder="PROD-001" list="stockCodesDatalist" oninput="onProductCodeChange(this)" style="font-family:monospace;font-weight:600;">
+              </td>
+              <td><input type="text" name="item_name[]" class="row-name" placeholder="Item description" required oninput="onItemNameChange(this)"></td>
+              <td><input type="text" name="hsn[]" class="row-hsn" placeholder="HSN"></td>
+              <td><input type="number" step="any" name="quantity[]" value="1" class="row-qty" required oninput="calcRow(this)"></td>
+              <td>
+                <select name="unit[]" class="row-unit">
+                  <option value="pcs" selected>pcs</option>
+                  <option value="nos">nos</option>
+                  <option value="box">box</option>
+                  <option value="kg">kg</option>
+                  <option value="mtr">mtr</option>
+                  <option value="set">set</option>
+                  <option value="ton">ton</option>
+                  <option value="ltr">ltr</option>
+                </select>
+              </td>
+              <td><input type="number" step="0.01" name="rate[]" value="0.00" class="row-rate" required oninput="calcRow(this)"></td>
+              <td><input type="number" step="0.01" name="discount_percent[]" value="0" class="row-disc" oninput="calcRow(this)"></td>
+              <td>
+                <select name="gst_percent[]" class="row-gst" onchange="calcRow(this)">
+                  <option value="0">0%</option>
+                  <option value="5">5%</option>
+                  <option value="12">12%</option>
+                  <option value="18" selected>18%</option>
+                  <option value="28">28%</option>
+                </select>
+              </td>
+              <td style="text-align:right; font-weight:700;">
+                <span class="row-total-display">{{ curr_sym(invoice.currency if is_edit and invoice and invoice.currency else base_currency) }}0.00</span>
+              </td>
+              <td style="text-align:center;">
+                <button type="button" class="btn-remove-row" onclick="removeRow(this)">×</button>
+              </td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Bottom Financials & Notes -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:24px; margin-top:24px; align-items:start;">
+      <div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>Purchase Terms / Conditions</label>
+          <textarea name="terms" rows="2" placeholder="Payment & delivery terms...">{{ invoice.terms if is_edit and invoice.terms else 'Payment due as per invoice terms.' }}</textarea>
+        </div>
+        
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>Purchase Bill Notes / Goods Receipt Ref</label>
+          <textarea name="notes" rows="2" placeholder="Internal notes, GRN / Inward reference...">{{ invoice.notes if is_edit else '' }}</textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom:12px;">
+          <label>Attach Vendor Invoice (PDF / Image)</label>
+          <input type="file" name="invoice_file" accept=".pdf,.png,.jpg,.jpeg">
+          {% if is_edit and invoice.file_path %}
+          <div style="font-size:12px; margin-top:4px; color:#0D9488;">Current file: <a href="/purchase/file/{{ invoice.file_path }}" target="_blank">View Attachment</a></div>
+          {% endif %}
+        </div>
+
+        <div style="margin-top:14px;">
+          <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600; cursor:pointer;">
+            <input type="checkbox" name="auto_add_stock" value="1" style="width:16px; height:16px; accent-color:#0D9488;" {% if not is_edit or not invoice %}checked{% endif %}>
+            Auto-add/update items into Inventory Stock Master on save
+          </label>
+        </div>
+      </div>
+
+      <div class="totals-card">
+        <div class="tot-row">
+          <span style="color:var(--text-muted);">Amount Without Tax (Subtotal):</span>
+          <strong id="dispSubtotal">{{ currency_symbol|default("₹") }}0.00</strong>
+        </div>
+        <div class="tot-row" id="rowCGST">
+          <span style="color:var(--text-muted);">CGST:</span>
+          <span id="dispCGST">{{ currency_symbol|default("₹") }}0.00</span>
+        </div>
+        <div class="tot-row" id="rowSGST">
+          <span style="color:var(--text-muted);">SGST:</span>
+          <span id="dispSGST">{{ currency_symbol|default("₹") }}0.00</span>
+        </div>
+        <div class="tot-row" id="rowIGST" style="display:none;">
+          <span style="color:var(--text-muted);">IGST:</span>
+          <span id="dispIGST">{{ currency_symbol|default("₹") }}0.00</span>
+        </div>
+        <div class="tot-row">
+          <span style="color:var(--text-muted);">Total Tax Applicable:</span>
+          <strong id="dispTotalTax" style="color:#D97706;">{{ currency_symbol|default("₹") }}0.00</strong>
+        </div>
+        <div class="tot-row grand">
+          <span>Grand Total:</span>
+          <strong id="dispGrandTotal" style="color:#012926; font-size:20px;">0.00</strong>
+        </div>
+        <div class="tot-row" id="rowBaseEquiv" style="display:none; color:#2563EB; font-weight:700; font-size:12.5px; border-top:1px dashed #CBD5E1; margin-top:6px; padding-top:6px;">
+          <span>Base Equivalent:</span>
+          <strong id="dispBaseEquiv"></strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:flex-end; gap:12px; margin-bottom:40px;">
+    <a href="{{ url_for('purchase_invoice_list') }}" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary" style="padding:10px 24px; font-size:14px; font-weight:700;">
+      {{ '💾 Update Purchase Bill' if is_edit else '💾 Save Purchase Bill' }}
+    </button>
+  </div>
+</form>
+
+<script>
+  const companyBaseCurrency = {{ (base_currency or 'INR')|tojson }};
+  const companyCurrencySymbol = {{ (currency_symbol or '₹')|tojson }};
+  const supportedCurrenciesList = {{ (supported_currencies or [])|tojson }};
+  const currencyMap = {};
+  supportedCurrenciesList.forEach(c => { currencyMap[c.code] = c; });
+
+  function getCurSymbol(code) {
+    return (currencyMap[code] && currencyMap[code].symbol) ? currencyMap[code].symbol : (code || companyCurrencySymbol);
+  }
+  function getCurDecimals(code) {
+    return (currencyMap[code] && currencyMap[code].decimals !== undefined) ? currencyMap[code].decimals : 2;
+  }
+
+  async function onFormCurrencyChange() {
+    const selCurr = (document.getElementById('doc_currency')?.value || companyBaseCurrency).toUpperCase();
+    const rateInput = document.getElementById('exchange_rate');
+    const notice = document.getElementById('formLiveRateNotice');
+    const taxTypeSelect = document.getElementById('form_tax_type');
+
+    document.querySelectorAll('.form-curr-sym').forEach(el => el.textContent = getCurSymbol(selCurr));
+
+    if (selCurr === companyBaseCurrency) {
+      if (rateInput) { rateInput.value = '1.0'; rateInput.disabled = true; }
+      if (notice) notice.innerText = 'Base functional currency';
+      if (taxTypeSelect && taxTypeSelect.value === 'Import') taxTypeSelect.value = 'Domestic';
+    } else {
+      if (rateInput) { rateInput.disabled = false; }
+      if (taxTypeSelect && taxTypeSelect.value === 'Domestic') taxTypeSelect.value = 'Import';
+      await fetchFormLiveRate();
+    }
+    calcTotals();
+  }
+
+  async function fetchFormLiveRate() {
+    const selCurr = (document.getElementById('doc_currency')?.value || companyBaseCurrency).toUpperCase();
+    const rateInput = document.getElementById('exchange_rate');
+    const notice = document.getElementById('formLiveRateNotice');
+    if (selCurr === companyBaseCurrency) {
+      if (rateInput) rateInput.value = '1.0';
+      if (notice) notice.innerText = 'Base functional currency';
+      calcTotals();
+      return;
+    }
+    if (notice) notice.innerText = 'Fetching live rate...';
+    try {
+      const res = await fetch(`/api/currency/exchange-rate?from=${selCurr}&to=${companyBaseCurrency}`);
+      const data = await res.json();
+      if (data.success && data.exchange_rate) {
+        if (rateInput) rateInput.value = parseFloat(data.exchange_rate).toFixed(4);
+        if (notice) notice.innerText = `1 ${selCurr} = ${data.exchange_rate} ${companyBaseCurrency} (${data.source || 'Live'})`;
+      }
+    } catch (err) {
+      if (notice) notice.innerText = 'Offline rate. Enter manually.';
+    }
+    calcTotals();
+  }
+
+  const companyState = "{{ (company.state if company and company.state else 'Maharashtra')|lower }}";
+
+  // Supplier Search Dropdown
+  const suppInput = document.getElementById('supplier_name_input');
+  const suppList = document.getElementById('supplierDropdown');
+  const suppIdInput = document.getElementById('supplier_id');
+  const suppGstin = document.getElementById('supplier_gstin');
+  const suppState = document.getElementById('supplier_state');
+  const suppAddress = document.getElementById('supplier_address');
+  const suppPhone = document.getElementById('supplier_phone');
+  const suppEmail = document.getElementById('supplier_email');
+
+  if (suppInput && suppList) {
+    suppInput.addEventListener('focus', () => { suppList.classList.add('open'); filterSupp(); });
+    suppInput.addEventListener('input', () => { suppList.classList.add('open'); filterSupp(); });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.supp-search-wrap')) suppList.classList.remove('open');
+    });
+
+    function filterSupp() {
+      const q = suppInput.value.toLowerCase();
+      suppList.querySelectorAll('.supp-search-item').forEach(el => {
+        const text = el.innerText.toLowerCase();
+        el.style.display = text.includes(q) ? 'block' : 'none';
+      });
+    }
+
+    suppList.querySelectorAll('.supp-search-item').forEach(el => {
+      el.addEventListener('click', () => {
+        suppIdInput.value = el.getAttribute('data-id');
+        suppInput.value = el.getAttribute('data-name');
+        if (suppGstin) suppGstin.value = el.getAttribute('data-gstin') || '';
+        if (suppState) suppState.value = el.getAttribute('data-state') || '';
+        if (suppAddress) {
+          const addr = [el.getAttribute('data-address'), el.getAttribute('data-city'), el.getAttribute('data-state')].filter(Boolean).join(', ');
+          suppAddress.value = addr;
+        }
+        if (suppPhone) suppPhone.value = el.getAttribute('data-phone') || '';
+        if (suppEmail) suppEmail.value = el.getAttribute('data-email') || '';
+        suppList.classList.remove('open');
+        calcTotals();
+      });
+    });
+  }
+
+  function addRow() {
+    const tbody = document.getElementById('itemsBody');
+    const tr = document.createElement('tr');
+    tr.className = 'item-row';
+    const selCurr = (document.getElementById('doc_currency')?.value || companyBaseCurrency).toUpperCase();
+    const sym = getCurSymbol(selCurr);
+    tr.innerHTML = `
+      <td style="text-align:center; font-weight:700;" class="sno"></td>
+      <td>
+        <input type="hidden" name="stock_item_id[]" class="row-stock-id" value="">
+        <input type="text" name="item_code[]" class="row-code" placeholder="PROD-001" list="stockCodesDatalist" oninput="onProductCodeChange(this)" style="font-family:monospace;font-weight:600;">
+      </td>
+      <td><input type="text" name="item_name[]" class="row-name" placeholder="Item description" required oninput="onItemNameChange(this)"></td>
+      <td><input type="text" name="hsn[]" class="row-hsn" placeholder="HSN"></td>
+      <td><input type="number" step="any" name="quantity[]" value="1" class="row-qty" required oninput="calcRow(this)"></td>
+      <td>
+        <select name="unit[]" class="row-unit">
+          <option value="pcs" selected>pcs</option>
+          <option value="nos">nos</option>
+          <option value="box">box</option>
+          <option value="kg">kg</option>
+          <option value="mtr">mtr</option>
+          <option value="set">set</option>
+          <option value="ton">ton</option>
+          <option value="ltr">ltr</option>
+        </select>
+      </td>
+      <td><input type="number" step="0.01" name="rate[]" value="0.00" class="row-rate" required oninput="calcRow(this)"></td>
+      <td><input type="number" step="0.01" name="discount_percent[]" value="0" class="row-disc" oninput="calcRow(this)"></td>
+      <td>
+        <select name="gst_percent[]" class="row-gst" onchange="calcRow(this)">
+          <option value="0">0%</option>
+          <option value="5">5%</option>
+          <option value="12">12%</option>
+          <option value="18" selected>18%</option>
+          <option value="28">28%</option>
+        </select>
+      </td>
+      <td style="text-align:right; font-weight:700;">
+        <span class="row-total-display">${sym} 0.00</span>
+      </td>
+      <td style="text-align:center;">
+        <button type="button" class="btn-remove-row" onclick="removeRow(this)">×</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+    updateRowIndices();
+    calcRow(tr.querySelector('.row-qty'));
+  }
+
+  function removeRow(btn) {
+    const tbody = document.getElementById('itemsBody');
+    if (tbody.querySelectorAll('tr').length > 1) {
+      btn.closest('tr').remove();
+      updateRowIndices();
+      calcTotals();
+    } else {
+      alert("At least one product item is required.");
+    }
+  }
+
+  function updateRowIndices() {
+    document.querySelectorAll('#itemsBody tr').forEach((tr, i) => {
+      const sno = tr.querySelector('.sno');
+      if (sno) sno.innerText = i + 1;
+    });
+  }
+
+  function calcRow(elem) {
+    const row = elem.closest('tr');
+    const qty = parseFloat(row.querySelector('.row-qty').value) || 0;
+    const rate = parseFloat(row.querySelector('.row-rate').value) || 0;
+    const disc = parseFloat(row.querySelector('.row-disc').value) || 0;
+    const gstPct = parseFloat(row.querySelector('.row-gst').value) || 0;
+
+    const baseAmount = qty * rate;
+    const discountAmount = baseAmount * (disc / 100);
+    const taxable = baseAmount - discountAmount;
+    const taxAmount = taxable * (gstPct / 100);
+    const total = taxable + taxAmount;
+
+    const selCurr = (document.getElementById('doc_currency')?.value || companyBaseCurrency).toUpperCase();
+    const sym = getCurSymbol(selCurr);
+    const decimals = getCurDecimals(selCurr);
+
+    row.querySelector('.row-total-display').innerText = sym + ' ' + total.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+    calcTotals();
+  }
+
+  function calcTotals() {
+    let subtotal = 0;
+    let totalCGST = 0;
+    let totalSGST = 0;
+    let totalIGST = 0;
+
+    const selCurr = (document.getElementById('doc_currency')?.value || companyBaseCurrency).toUpperCase();
+    const sym = getCurSymbol(selCurr);
+    const decimals = getCurDecimals(selCurr);
+    const exRate = parseFloat(document.getElementById('exchange_rate')?.value) || 1.0;
+    const taxType = (document.getElementById('form_tax_type')?.value || 'Domestic');
+
+    const suppSt = (suppState && suppState.value ? suppState.value.trim().toLowerCase() : companyState);
+    const isInterstate = suppSt && suppSt !== companyState;
+
+    document.querySelectorAll('#itemsBody tr').forEach(row => {
+      const qty = parseFloat(row.querySelector('.row-qty').value) || 0;
+      const rate = parseFloat(row.querySelector('.row-rate').value) || 0;
+      const disc = parseFloat(row.querySelector('.row-disc').value) || 0;
+      const gstPct = parseFloat(row.querySelector('.row-gst').value) || 0;
+
+      const baseAmount = qty * rate;
+      const discountAmount = baseAmount * (disc / 100);
+      const taxable = baseAmount - discountAmount;
+      const taxAmount = taxable * (gstPct / 100);
+
+      subtotal += taxable;
+
+      if (isInterstate || taxType === 'Import' || selCurr !== companyBaseCurrency) {
+        totalIGST += taxAmount;
+      } else {
+        totalCGST += taxAmount / 2;
+        totalSGST += taxAmount / 2;
+      }
+    });
+
+    const totalTax = totalCGST + totalSGST + totalIGST;
+    const grandTotal = subtotal + totalTax;
+
+    document.getElementById('dispSubtotal').innerText = sym + ' ' + subtotal.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+
+    if (isInterstate || taxType === 'Import' || selCurr !== companyBaseCurrency) {
+      document.getElementById('rowCGST').style.display = 'none';
+      document.getElementById('rowSGST').style.display = 'none';
+      document.getElementById('rowIGST').style.display = 'flex';
+      document.getElementById('dispIGST').innerText = sym + ' ' + totalIGST.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+    } else {
+      document.getElementById('rowCGST').style.display = 'flex';
+      document.getElementById('rowSGST').style.display = 'flex';
+      document.getElementById('rowIGST').style.display = 'none';
+      document.getElementById('dispCGST').innerText = sym + ' ' + totalCGST.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+      document.getElementById('dispSGST').innerText = sym + ' ' + totalSGST.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+    }
+
+    document.getElementById('dispTotalTax').innerText = sym + ' ' + totalTax.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+    document.getElementById('dispGrandTotal').innerText = sym + ' ' + grandTotal.toLocaleString('en-US', {minimumFractionDigits: decimals, maximumFractionDigits: decimals});
+
+    const baseEquivRow = document.getElementById('rowBaseEquiv');
+    const dispBaseEquiv = document.getElementById('dispBaseEquiv');
+    if (baseEquivRow && dispBaseEquiv) {
+      if (selCurr !== companyBaseCurrency && exRate > 0) {
+        const baseGrand = grandTotal * exRate;
+        baseEquivRow.style.display = 'flex';
+        dispBaseEquiv.innerText = `${companyCurrencySymbol} ${baseGrand.toLocaleString('{{ number_locale|default("en-IN") }}', {minimumFractionDigits: 2, maximumFractionDigits: 2})} @ ${exRate.toFixed(4)}`;
+      } else {
+        baseEquivRow.style.display = 'none';
+      }
+    }
+
+    // Update table header currency symbol
+    document.querySelectorAll('.form-curr-sym').forEach(el => el.textContent = sym);
+  }
+
+  // ── Master Stock Items for Live Lookup ───────────────────────────────────
+  const stockItemsMaster = [
+    {% for s in stock_items %}
+    {
+      id: {{ s.id }},
+      code: "{{ s.code|e }}",
+      name: "{{ s.name|e }}",
+      hsn: "{{ s.hsn or ''|e }}",
+      unit: "{{ s.unit or 'pcs'|e }}",
+      rate: {{ s.purchase_rate or s.unit_price or 0.0 }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  function onProductCodeChange(input) {
+    const row = input.closest('tr');
+    const val = (input.value || '').trim().toUpperCase();
+    const stockIdInput = row.querySelector('.row-stock-id');
+    const nameInput = row.querySelector('.row-name');
+    const hsnInput = row.querySelector('.row-hsn');
+    const unitSelect = row.querySelector('.row-unit');
+    const rateInput = row.querySelector('.row-rate');
+
+    const match = stockItemsMaster.find(s => s.code.toUpperCase() === val);
+    if (match) {
+      if (stockIdInput) stockIdInput.value = match.id;
+      if (nameInput && (!nameInput.value || nameInput.value.trim() === '')) {
+        nameInput.value = match.name;
+      }
+      if (hsnInput && (!hsnInput.value || hsnInput.value.trim() === '') && match.hsn) {
+        hsnInput.value = match.hsn;
+      }
+      if (unitSelect && match.unit) {
+        unitSelect.value = match.unit;
+      }
+      if (rateInput && (!parseFloat(rateInput.value) || parseFloat(rateInput.value) === 0) && match.rate) {
+        rateInput.value = match.rate.toFixed(2);
+        calcRow(rateInput);
+      }
+    } else {
+      if (stockIdInput) stockIdInput.value = '';
+    }
+  }
+
+  function onItemNameChange(input) {
+    const row = input.closest('tr');
+    const val = (input.value || '').trim().toLowerCase();
+    const codeInput = row.querySelector('.row-code');
+    const stockIdInput = row.querySelector('.row-stock-id');
+    if (!codeInput || codeInput.value.trim()) return;
+
+    const match = stockItemsMaster.find(s => s.name.toLowerCase() === val);
+    if (match) {
+      codeInput.value = match.code;
+      if (stockIdInput) stockIdInput.value = match.id;
+      const hsnInput = row.querySelector('.row-hsn');
+      if (hsnInput && !hsnInput.value && match.hsn) hsnInput.value = match.hsn;
+      const unitSelect = row.querySelector('.row-unit');
+      if (unitSelect && match.unit) unitSelect.value = match.unit;
+    }
+  }
+
+  // ── OCR File Drag & Drop & Upload handling ──────────────────────────────
+  const dropzone = document.getElementById('ocrDropzone');
+  const fileInput = document.getElementById('ocrFileInput');
+  const initScanState = document.getElementById('ocrInitialState');
+  const scanningState = document.getElementById('ocrScanningState');
+  const successState = document.getElementById('ocrSuccessState');
+
+  if (dropzone) {
+    ['dragenter', 'dragover'].forEach(name => {
+      dropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(name => {
+      dropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('dragover');
+      });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      if (dt && dt.files && dt.files.length) {
+        processOcrFile(dt.files[0]);
+      }
+    });
+  }
+
+  function handleOcrFileSelect(input) {
+    if (input.files && input.files.length) {
+      processOcrFile(input.files[0]);
+    }
+  }
+
+  async function processOcrFile(file) {
+    if (!file) return;
+    
+    // UI state: Scanning
+    initScanState.style.display = 'none';
+    successState.style.display = 'none';
+    scanningState.style.display = 'block';
+
+    const formData = new FormData();
+    formData.append('bill_file', file);
+
+    try {
+      const response = await fetch('/api/purchase/scan-bill', {
+        method: 'POST',
+        body: formData
+      });
+
+      const res = await response.json();
+
+      if (!response.ok || !res.success) {
+        throw new Error(res.error || 'Failed to extract bill details.');
+      }
+
+      // Populate Supplier Details
+      if (res.supplier) {
+        if (suppInput && res.supplier.name) suppInput.value = res.supplier.name;
+        if (suppIdInput) suppIdInput.value = res.supplier.id || '';
+        if (suppGstin && res.supplier.gstin) suppGstin.value = res.supplier.gstin;
+        if (suppState && res.supplier.state) suppState.value = res.supplier.state;
+        if (suppAddress && res.supplier.address) suppAddress.value = res.supplier.address;
+        if (suppPhone && res.supplier.phone) suppPhone.value = res.supplier.phone;
+        if (suppEmail && res.supplier.email) suppEmail.value = res.supplier.email;
+      }
+
+      // Populate Bill Details
+      if (res.invoice_details) {
+        const invNumInput = document.querySelector('input[name="invoice_number"]');
+        if (invNumInput && res.invoice_details.invoice_number) {
+          invNumInput.value = res.invoice_details.invoice_number;
+        }
+
+        const dateInput = document.querySelector('input[name="date"]');
+        if (dateInput && res.invoice_details.date) {
+          dateInput.value = res.invoice_details.date;
+        }
+
+        const dueDateInput = document.querySelector('input[name="due_date"]');
+        if (dueDateInput && res.invoice_details.due_date) {
+          dueDateInput.value = res.invoice_details.due_date;
+        }
+
+        const poInput = document.querySelector('input[name="reference_po_no"]');
+        if (poInput && res.invoice_details.reference_po_no) {
+          poInput.value = res.invoice_details.reference_po_no;
+        }
+
+        const termsInput = document.querySelector('input[name="payment_terms"]');
+        if (termsInput && res.invoice_details.payment_terms) {
+          termsInput.value = res.invoice_details.payment_terms;
+        }
+      }
+
+      // Save scanned file path & json
+      if (res.saved_filename) {
+        const pathInput = document.getElementById('scanned_file_path');
+        if (pathInput) pathInput.value = res.saved_filename;
+      }
+      const ocrJsonInput = document.getElementById('ocr_json_data');
+      if (ocrJsonInput) ocrJsonInput.value = JSON.stringify(res);
+
+      // Populate Items Table
+      if (res.items && res.items.length > 0) {
+        const tbody = document.getElementById('itemsBody');
+        tbody.innerHTML = '';
+
+        res.items.forEach((itm, idx) => {
+          const tr = document.createElement('tr');
+          tr.className = 'item-row';
+          const ocrCurr = (document.getElementById('doc_currency')?.value || companyBaseCurrency).toUpperCase();
+          const ocrSym = getCurSymbol(ocrCurr);
+          const ocrDec = getCurDecimals(ocrCurr);
+          const totalFormatted = (itm.total_amount || 0).toLocaleString('en-US', {minimumFractionDigits: ocrDec, maximumFractionDigits: ocrDec});
+          
+          tr.innerHTML = `
+            <td style="text-align:center; font-weight:700;" class="sno">${idx + 1}</td>
+            <td>
+              <input type="hidden" name="stock_item_id[]" class="row-stock-id" value="${itm.stock_item_id || ''}">
+              <input type="text" name="item_code[]" class="row-code" placeholder="Code" value="${itm.item_code || ''}">
+            </td>
+            <td><input type="text" name="item_name[]" class="row-name" placeholder="Item description" required value="${(itm.item_name || '').replace(/"/g, '&quot;')}"></td>
+            <td><input type="text" name="hsn[]" class="row-hsn" placeholder="HSN" value="${itm.hsn || ''}"></td>
+            <td><input type="number" step="any" name="quantity[]" value="${itm.quantity || 1.0}" class="row-qty" required oninput="calcRow(this)"></td>
+            <td>
+              <select name="unit[]" class="row-unit">
+                ${['pcs', 'nos', 'box', 'kg', 'mtr', 'set', 'ton', 'ltr'].map(u => 
+                  `<option value="${u}" ${itm.unit === u ? 'selected' : ''}>${u}</option>`
+                ).join('')}
+              </select>
+            </td>
+            <td><input type="number" step="0.01" name="rate[]" value="${itm.rate || 0.0}" class="row-rate" required oninput="calcRow(this)"></td>
+            <td><input type="number" step="0.01" name="discount_percent[]" value="${itm.discount_percent || 0.0}" class="row-disc" oninput="calcRow(this)"></td>
+            <td>
+              <select name="gst_percent[]" class="row-gst" onchange="calcRow(this)">
+                ${[0, 5, 12, 18, 28].map(g => 
+                  `<option value="${g}" ${parseInt(itm.gst_percent) === g ? 'selected' : ''}>${g}%</option>`
+                ).join('')}
+              </select>
+            </td>
+            <td style="text-align:right; font-weight:700;">
+              <span class="row-total-display">${ocrSym} ${totalFormatted}</span>
+            </td>
+            <td style="text-align:center;">
+              <button type="button" class="btn-remove-row" onclick="removeRow(this)">×</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        updateRowIndices();
+      }
+
+      // Recalculate financial summary totals
+      calcTotals();
+
+      // UI state: Success
+      scanningState.style.display = 'none';
+      successState.style.display = 'flex';
+      const ocrCurrFinal = (document.getElementById('doc_currency')?.value || companyBaseCurrency).toUpperCase();
+      const ocrSymFinal = getCurSymbol(ocrCurrFinal);
+      document.getElementById('ocrSuccessTitle').innerText = `✓ Bill Extracted: ${res.supplier.name || 'Vendor Details'}`;
+      document.getElementById('ocrSuccessDesc').innerText = `Detected Invoice #${res.invoice_details.invoice_number || ''} with ${res.items.length} product item(s). Grand Total: ${ocrSymFinal} ${(res.totals.grand_total || 0).toLocaleString('{{ number_locale|default("en-IN") }}')}`;
+
+    } catch (err) {
+      console.error(err);
+      scanningState.style.display = 'none';
+      initScanState.style.display = 'flex';
+      alert('Error during OCR processing: ' + err.message);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    updateRowIndices();
+    calcTotals();
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Qiyadah · Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='qiyadah_icon.png') }}?v=2">
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #062D30 0%, #011A18 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-container {
+      display: flex;
+      max-width: 1200px;
+      width: 100%;
+      background: #fff;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .login-left {
+      flex: 1;
+      background: linear-gradient(135deg, #07383A, #011A18);
+      padding: 48px;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .login-left h1 {
+      font-size: 36px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    .login-left p {
+      font-size: 14px;
+      opacity: 0.85;
+      line-height: 1.6;
+      margin-bottom: 32px;
+    }
+
+    .feature-list {
+      list-style: none;
+    }
+
+    .feature-list li {
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+    }
+
+    .feature-list li::before {
+      content: "✓";
+      width: 24px;
+      height: 24px;
+      background: rgba(251, 191, 36, 0.25);
+      color: #FBBF24;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-right {
+      flex: 0 0 440px;
+      padding: 48px;
+    }
+
+    .login-right h2 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .login-right .subtitle {
+      color: #6B7280;
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 10px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      transition: all 0.15s;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #FCC605;
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.15);
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 12px;
+      background: #FCC605;
+      color: #1F2937;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 8px;
+    }
+
+    .btn-login:hover {
+      background: #D7A600;
+      color: #fff;
+    }
+
+    .register-link {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 13px;
+      color: #6B7280;
+    }
+
+    .register-link a {
+      color: #FCC605;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .register-link a:hover {
+      text-decoration: underline;
+    }
+
+    .flash-message {
+      background: #FEE2E2;
+      color: #DC2626;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+
+    .password-wrap {
+      position: relative;
+    }
+
+    .password-wrap input {
+      padding-right: 42px;
+    }
+
+    .toggle-password {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #9CA3AF;
+    }
+
+    .toggle-password:hover {
+      color: #FCC605;
+    }
+
+    .toggle-password svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    @media (max-width: 768px) {
+      .login-left {
+        display: none;
+      }
+
+      .login-right {
+        flex: 1;
+      }
+
+      .brand-logo-icon {
+        width: 62px;
+        height: 62px;
+        flex-basis: 62px;
+      }
+
+      .brand-word-group {
+        width: 190px;
+        max-width: 60%;
+      }
+    }
+
+    .login-left .brand-logo {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 13px;
+      margin: 0 0 14px;
+    }
+
+    .brand-word-group {
+      display: flex;
+      flex-direction: column;
+      width: 245px;
+      max-width: 58%;
+    }
+
+    .brand-logo-icon {
+      width: 82px;
+      height: 82px;
+      flex: 0 0 82px;
+      object-fit: contain;
+      display: block;
+    }
+
+    .brand-logo-word {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      display: block;
+    }
+
+    .brand-word {
+      display: none;
+    }
+
+    .login-tagline {
+      display: block;
+      color: #FCC605 !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.33em;
+      margin-left: 4.5% !important;
+      margin-right: calc(4% - 0.33em) !important;
+      margin-top: -2px !important;
+      margin-bottom: 0 !important;
+      opacity: 1 !important;
+      text-align: center;
+      text-transform: uppercase;
+      white-space: nowrap;
+      line-height: 1.2;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="login-container">
+    <div class="login-left">
+      <div class="brand-logo">
+        <img src="{{ url_for('static', filename='qiyadah_icon.png') }}" alt="Qiyadah logo" class="brand-logo-icon">
+        <div class="brand-word-group">
+          <img src="{{ url_for('static', filename='qiyadah-word.png') }}" alt="QIYADAH" class="brand-logo-word">
+          <p class="login-tagline">LEAD WITH INTELLIGENCE</p>
+        </div>
+      </div>
+      <p>One platform to manage your operations, understand your business, and make smarter decisions.</p>
+      <ul class="feature-list">
+        <li>Multi-company Support</li>
+        <li>Order & Inventory Management</li>
+        <li>Invoice & Billing System</li>
+        <li>Real-time Analytics</li>
+        <li>Role-based Access Control</li>
+      </ul>
+    </div>
+
+    <div class="login-right">
+      <h2>Welcome back 👋</h2>
+      <p class="subtitle">Sign in to your account</p>
+
+      {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      <div class="flash-message">{{ messages[0] }}</div>
+      {% endif %}
+      {% endwith %}
+
+      <form method="POST">
+        <div class="form-group">
+          <label>Email or Admin Username</label>
+          <input type="text" name="email" placeholder="Email address or admin username" required autofocus autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label>Password</label>
+          <div class="password-wrap">
+            <input type="password" name="password" id="loginPassword" placeholder="••••••••" required>
+            <button type="button" class="toggle-password" data-target="loginPassword" aria-label="Show password">
+              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                <path
+                  d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.6 18.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-login">Sign In →</button>
+      </form>
+
+      <div style="margin-top:20px; padding:16px; background:#F8FAFC; border:1.5px dashed #CBD5E1; border-radius:14px; text-align:center;">
+        <div style="font-size:13px; font-weight:700; color:#1E293B; margin-bottom:4px;">New to Qiyadah ERP?</div>
+        <p style="font-size:12px; color:#64748B; margin-bottom:12px;">Get started immediately with full ERP access — no credit card needed.</p>
+        <a href="{{ url_for('register') }}" style="display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; padding:11px 16px; background:linear-gradient(135deg, #059669 0%, #10B981 100%); color:#fff; font-size:14px; font-weight:700; text-decoration:none; border-radius:10px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.28); transition:all 0.2s;">
+          <span>🎁 Start 14-Day Free Trial</span>
+          <span>→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('.toggle-password').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var input = document.getElementById(btn.getAttribute('data-target'));
+        var showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.querySelector('.icon-eye').style.display = showing ? 'block' : 'none';
+        btn.querySelector('.icon-eye-off').style.display = showing ? 'none' : 'block';
+        btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      });
+    });
+  </script>
+</body>
+
+</html>

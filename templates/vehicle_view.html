@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ vehicle.registration_no if vehicle else 'Vehicle Not Found' }} — Vehicle 360° | Qiyadah Workshop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #F59E0B;
+      --primary-dark: #D97706;
+      --bg-dark: #011A18;
+      --header-bg: #012926;
+      --card-bg: #ffffff;
+      --text-main: #111827;
+      --text-muted: #6B7280;
+      --border: #E5E7EB;
+      --success: #10B981;
+      --info: #3B82F6;
+      --danger: #EF4444;
+      --radius: 14px;
+      --shadow: 0 4px 20px -2px rgba(0,0,0,0.06);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body {
+      background: #F8FAFC;
+      color: var(--text-main);
+      line-height: 1.5;
+      padding-bottom: 50px;
+    }
+    .top-header {
+      background: linear-gradient(135deg, var(--bg-dark) 0%, var(--header-bg) 100%);
+      color: #fff;
+      padding: 24px 20px 70px;
+      position: relative;
+    }
+    .header-inner {
+      max-width: 800px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+    .main-wrap {
+      max-width: 800px;
+      margin: -45px auto 0;
+      padding: 0 16px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .veh-hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .veh-plate {
+      display: inline-block;
+      background: #FEF08A;
+      border: 2px solid #CA8A04;
+      color: #713F12;
+      font-weight: 800;
+      font-size: 22px;
+      padding: 4px 14px;
+      border-radius: 8px;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      margin-bottom: 8px;
+    }
+    .veh-name {
+      font-size: 24px;
+      font-weight: 800;
+      color: #0F172A;
+    }
+    .veh-meta {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .veh-qr-box {
+      text-align: center;
+      background: #F8FAFC;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .veh-qr-img {
+      width: 100px;
+      height: 100px;
+      display: block;
+      margin: 0 auto;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .badge-primary { background: #FEF3C7; color: #92400E; }
+    .badge-success { background: #D1FAE5; color: #065F46; }
+    .badge-info { background: #DBEAFE; color: #1E40AF; }
+    .badge-warning { background: #FFEDD5; color: #9A3412; }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid #F1F5F9;
+    }
+    .kpi-box {
+      background: #F8FAFC;
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .kpi-lbl { font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+    .kpi-val { font-size: 15px; color: #0F172A; font-weight: 800; margin-top: 2px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 13.5px;
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: #012926; color: #fff; }
+    .btn-primary:hover { background: #011A18; }
+    .btn-outline { background: #fff; border: 1.5px solid var(--border); color: #334155; }
+    .btn-outline:hover { background: #F8FAFC; border-color: #CBD5E1; }
+    .btn-amber { background: var(--primary); color: #78350F; }
+    .btn-amber:hover { background: var(--primary-dark); color: #fff; }
+
+    .status-tracker {
+      display: flex;
+      margin-top: 16px;
+      position: relative;
+    }
+    .status-step {
+      flex: 1;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      position: relative;
+    }
+    .status-step::before {
+      content: '';
+      display: block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #CBD5E1;
+      margin: 0 auto 6px;
+      border: 3px solid #fff;
+      box-shadow: 0 0 0 1px #CBD5E1;
+    }
+    .status-step.active { color: #065F46; }
+    .status-step.active::before { background: var(--success); box-shadow: 0 0 0 2px var(--success); }
+
+    .timeline {
+      position: relative;
+      padding-left: 20px;
+      border-left: 2px solid #E2E8F0;
+      margin-top: 16px;
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    .timeline-dot {
+      position: absolute;
+      left: -27px;
+      top: 2px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 2px solid #fff;
+    }
+    .timeline-date { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+    .timeline-title { font-size: 15px; font-weight: 800; color: #1E293B; margin-top: 2px; }
+    .timeline-desc { font-size: 13px; color: #475569; margin-top: 4px; }
+    .timeline-meta { font-size: 12px; color: var(--text-muted); margin-top: 6px; display: flex; gap: 12px; }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .top-header, .no-print { display: none !important; }
+      .main-wrap { margin-top: 0; }
+      .card { box-shadow: none; border: 1px solid #ccc; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="top-header">
+    <div class="header-inner">
+      <div>
+        <div class="brand-title">{{ company.company_name if company else 'QIYADAH WORKSHOP' }}</div>
+        <div style="font-size: 18px; font-weight: 800;">Automotive Service & Repair Cockpit</div>
+      </div>
+      {% if is_authenticated %}
+      <a href="{{ url_for('workshop_erp_view') }}" class="btn btn-amber no-print" style="font-size: 12px; padding: 6px 14px;">
+        ← Back to Workshop ERP
+      </a>
+      {% endif %}
+    </div>
+  </header>
+
+  <main class="main-wrap">
+    {% if not vehicle %}
+    <div class="card" style="text-align: center; padding: 50px 20px;">
+      <div style="font-size: 40px; margin-bottom: 12px;">🔍</div>
+      <h2 style="font-size: 20px; font-weight: 800;">Vehicle Not Found</h2>
+      <p style="color: var(--text-muted); margin-top: 6px;">The scanned vehicle QR code does not match any registered vehicle in this system.</p>
+    </div>
+    {% else %}
+
+    <!-- Vehicle Hero Card -->
+    <div class="card">
+      <div class="veh-hero">
+        <div style="flex: 1; min-width: 260px;">
+          <div class="veh-plate">{{ vehicle.registration_no }}</div>
+          <h1 class="veh-name">{{ vehicle.brand }} {{ vehicle.model }} {{ vehicle.variant or '' }}</h1>
+          <div class="veh-meta">
+            <span>🚗 {{ vehicle.vehicle_type }}</span>
+            <span>⛽ {{ vehicle.fuel_type }}</span>
+            <span>📅 {{ vehicle.manufacturing_year or 'N/A' }}</span>
+            <span>🎨 {{ vehicle.colour or 'Standard' }}</span>
+          </div>
+
+          <div style="margin-top: 14px; font-size: 13.5px;">
+            <strong>Owner:</strong> {{ vehicle.client_name }} 
+            {% if vehicle.client_phone %} • 📞 <a href="tel:{{ vehicle.client_phone }}" style="color: #0369A1; text-decoration: none;">{{ vehicle.client_phone }}</a>{% endif %}
+          </div>
+        </div>
+
+        <div class="veh-qr-box no-print">
+          <img src="{{ url_for('workshop_vehicle_qr_code', vehicle_uuid=vehicle.uuid) }}" alt="QR Code" class="veh-qr-img">
+          <div style="font-size: 10.5px; font-weight: 700; color: var(--text-muted); margin-top: 4px;">VEHICLE QR CODE</div>
+          <button onclick="window.print()" class="btn btn-outline" style="font-size: 11px; padding: 4px 10px; margin-top: 6px; width: 100%;">
+            🖨️ Print Sticker
+          </button>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-box">
+          <div class="kpi-lbl">Current Odometer</div>
+          <div class="kpi-val">{{ "{:,.0f}".format(vehicle.odometer_reading) }} KM</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-lbl">Insurance Expiry</div>
+          <div class="kpi-val">{{ vehicle.insurance_expiry or 'Not specified' }}</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-lbl">Chassis / VIN</div>
+          <div class="kpi-val" style="font-size: 13px;">{{ vehicle.vin_chassis_no or 'N/A' }}</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-lbl">Engine Number</div>
+          <div class="kpi-val" style="font-size: 13px;">{{ vehicle.engine_no or 'N/A' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Job Card / Current Repair Status -->
+    {% set active_jc = None %}
+    {% for jc in job_cards %}
+      {% if jc.status not in ('Delivered', 'Cancelled') and not active_jc %}
+        {% set active_jc = jc %}
+      {% endif %}
+    {% endfor %}
+
+    {% if active_jc %}
+    <div class="card" style="border-left: 5px solid var(--primary);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <div>
+          <span class="badge badge-warning">CURRENT REPAIR IN PROGRESS</span>
+          <h2 style="font-size: 18px; font-weight: 800; margin-top: 6px;">
+            Job Card: {{ active_jc.job_card_no }} ({{ active_jc.job_type }})
+          </h2>
+        </div>
+        <div class="badge badge-info" style="font-size: 13px; padding: 6px 14px;">
+          Status: {{ active_jc.status }}
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; font-size: 13.5px; color: #334155;">
+        <strong>Customer Complaints / Instructions:</strong>
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px; margin-top: 4px;">
+          {{ active_jc.customer_complaints or 'Standard periodic maintenance and checkup.' }}
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-box">
+          <div class="kpi-lbl">Service Advisor</div>
+          <div class="kpi-val">{{ active_jc.service_advisor or 'Advisor' }}</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-lbl">Technician</div>
+          <div class="kpi-val">{{ active_jc.assigned_technician or 'Assigned' }}</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-lbl">Bay</div>
+          <div class="kpi-val">{{ active_jc.bay_name or 'Bay 1' }}</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-lbl">Current Estimate</div>
+          <div class="kpi-val" style="color: #059669;">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(active_jc.grand_total) }}</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Service History & Past Work Orders -->
+    <div class="card">
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 4px;">Lifecycle Service History</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;">
+        Complete historical log of all repairs, periodic services, and parts replaced for this vehicle.
+      </p>
+
+      {% if not history and not job_cards %}
+      <div style="text-align: center; padding: 30px 10px; color: var(--text-muted);">
+        No previous service records logged for this vehicle yet.
+      </div>
+      {% else %}
+      <div class="timeline">
+        {% for h in history %}
+        <div class="timeline-item">
+          <div class="timeline-dot"></div>
+          <div class="timeline-date">{{ h.service_date }} • {{ "{:,.0f}".format(h.odometer) }} KM</div>
+          <div class="timeline-title">{{ h.services_performed }}</div>
+          {% if h.parts_replaced %}
+          <div class="timeline-desc"><strong>Parts Replaced:</strong> {{ h.parts_replaced }}</div>
+          {% endif %}
+          <div class="timeline-meta">
+            {% if h.technician %}<span>👨‍🔧 {{ h.technician }}</span>{% endif %}
+            {% if h.invoice_amount %}<span>💳 {{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(h.invoice_amount) }}</span>{% endif %}
+            {% if h.next_service_due_date %}<span>📅 Next Due: {{ h.next_service_due_date }}</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+
+        {% for jc in job_cards %}
+          {% if jc.status == 'Delivered' and not history %}
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-date">{{ jc.created_at[:10] }} • {{ "{:,.0f}".format(jc.current_odometer) }} KM</div>
+            <div class="timeline-title">{{ jc.job_type }} ({{ jc.job_card_no }})</div>
+            <div class="timeline-desc">{{ jc.customer_complaints or 'Work completed successfully' }}</div>
+            <div class="timeline-meta">
+              <span>👨‍🔧 {{ jc.assigned_technician }}</span>
+              <span>💳 {{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(jc.grand_total) }}</span>
+            </div>
+          </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Upcoming Service Reminders -->
+    {% if reminders %}
+    <div class="card">
+      <h2 style="font-size: 18px; font-weight: 800; margin-bottom: 12px;">Automated Maintenance Reminders</h2>
+      <div style="display: grid; gap: 10px;">
+        {% for r in reminders %}
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 16px; border-radius: 10px;">
+          <div>
+            <div style="font-weight: 700; font-size: 14px; color: #1E293B;">🔔 {{ r.reminder_type }}</div>
+            <div style="font-size: 12.5px; color: var(--text-muted); margin-top: 2px;">
+              Due Date: <strong>{{ r.due_date }}</strong> {% if r.due_odometer %}or at {{ "{:,.0f}".format(r.due_odometer) }} KM{% endif %}
+            </div>
+          </div>
+          <span class="badge {% if r.status == 'Pending' %}badge-warning{% else %}badge-success{% endif %}">
+            {{ r.status }}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% endif %}
+  </main>
+
+</body>
+</html>

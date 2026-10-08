@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Sales Orders{% endblock %}
+{% set active = 'sales_orders' %}
+
+{% block extra_style %}
+<style>
+  .summary-strip {
+    display: flex; gap: 20px; flex-wrap: wrap;
+    padding: 16px 22px; background: var(--bg-table-alt);
+    border-radius: 12px; margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+  }
+  .s-label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); font-weight: 700; }
+  .s-val   { font-size: 20px; font-weight: 800; color: var(--text-body); margin-top: 2px; }
+  .s-val.blue { color: #2563EB; }
+  .s-val.green { color: #16A34A; }
+  .s-val.amber { color: #D97706; }
+  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .badge-draft { background: #F3F4F6; color: #4B5563; }
+  .badge-confirmed { background: #DBEAFE; color: #1D4ED8; }
+  .badge-shipped { background: #FEF3C7; color: #D97706; }
+  .badge-invoiced { background: #EDE9FE; color: #7C3AED; }
+  .badge-cancelled { background: #FEE2E2; color: #DC2626; }
+
+  .tab {
+    padding: 8px 18px; border-radius: 20px; font-size: 13px; font-weight: 600;
+    color: var(--text-muted); border: 1.5px solid var(--border-color);
+    text-decoration: none; transition: all .15s; background: var(--bg-card);
+  }
+  .tab:hover { border-color: var(--primary); color: var(--primary); }
+  .tab.active { background: #012926; color: #F59E0B; border-color: #012926; }
+  body.dark-theme .tab.active { background: #0D9488; color: #fff; border-color: #0D9488; }
+
+  .table-wrap { overflow: auto; max-height: 70vh; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-card); }
+  table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  thead th {
+    padding: 12px 16px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .6px;
+    color: #F59E0B; background: #012926;
+    border-bottom: 1.5px solid var(--border-color); text-align: left; white-space: nowrap;
+    position: sticky; top: 0; z-index: 2;
+  }
+  tbody td { padding: 13px 16px; border-bottom: 1px solid var(--border-color); font-size: 13.5px; vertical-align: middle; color: var(--text-body); }
+  tbody tr:hover { background: var(--bg-table-alt); }
+  .so-link { font-weight: 700; color: var(--primary); text-decoration: none; font-family: 'Courier New', monospace; font-size: 14px; }
+  .so-link:hover { text-decoration: underline; }
+  .action-btns { display: flex; gap: 6px; align-items: center; }
+  .btn-icon {
+    padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 4px;
+    border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-body);
+  }
+  .btn-icon:hover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <div>
+    <h2 style="margin: 0; display: flex; align-items: center; gap: 8px;">📋 Sales Orders</h2>
+    <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Manage confirmed customer orders, fulfillments, and delivery scheduling</div>
+  </div>
+  {% if can('sales_orders', 'create') %}
+  <a href="{{ url_for('sales_order_new') }}" class="btn btn-primary">
+    <span>+ New Sales Order</span>
+  </a>
+  {% endif %}
+</div>
+
+{% set total_orders = orders | length %}
+{% set total_val = orders | sum(attribute='grand_total') %}
+{% set pending_orders = orders | selectattr('status', 'in', ['Draft', 'Confirmed']) | list | length %}
+{% set shipped_orders = orders | selectattr('status', 'equalto', 'Shipped') | list | length %}
+
+<div class="summary-strip">
+  <div><div class="s-label">Total Orders</div><div class="s-val">{{ total_orders }}</div></div>
+  <div><div class="s-label">Order Value</div><div class="s-val green">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(total_val) }}</div></div>
+  <div><div class="s-label">Pending / Confirmed</div><div class="s-val blue">{{ pending_orders }}</div></div>
+  <div><div class="s-label">Dispatched / Shipped</div><div class="s-val amber">{{ shipped_orders }}</div></div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+  <form method="GET" action="{{ url_for('sales_order_list') }}" style="display: flex; gap: 8px; flex: 1; max-width: 440px;">
+    <input type="hidden" name="status" value="{{ current_status }}">
+    <input type="text" name="q" value="{{ current_search or '' }}" placeholder="🔍 Search Order No, Customer, PO Ref..."
+           style="flex: 1; padding: 9px 14px; border-radius: 8px; border: 1.5px solid var(--border-color); font-size: 13.5px; background: var(--bg-card); color: var(--text-body);">
+    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+    {% if current_search %}
+    <a href="?status={{ current_status }}" class="btn btn-ghost btn-sm">✕ Clear</a>
+    {% endif %}
+  </form>
+
+  <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+    {% for s in ['All', 'Draft', 'Confirmed', 'Shipped', 'Invoiced', 'Cancelled'] %}
+    <a href="?status={{ s }}{% if current_search %}&q={{ current_search }}{% endif %}" class="tab {% if current_status == s %}active{% endif %}">
+      {{ s }}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Order No</th>
+        <th>Date</th>
+        <th>Customer</th>
+        <th>Due Date</th>
+        <th>Items</th>
+        <th>Grand Total</th>
+        <th>Status</th>
+        <th style="text-align: right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if orders %}
+        {% for so in orders %}
+        <tr>
+          <td>
+            <a href="{{ url_for('sales_order_view', order_id=so.id) }}" class="so-link">{{ so.order_no }}</a>
+            {% if so.reference_no %}<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">PO: {{ so.reference_no }}</div>{% endif %}
+          </td>
+          <td>{{ so.order_date.strftime('%d %b %Y') if so.order_date else '-' }}</td>
+          <td>
+            <strong>{{ so.client_name or (so.client_obj.name if so.client_obj else 'Cash Customer') }}</strong>
+            {% if so.client_obj and so.client_obj.city %}<div style="font-size: 11px; color: var(--text-muted);">{{ so.client_obj.city }}</div>{% endif %}
+          </td>
+          <td>{{ so.delivery_date.strftime('%d %b %Y') if so.delivery_date else '-' }}</td>
+          <td><span style="font-weight: 700;">{{ so.items | length }}</span> items</td>
+          <td><strong style="color: var(--text-body);">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(so.grand_total or 0.0) }}</strong></td>
+          <td>
+            {% if so.status == 'Confirmed' %}
+              <span class="badge badge-confirmed">✓ Confirmed</span>
+            {% elif so.status == 'Shipped' %}
+              <span class="badge badge-shipped">🚚 Shipped</span>
+            {% elif so.status == 'Invoiced' %}
+              <span class="badge badge-invoiced">📑 Invoiced</span>
+            {% elif so.status == 'Cancelled' %}
+              <span class="badge badge-cancelled">✕ Cancelled</span>
+            {% else %}
+              <span class="badge badge-draft">📝 Draft</span>
+            {% endif %}
+          </td>
+          <td style="text-align: right;">
+            <div class="action-btns" style="justify-content: flex-end;">
+              <a href="{{ url_for('sales_order_view', order_id=so.id) }}" class="btn-icon">👁️ View</a>
+              {% if can('sales_orders', 'edit') and so.status not in ['Invoiced', 'Cancelled'] %}
+              <a href="{{ url_for('sales_order_edit', order_id=so.id) }}" class="btn-icon">✏️ Edit</a>
+              {% endif %}
+              {% if can('delivery_challans', 'create') and so.status != 'Cancelled' %}
+              <a href="{{ url_for('sales_order_convert_to_challan', order_id=so.id) }}" class="btn-icon" style="color: #D97706;">🚚 Challan</a>
+              {% endif %}
+              {% if can('customer_invoices', 'create') and so.status != 'Invoiced' %}
+              <a href="{{ url_for('sales_order_convert_to_invoice', order_id=so.id) }}" class="btn-icon" style="color: #7C3AED;">📑 Invoice</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">
+            <div style="font-size: 32px; margin-bottom: 8px;">📋</div>
+            <div style="font-weight: 600; font-size: 15px;">No sales orders found</div>
+            {% if can('sales_orders', 'create') %}
+            <div style="margin-top: 14px;">
+              <a href="{{ url_for('sales_order_new') }}" class="btn btn-primary btn-sm">+ Create Sales Order</a>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

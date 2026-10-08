@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}Supply Chain Dashboard{% endblock %}
+{% block extra_style %}
+<link rel="stylesheet" href="{{ url_for('static', filename='supply_dashboard.css') }}">
+{% if production_enabled %}<link rel="stylesheet" href="{{ url_for('static', filename='supply_operations.css') }}">{% endif %}
+{% endblock %}
+{% macro kpi(label, value, href, note, tone='teal', stat='') %}
+<a class="scm-kpi scm-{{ tone }}" href="{{ href }}">
+  <span class="scm-kpi-top"><span>{{ label }}</span><span class="scm-kpi-arrow" aria-hidden="true">↗</span></span>
+  <strong class="scm-kpi-value" {% if stat %}id="{{ stat }}"{% endif %}>{{ value }}</strong>
+  <span class="scm-kpi-note">{{ note }}</span>
+</a>
+{% endmacro %}
+{% block content %}
+<div class="scm-wrap" id="supply-overview">
+  <header class="scm-hero">
+    <div><span class="scm-eyebrow">OPERATIONS OVERVIEW</span><h1>Supply Chain Dashboard</h1><p>From purchase to delivery. Every stage, in one place.</p>
+      {% if supply_company %}<div class="scm-company">{{ supply_company.company_name }}{% if supply_company.branch_name %} · {{ supply_company.branch_name }}{% endif %} <a href="{{ url_for('select_company') }}">Switch branch ↗</a></div>{% endif %}
+    </div>
+    {% if production_enabled %}<a class="scm-primary" href="#workflow">Open workflow board →</a>{% endif %}
+  </header>
+  <nav class="scm-journey" aria-label="Supply chain stages">
+    {% if can('purchase_orders','view') %}<a href="#scm-purchasing"><b>01</b> Purchasing <span>→</span></a>{% endif %}
+    {% if can('stock','view') %}<a href="#scm-inventory"><b>02</b> Inventory <span>→</span></a>{% endif %}
+    {% if production_enabled %}<a href="#scm-production"><b>03</b> Production <span>→</span></a><a href="#scm-quality"><b>04</b> Quality <span>→</span></a>{% endif %}
+    {% if production_enabled or can('delivery_challans','view') or can('sales_orders','view') %}<a href="#scm-fulfilment"><b>05</b> Fulfilment</a>{% endif %}
+  </nav>
+  {% set metrics = namespace(values={}) %}
+  {% for m in data.metrics %}{% set _ = metrics.values.update({m.label:m.value}) %}{% endfor %}
+  <div class="scm-stages">
+    {% if can('purchase_orders','view') %}
+    <section class="scm-stage" id="scm-purchasing"><div class="scm-section-head"><div><span class="scm-stage-number">01 / SOURCE</span><h2>Purchasing</h2><p>Orders to suppliers and expected arrivals</p></div><a href="{{ url_for('purchase_order_list') }}">Purchase register ↗</a></div>
+      <div class="scm-kpis">{{ kpi('Open purchase orders', metrics.values.get('Open purchase orders',0), url_for('purchase_order_list'), 'Awaiting receipt or completion') }}{{ kpi('Overdue purchases', metrics.values.get('Overdue purchase orders',0), '#scm-attention', 'Past the expected delivery date', 'amber') }}</div>
+    </section>{% endif %}
+    {% if can('stock','view') %}
+    <section class="scm-stage" id="scm-inventory"><div class="scm-section-head"><div><span class="scm-stage-number">02 / STOCK</span><h2>Inventory</h2><p>Stock coverage and replenishment needs</p></div><a href="{{ url_for('inventory_list') }}">Stock register ↗</a></div>
+      <div class="scm-kpis">{{ kpi('Stock items', metrics.values.get('Stock items',0), url_for('inventory_list'), 'Items tracked for this company', 'blue') }}{{ kpi('Reorder alerts', metrics.values.get('At or below reorder level',0), '#scm-attention', 'At or below their reorder level', 'amber') }}</div>
+    </section>{% endif %}
+    {% if production_enabled %}
+    <section class="scm-stage" id="scm-production"><div class="scm-section-head"><div><span class="scm-stage-number">03 / MAKE</span><h2>Production</h2><p>Credit approval through manufacturing</p></div><a href="#orders">Production orders ↗</a></div>
+      <div class="scm-kpis">{{ kpi('Credit checks', '—', '#credit', 'Waiting for credit approval', 'amber', 'stat-credit') }}{{ kpi('In production', '—', '#workflow', 'Approved or currently processing', 'blue', 'stat-prod') }}{{ kpi('Active orders', '—', '#orders', 'All non-delivered, non-cancelled orders', 'teal', 'stat-active') }}</div>
+    </section>
+    <section class="scm-stage" id="scm-quality"><div class="scm-section-head"><div><span class="scm-stage-number">04 / CHECK</span><h2>Quality control</h2><p>Inspection and release for dispatch</p></div><a href="#quality">Quality queue ↗</a></div>
+      <div class="scm-kpis">{{ kpi('Awaiting inspection', '—', '#quality', 'Sent for quality check', 'purple', 'stat-qc') }}{{ kpi('Ready to dispatch', '—', '#ready', 'Quality approved orders', 'teal', 'stat-ready') }}</div>
+    </section>{% endif %}
+    {% if production_enabled or can('delivery_challans','view') or can('sales_orders','view') %}
+    <section class="scm-stage scm-stage-wide" id="scm-fulfilment"><div class="scm-section-head"><div><span class="scm-stage-number">05 / DELIVER</span><h2>Sales & fulfilment</h2><p>Customer orders, dispatch and completed deliveries</p></div>{% if production_enabled %}<a href="#dispatch">Dispatch queue ↗</a>{% endif %}</div>
+      <div class="scm-kpis">
+        {% if can('sales_orders','view') %}{{ kpi('Open sales orders', metrics.values.get('Open sales orders',0), url_for('sales_order_list'), 'Customer orders still in progress', 'blue') }}{% endif %}
+        {% if can('delivery_challans','view') %}{{ kpi('Pending challans', metrics.values.get('Pending delivery challans',0), url_for('delivery_challan_list'), 'Delivery documents awaiting completion', 'amber') }}{% endif %}
+        {% if production_enabled %}{{ kpi('Dispatched', '—', '#dispatch', 'Sent out for delivery', 'purple', 'stat-dispatched') }}{{ kpi('Delivered', '—', '#delivered', 'Completed production orders · all time', 'teal', 'stat-delivered') }}{% endif %}
+      </div>
+    </section>{% endif %}
+  </div>
+  {% if production_enabled %}<p id="scm-stats-status" class="scm-muted" role="status">Loading production figures…</p>{% endif %}
+  {% if can('stock','view') or can('purchase_orders','view') %}<section id="scm-attention" class="scm-attention"><div class="scm-section-head"><div><span class="scm-stage-number">PRIORITY ACTIONS</span><h2>Needs attention</h2><p>Resolve supply delays and stock shortages</p></div></div>
+  <div class="scm-panes">
+    {% if can('stock','view') %}<section class="scm-card"><h3>Stock requiring attention</h3><p class="scm-muted">Up to 10 items, lowest quantity first.</p>
+      {% if data.low_stock %}<div class="scm-table"><table><thead><tr><th>Item</th><th>On hand</th><th>Reorder level</th></tr></thead><tbody>{% for item in data.low_stock %}<tr><td>{{ item.name }}<br><small>{{ item.code }}</small></td><td>{{ item.quantity }} {{ item.unit or '' }}</td><td>{{ item.reorder_level or 0 }} {{ item.unit or '' }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="scm-muted">No items at or below their reorder level.</p>{% endif %}
+    </section>{% endif %}
+    {% if can('purchase_orders','view') %}<section class="scm-card"><h3>Overdue purchase orders</h3><p class="scm-muted">Up to 10 open orders, earliest expected delivery first.</p>
+      {% if data.overdue_purchases %}<div class="scm-table"><table><thead><tr><th>Order</th><th>Supplier</th><th>Expected</th></tr></thead><tbody>{% for order in data.overdue_purchases %}<tr><td><a href="{{ url_for('purchase_order_view', po_id=order.id) }}">{{ order.po_number }}</a></td><td>{{ order.supplier_name or '—' }}</td><td>{{ order.expected_delivery_date }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="scm-muted">No overdue purchase orders.</p>{% endif %}
+    </section>{% endif %}
+  </div>
+  </section>{% endif %}
+  <p class="scm-footnote">Figures cover the selected company. Open registers exclude drafts, cancellations and completed documents from dashboard counts. Production figures follow your role’s visibility.</p>
+</div>
+{% if production_enabled %}{% include '_supply_operations.html' %}{% endif %}
+{% endblock %}
+{% block extra_script %}{% if production_enabled %}{% include '_supply_operations_script.html' %}{% endif %}{% endblock %}

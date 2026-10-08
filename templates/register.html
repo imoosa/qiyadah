@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Qiyadah · Create Account & Start Free Trial</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='qiyadah_icon.png') }}?v=2">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"/>
+  <!-- Razorpay Checkout Script -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --q-dark:       #011A18;
+      --q-dark-2:     #07383A;
+      --q-dark-3:     #0F4A4D;
+      --q-gold:       #FCC605;
+      --q-gold-hover: #D7A600;
+      --q-gold-light: #FEF9C3;
+      --q-gold-dark:  #78350F;
+      --q-emerald:    #059669;
+      --q-emerald-light: #ECFDF5;
+      --ink:          #111827;
+      --ink-2:        #374151;
+      --ink-muted:    #6B7280;
+      --border:       #E5E7EB;
+      --bg-light:     #F8FAFC;
+      --white:        #FFFFFF;
+      --radius-sm:    8px;
+      --radius:       14px;
+      --radius-lg:    20px;
+      --shadow-sm:    0 1px 3px rgba(0,0,0,0.06);
+      --shadow:       0 4px 20px -2px rgba(0,0,0,0.08);
+      --shadow-lg:    0 20px 40px -8px rgba(1, 26, 24, 0.15);
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #F1F5F9;
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top Header ── */
+    .topbar {
+      background: var(--q-dark);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+
+    .brand-logo-icon {
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .brand-word-group {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-logo-word {
+      height: 20px;
+      width: auto;
+      object-fit: contain;
+      display: block;
+    }
+
+    .brand-tagline {
+      color: var(--q-gold) !important;
+      font-size: 9px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.32em;
+      margin-top: 1px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      line-height: 1;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .topbar-link {
+      font-size: 13px;
+      color: #94A3B8;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: color 0.15s;
+    }
+
+    .topbar-link strong {
+      color: var(--q-gold);
+    }
+
+    .topbar-link:hover {
+      color: #fff;
+    }
+
+    /* ── Hero Banner ── */
+    .hero-strip {
+      background: linear-gradient(135deg, var(--q-dark-2) 0%, var(--q-dark) 100%);
+      color: #fff;
+      padding: 36px 20px 48px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-strip::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 120%, rgba(252, 198, 5, 0.15), transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-strip h1 {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .hero-strip h1 span {
+      color: var(--q-gold);
+    }
+
+    .hero-strip p {
+      font-size: 14px;
+      color: #CBD5E1;
+      max-width: 600px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+
+    /* ── Main Container ── */
+    .main-wrap {
+      max-width: 1040px;
+      width: 100%;
+      margin: -24px auto 48px;
+      padding: 0 16px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .register-card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    /* ── Stepper Header ── */
+    .stepper-header {
+      background: var(--bg-light);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      overflow-x: auto;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .step-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #E2E8F0;
+      color: var(--ink-muted);
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .step-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .step-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink-muted);
+      white-space: nowrap;
+      transition: color 0.2s;
+    }
+
+    .step-sub {
+      font-size: 11px;
+      color: #94A3B8;
+      white-space: nowrap;
+    }
+
+    .step-item.active .step-num {
+      background: var(--q-dark-2);
+      color: var(--q-gold);
+      box-shadow: 0 0 0 4px rgba(7, 56, 58, 0.15);
+    }
+
+    .step-item.active .step-title {
+      color: var(--q-dark-2);
+    }
+
+    .step-item.done .step-num {
+      background: var(--q-emerald);
+      color: #fff;
+    }
+
+    .step-item.done .step-title {
+      color: var(--q-emerald);
+    }
+
+    .step-divider {
+      flex: 1;
+      height: 2px;
+      background: #E2E8F0;
+      min-width: 24px;
+    }
+
+    /* ── Step Panels ── */
+    .panel {
+      display: none;
+      padding: 36px 36px 40px;
+    }
+
+    .panel.active {
+      display: block;
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .panel-head {
+      margin-bottom: 28px;
+    }
+
+    .panel-head h2 {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--q-dark-2);
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+
+    .panel-head p {
+      font-size: 13px;
+      color: var(--ink-muted);
+    }
+
+    /* ── Flash Messages ── */
+    .flash-box {
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      color: #DC2626;
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 24px;
+    }
+
+    /* ── STEP 1: Plan Picker ── */
+    /* 14-Day Free Trial Hero Box */
+    .trial-hero-card {
+      background: linear-gradient(135deg, var(--q-dark) 0%, var(--q-dark-2) 100%);
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      border: 2px solid transparent;
+      box-shadow: 0 8px 24px rgba(1, 26, 24, 0.25);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .trial-hero-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(1, 26, 24, 0.35);
+    }
+
+    .trial-hero-card.selected {
+      border-color: var(--q-gold);
+      box-shadow: 0 0 0 4px rgba(252, 198, 5, 0.25), 0 12px 30px rgba(1, 26, 24, 0.35);
+    }
+
+    .trial-hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(252, 198, 5, 0.18);
+      color: var(--q-gold);
+      border: 1px solid rgba(252, 198, 5, 0.3);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .trial-hero-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .trial-hero-desc {
+      font-size: 12.5px;
+      color: #CBD5E1;
+      line-height: 1.5;
+      max-width: 580px;
+    }
+
+    .btn-trial-select {
+      background: var(--q-gold);
+      color: var(--q-dark);
+      font-weight: 700;
+      font-size: 13.5px;
+      padding: 12px 22px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+      box-shadow: 0 4px 14px rgba(252, 198, 5, 0.3);
+      transition: all 0.15s;
+    }
+
+    .btn-trial-select:hover {
+      background: var(--q-gold-hover);
+      color: #fff;
+    }
+
+    /* Duration Switcher Pill */
+    .duration-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .duration-strip-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink-2);
+    }
+
+    .dur-switcher {
+      display: inline-flex;
+      background: #E2E8F0;
+      padding: 4px;
+      border-radius: 30px;
+      gap: 4px;
+    }
+
+    .dur-btn {
+      border: none;
+      background: transparent;
+      padding: 8px 18px;
+      border-radius: 24px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--ink-muted);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dur-btn.active {
+      background: var(--q-dark-2);
+      color: var(--q-gold);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+
+    .save-tag {
+      background: #DC2626;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+
+    /* Plan Grid */
+    .plan-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .plan-card {
+      background: var(--white);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 18px;
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      transition: all 0.2s ease;
+    }
+
+    .plan-card:hover {
+      border-color: #94A3B8;
+      transform: translateY(-2px);
+    }
+
+    .plan-card.selected {
+      border-color: var(--q-gold);
+      background: #FFFDF5;
+      box-shadow: 0 0 0 3px rgba(252, 198, 5, 0.25), 0 8px 20px rgba(0,0,0,0.06);
+    }
+
+    .plan-card-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--q-dark-2);
+      margin-bottom: 2px;
+    }
+
+    .plan-card-price {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--ink);
+      margin: 8px 0 12px;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .plan-card-price small {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink-muted);
+    }
+
+    .plan-card-pills {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 14px;
+    }
+
+    .plan-card-pill {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--ink-2);
+      background: var(--bg-light);
+      padding: 4px 8px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .plan-card-features {
+      list-style: none;
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .plan-card-features li {
+      font-size: 11.5px;
+      color: var(--ink-muted);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      line-height: 1.4;
+    }
+
+    .plan-card-features li::before {
+      content: "✓";
+      color: var(--q-emerald);
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+
+    /* ── Form Controls ── */
+    .form-section {
+      background: var(--bg-light);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .form-section-head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .form-section-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: rgba(7, 56, 58, 0.08);
+      color: var(--q-dark-2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .form-section-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .form-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .form-grid-2 { grid-template-columns: 1fr; }
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--ink-2);
+      margin-bottom: 6px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 13.5px;
+      color: var(--ink);
+      background: var(--white);
+      transition: all 0.15s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--q-dark-2);
+      box-shadow: 0 0 0 3px rgba(7, 56, 58, 0.12);
+    }
+
+    .form-hint {
+      font-size: 11px;
+      color: var(--ink-muted);
+      margin-top: 4px;
+    }
+
+    /* Password Input with Eye */
+    .pw-input-wrap {
+      position: relative;
+    }
+
+    .pw-input-wrap input {
+      padding-right: 42px;
+    }
+
+    .pw-toggle-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #94A3B8;
+      font-size: 14px;
+      padding: 4px;
+    }
+
+    .pw-strength-bar {
+      height: 4px;
+      background: #E2E8F0;
+      border-radius: 4px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .pw-strength-fill {
+      height: 100%;
+      width: 0%;
+      transition: width 0.3s ease, background 0.3s ease;
+    }
+
+    .pw-strength-text {
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    /* Radio Switches */
+    .radio-pill-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .radio-pill {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--white);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.15s;
+    }
+
+    .radio-pill.active {
+      border-color: var(--q-dark-2);
+      background: rgba(7, 56, 58, 0.04);
+      color: var(--q-dark-2);
+    }
+
+    .radio-pill input {
+      accent-color: var(--q-dark-2);
+    }
+
+    .country-tax-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      color: #166534;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      margin-top: 10px;
+      line-height: 1.4;
+    }
+
+    /* ── STEP 4: Review ── */
+    .review-summary-card {
+      background: #F8FAFC;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .review-plan-banner {
+      background: linear-gradient(135deg, var(--q-dark-2), var(--q-dark));
+      color: #fff;
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .review-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .review-table td {
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .review-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .review-table td.label {
+      color: var(--ink-muted);
+      width: 40%;
+    }
+
+    .review-table td.val {
+      font-weight: 600;
+      color: var(--ink);
+      text-align: right;
+    }
+
+    /* ── Action Buttons Footer ── */
+    .action-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+      border: none;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink-muted);
+      border: 1.5px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      background: #F1F5F9;
+      color: var(--ink);
+    }
+
+    .btn-primary {
+      background: var(--q-dark-2);
+      color: var(--q-gold);
+      box-shadow: 0 4px 14px rgba(7, 56, 58, 0.25);
+    }
+
+    .btn-primary:hover {
+      background: var(--q-dark);
+      color: #fff;
+    }
+
+    .btn-activate-trial {
+      background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+      font-size: 15px;
+      padding: 13px 28px;
+    }
+
+    .btn-activate-trial:hover {
+      background: linear-gradient(135deg, #047857 0%, #059669 100%);
+      box-shadow: 0 6px 18px rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-razorpay {
+      background: linear-gradient(135deg, #F59E0B 0%, #FCC605 100%);
+      color: #011A18;
+      box-shadow: 0 4px 16px rgba(252, 198, 5, 0.35);
+      font-size: 15px;
+      padding: 13px 28px;
+    }
+
+    .btn-razorpay:hover {
+      background: #EAB308;
+    }
+
+    /* ── Spinners ── */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .topbar { padding: 12px 16px; }
+      .panel { padding: 24px 16px; }
+      .trial-hero-card { flex-direction: column; align-items: flex-start; }
+      .btn-trial-select { width: 100%; text-align: center; }
+      .action-row { flex-direction: column-reverse; }
+      .action-row .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ TOPBAR ═══ -->
+  <header class="topbar">
+    <a href="/login" class="brand-logo">
+      <img src="{{ url_for('static', filename='qiyadah_icon.png') }}" alt="Qiyadah Icon" class="brand-logo-icon">
+      <div class="brand-word-group">
+        <img src="{{ url_for('static', filename='qiyadah-word.png') }}" alt="QIYADAH" class="brand-logo-word">
+        <span class="brand-tagline">LEAD WITH INTELLIGENCE</span>
+      </div>
+    </a>
+    <div class="topbar-right">
+      <a href="/login" class="topbar-link">
+        <span>Already have an account?</span>
+        <strong>Sign In →</strong>
+      </a>
+    </div>
+  </header>
+
+  <!-- ═══ HERO STRIP ═══ -->
+  <section class="hero-strip">
+    <h1>Create Your <span>Qiyadah ERP</span> Account</h1>
+    <p>Set up your business operations with multi-country VAT/GST invoicing, branch management, inventory &amp; AI assistant in minutes.</p>
+  </section>
+
+  <!-- ═══ MAIN CARD CONTAINER ═══ -->
+  <main class="main-wrap">
+    <div class="register-card">
+
+      <!-- ── STEP WIZARD NAVIGATION ── -->
+      <nav class="stepper-header">
+        <div class="step-item active" id="si-1" onclick="goTo(1)">
+          <div class="step-num">1</div>
+          <div class="step-text">
+            <span class="step-title">Select Plan</span>
+            <span class="step-sub">Free trial or license</span>
+          </div>
+        </div>
+        <div class="step-divider"></div>
+
+        <div class="step-item" id="si-2" onclick="goTo(2)">
+          <div class="step-num">2</div>
+          <div class="step-text">
+            <span class="step-title">Account Owner</span>
+            <span class="step-sub">Login credentials</span>
+          </div>
+        </div>
+        <div class="step-divider"></div>
+
+        <div class="step-item" id="si-3" onclick="goTo(3)">
+          <div class="step-num">3</div>
+          <div class="step-text">
+            <span class="step-title">Company Setup</span>
+            <span class="step-sub">Business &amp; Tax Details</span>
+          </div>
+        </div>
+        <div class="step-divider"></div>
+
+        <div class="step-item" id="si-4" onclick="goTo(4)">
+          <div class="step-num">4</div>
+          <div class="step-text">
+            <span class="step-title">Launch</span>
+            <span class="step-sub">Review & activate</span>
+          </div>
+        </div>
+      </nav>
+
+      <!-- ── FLASH NOTIFICATIONS ── -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div style="padding: 20px 36px 0;">
+            {% for category, msg in messages %}
+              <div class="flash-box">{{ msg }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" id="regForm" onsubmit="return handleSubmit()">
+
+        <!-- ═════════════════════════════════════════════════════════════
+             STEP 1: PLAN SELECTION
+        ══════════════════════════════════════════════════════════════ -->
+        <div class="panel active" id="panel-1">
+          <div class="panel-head">
+            <h2>1. Choose your plan & billing cycle</h2>
+            <p>Choose the plan you want to try. Start free for 14 days with its included workspaces and limits. No payment today.</p>
+          </div>
+
+          <!-- Duration Pill Switcher -->
+          <div class="duration-strip">
+            <div class="duration-strip-title">💎 Paid Plans & Long-Term Licenses</div>
+            <div class="dur-switcher">
+              <button type="button" class="dur-btn active" id="btn-dur-1yr" onclick="switchDuration('1_year')">1 Year</button>
+              <button type="button" class="dur-btn" id="btn-dur-3yr" onclick="switchDuration('3_years')">3 Years <span class="save-tag">Lower annual rate</span></button>
+            </div>
+          </div>
+
+          <div style="font-size:12px; color:#92400E; background:#FEF3C7; border:1px solid #FCD34D; border-radius:10px; padding:10px 16px; margin-bottom:18px; display:none;" id="lifetime-service-banner">
+            ⭐ <strong>Lifetime Access:</strong> Pay one-time for permanent platform ownership. An annual cloud maintenance & WhatsApp service fee of <strong>₹2,500/year</strong> applies after Year 1 to keep automated cloud backups and server sync active.
+          </div>
+
+          <!-- Plan Grid -->
+          <div class="plan-grid">
+            {% for plan_key, plan in plans.items() %}
+            {% if plan_key != 'trial' %}
+            <div class="plan-card" id="pc-{{ plan_key }}" onclick="selectPlan('{{ plan_key }}')">
+              <div class="plan-card-name">{{ plan.name }}</div>
+              <div class="plan-card-price" id="price-display-{{ plan_key }}">
+                ₹{{ plan.price_1yr }}<small>/year</small>
+              </div>
+              <div class="plan-card-pills">
+                <span class="plan-card-pill">🏢 {{ plan.max_companies }} {{ 'Company' if plan.max_companies == '1' else 'Companies' }}</span>
+                <span class="plan-card-pill">👥 {{ plan.max_users_per_company }} Users</span><span class="plan-card-pill">{{ plan.max_branches }} Branches</span>
+              </div>
+              <ul class="plan-card-features">
+                {% for feature in plan.features[:4] %}
+                <li>{{ feature }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+
+          <div class="trial-hero-card"><div><div class="trial-hero-title">Try your selected plan free for 14 days</div><p id="trial-choice-note" class="trial-hero-desc">Your chosen plan and billing price will be saved. Pay only when you decide to continue.</p></div><button type="button" class="btn-trial-select" onclick="goTo(2)">Start 14-day trial →</button></div>
+          <input type="hidden" name="subscription_plan" id="subscription_plan" value="finance">
+          <input type="radio" name="subscription_plan_legacy" value="finance" id="pr-trial" checked style="display:none;">
+          <input type="hidden" name="billing_duration" id="billing_duration" value="1_year">
+
+          <div class="action-row">
+            <a href="/login" class="btn btn-ghost">← Back to Login</a>
+            <button type="button" class="btn btn-primary" onclick="goTo(2)">Next: Account Details →</button>
+          </div>
+        </div>
+
+        <!-- ═════════════════════════════════════════════════════════════
+             STEP 2: OWNER ACCOUNT DETAILS
+        ══════════════════════════════════════════════════════════════ -->
+        <div class="panel" id="panel-2">
+          <div class="panel-head">
+            <h2>2. Create your owner account</h2>
+            <p>This master administrator account will hold full access to your companies, analytics, and billing.</p>
+          </div>
+
+          <!-- Owner Profile Info -->
+          <div class="form-section">
+            <div class="form-section-head">
+              <div class="form-section-icon">👤</div>
+              <div class="form-section-title">Personal & Contact Information</div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">Full Name *</label>
+                <input type="text" name="full_name" id="full_name" class="form-control" placeholder="e.g. Rahul Sharma" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mobile Number *</label>
+                <input type="tel" name="phone" id="phone" class="form-control" placeholder="e.g. 9876543210" required>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">Work Email Address *</label>
+              <input type="email" name="email" id="email" class="form-control" placeholder="owner@yourcompany.com" required>
+              <div class="form-hint">Used to sign in and receive official invoice statements &amp; account updates.</div>
+            </div>
+          </div>
+
+          <!-- Security / Password -->
+          <div class="form-section">
+            <div class="form-section-head">
+              <div class="form-section-icon">🔐</div>
+              <div class="form-section-title">Security & Password</div>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">Password *</label>
+                <div class="pw-input-wrap">
+                  <input type="password" name="password" id="password" class="form-control" placeholder="Min 8 characters" required oninput="checkPwStrength(this.value)">
+                  <button type="button" class="pw-toggle-btn" onclick="togglePw('password')">👁️</button>
+                </div>
+                <div class="pw-strength-bar">
+                  <div class="pw-strength-fill" id="pw-fill"></div>
+                </div>
+                <div class="pw-strength-text" id="pw-label" style="color:var(--ink-muted);">Min 8 characters with letters & numbers</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Confirm Password *</label>
+                <div class="pw-input-wrap">
+                  <input type="password" name="confirm_password" id="confirm_password" class="form-control" placeholder="Repeat password" required>
+                  <button type="button" class="pw-toggle-btn" onclick="togglePw('confirm_password')">👁️</button>
+                </div>
+                <div id="pw-match-err" style="display:none; color:#DC2626; font-size:11px; margin-top:4px; font-weight:600;">Passwords do not match</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button type="button" class="btn btn-ghost" onclick="goTo(1)">← Back</button>
+            <button type="button" class="btn btn-primary" onclick="validateStep2()">Next: Company Setup →</button>
+          </div>
+        </div>
+
+        <!-- ═════════════════════════════════════════════════════════════
+             STEP 3: COMPANY SETUP
+        ══════════════════════════════════════════════════════════════ -->
+        <div class="panel" id="panel-3">
+          <div class="panel-head">
+            <h2>3. Configure your company profile</h2>
+            <p id="company-step-subtitle">Primary company details for invoices, tax reporting &amp; business operations.</p>
+          </div>
+
+          <div id="company-slots">
+            <!-- Dynamically populated by JS according to plan allowance -->
+          </div>
+
+          <div class="action-row">
+            <button type="button" class="btn btn-ghost" onclick="goTo(2)">← Back</button>
+            <button type="button" class="btn btn-primary" onclick="validateStep3()">Next: Review & Start →</button>
+          </div>
+        </div>
+
+        <!-- ═════════════════════════════════════════════════════════════
+             STEP 4: REVIEW & LAUNCH
+        ══════════════════════════════════════════════════════════════ -->
+        <div class="panel" id="panel-4">
+          <div class="panel-head">
+            <h2>4. Review & Activate Your Account</h2>
+            <p>Confirm your registration details to launch your Qiyadah ERP platform.</p>
+          </div>
+
+          <div class="review-summary-card">
+            <!-- Plan Banner -->
+            <div class="review-plan-banner">
+              <div>
+                <span style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; opacity:0.85;">Selected Plan</span>
+                <div style="font-size:18px; font-weight:800; color:var(--q-gold);" id="rv-plan-badge">14-Day Free Trial</div>
+              </div>
+              <div style="font-size:22px; font-weight:800; color:#fff;" id="rv-price">₹0</div>
+            </div>
+
+            <!-- Details Table -->
+            <table class="review-table">
+              <tr>
+                <td class="label">Billing Duration</td>
+                <td class="val" id="rv-duration">14-Day Free Trial</td>
+              </tr>
+              <tr>
+                <td class="label">Companies Allowed</td>
+                <td class="val" id="rv-max-companies">1 Company</td>
+              </tr>
+              <tr>
+                <td class="label">Team Seats</td>
+                <td class="val" id="rv-max-users">3 Users</td>
+              </tr>
+              <tr>
+                <td class="label">Account Owner</td>
+                <td class="val" id="rv-name">—</td>
+              </tr>
+              <tr>
+                <td class="label">Login Email</td>
+                <td class="val" id="rv-email">—</td>
+              </tr>
+              <tr>
+                <td class="label">Contact Phone</td>
+                <td class="val" id="rv-phone">—</td>
+              </tr>
+            </table>
+
+            <div style="margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+              <div style="font-size:12px; font-weight:700; color:var(--ink-2); margin-bottom:8px;">Configured Companies:</div>
+              <div id="rv-companies"></div>
+            </div>
+          </div>
+
+          <!-- Terms agreement -->
+          <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:24px;">
+            <input type="checkbox" id="terms-check" checked style="margin-top:3px; width:16px; height:16px; accent-color:var(--q-dark-2);">
+            <label for="terms-check" style="font-size:12px; color:var(--ink-muted); line-height:1.5;">
+              I agree to the Terms of Service &amp; Privacy Policy. I understand that company data is encrypted and securely stored in Qiyadah ERP cloud databases.
+            </label>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="action-row">
+            <button type="button" class="btn btn-ghost" onclick="goTo(3)">← Back</button>
+
+            <div style="display:flex; gap:12px; align-items:center;">
+              <button type="submit" class="btn btn-activate-trial" id="trial-submit-btn">
+                <span>🎁 Activate 14-Day Free Trial →</span>
+                <div class="spinner" id="trial-spinner"></div>
+              </button>
+
+              <button type="button" class="btn btn-razorpay" id="pay-razorpay-btn" style="display:none;" onclick="initiateRazorpayPayment()">
+                <span>💳 Pay ₹<span id="rzp-btn-amount">0</span> (Razorpay) →</span>
+                <div class="spinner" id="rzp-spinner"></div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden tracking fields -->
+        <input type="hidden" name="storage_type" value="cloud">
+        <input type="hidden" name="razorpay_payment_id" id="rzp_payment_id" value="">
+        <input type="hidden" name="razorpay_order_id" id="rzp_order_id" value="">
+        <input type="hidden" name="razorpay_signature" id="rzp_signature" value="">
+
+      </form>
+    </div>
+  </main>
+
+  <script>
+    // ── Plan definitions from server ──
+    const PLANS = {
+      {% for plan_key, plan in plans.items() %}
+      "{{ plan_key }}": {
+        id: "{{ plan_key }}",
+        name: {{ plan.name | tojson }},
+        price: {{ plan.price | tojson }},
+        price1yr: {{ (plan.price_1yr or plan.price) | tojson }},
+        price3yr: {{ (plan.price_3yr or '') | tojson }},
+        priceLifetime: {{ (plan.price_lifetime or '') | tojson }},
+        maxCompanies: {{ plan.max_companies | tojson }},
+        maxUsers: {{ (plan.max_users_per_company or plan.max_users) | tojson }},
+      },
+      {% endfor %}
+    };
+
+    let selectedPlan = 'finance';
+    let currentDuration = '1_year';
+    let maxCompanies = 1;
+
+    // ── Duration Switcher ──
+    function switchDuration(duration) {
+      if (!['1_year', '3_years'].includes(duration)) return;
+      currentDuration = duration;
+      document.getElementById('billing_duration').value = duration;
+
+      document.getElementById('btn-dur-1yr').classList.toggle('active', duration === '1_year');
+      document.getElementById('btn-dur-3yr').classList.toggle('active', duration === '3_years');
+
+      const ltBanner = document.getElementById('lifetime-service-banner');
+      if (ltBanner) ltBanner.style.display = (duration === 'lifetime') ? 'block' : 'none';
+
+      for (const [key, plan] of Object.entries(PLANS)) {
+        if (key === 'trial') continue;
+        const priceEl = document.getElementById('price-display-' + key);
+        if (!priceEl) continue;
+
+        if (duration === '1_year') {
+          priceEl.innerHTML = '₹' + plan.price1yr + '<small>/year</small>';
+        } else if (duration === '3_years') {
+          priceEl.innerHTML = '₹' + (Number(plan.price3yr) / 3).toLocaleString('en-IN') + '<small>/year</small><div style="font-size:12px;margin-top:8px">₹' + Number(plan.price3yr).toLocaleString('en-IN') + ' billed for 3 years</div>';
+        } else if (duration === 'lifetime') {
+          if (plan.priceLifetime === 'Custom' || plan.priceLifetime === 'Contact Sales') {
+            priceEl.innerHTML = '<span style="font-size:16px;">Contact Sales</span>';
+          } else {
+            priceEl.innerHTML = '₹' + (plan.priceLifetime || plan.price1yr) + '<small> one-time (+ ₹2,500/yr service)</small>';
+          }
+        }
+      }
+
+      if (selectedPlan !== 'trial') {
+        updateReviewPrice();
+      }
+    }
+
+    // ── Plan Selection ──
+    function selectPlan(key) {
+      const plan = PLANS[key];
+      if (!plan) return;
+
+      if (key === 'trial') return;
+      selectedPlan = key;
+      const subPlanInp = document.getElementById('subscription_plan');
+      if (subPlanInp) subPlanInp.value = key;
+      const prTrialEl = document.getElementById('pr-trial');
+      if (prTrialEl) prTrialEl.value = key;
+      document.getElementById('trial-choice-note').textContent = 'Start with ' + plan.name + '. Its workspaces and account limits are included in your trial.';
+
+      document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+      const trialHero = document.getElementById('pc-trial');
+      if (trialHero) trialHero.classList.remove('selected');
+
+      if (key === 'trial') {
+        if (trialHero) trialHero.classList.add('selected');
+        const radio = document.getElementById('pr-trial');
+        if (radio) radio.checked = true;
+      } else {
+        const card = document.getElementById('pc-' + key);
+        if (card) card.classList.add('selected');
+      }
+
+      const maxCompaniesStr = String(plan.maxCompanies);
+      maxCompanies = (maxCompaniesStr === 'Unlimited') ? 10 : (parseInt(maxCompaniesStr) || 1);
+    }
+
+    function selectPlanAndGo(key) {
+      selectPlan(key);
+      goTo(2);
+    }
+
+    // ── Step Navigation ──
+    function goTo(step) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + step).classList.add('active');
+
+      for (let i = 1; i <= 4; i++) {
+        const si = document.getElementById('si-' + i);
+        si.classList.remove('active', 'done');
+        if (i < step) si.classList.add('done');
+        if (i === step) si.classList.add('active');
+      }
+
+      if (step === 3) buildCompanySlots();
+      if (step === 4) buildReview();
+
+      window.scrollTo({ top: 120, behavior: 'smooth' });
+    }
+
+    // ── Toggle Password Visibility ──
+    function togglePw(fieldId) {
+      const input = document.getElementById(fieldId);
+      if (input) {
+        input.type = input.type === 'password' ? 'text' : 'password';
+      }
+    }
+
+    // ── Password Strength ──
+    function checkPwStrength(val) {
+      let score = 0;
+      if (val.length >= 8) score++;
+      if (/[0-9]/.test(val)) score++;
+      if (/[A-Z]/.test(val)) score++;
+      if (/[^a-zA-Z0-9]/.test(val)) score++;
+
+      const fill = document.getElementById('pw-fill');
+      const label = document.getElementById('pw-label');
+      const widths = ['0%', '30%', '60%', '80%', '100%'];
+      const colors = ['#E5E7EB', '#EF4444', '#F59E0B', '#3B82F6', '#059669'];
+      const labels = ['Min 8 characters with letters & numbers', 'Weak password', 'Fair password', 'Good password', 'Strong password'];
+      const lColors = ['var(--ink-muted)', '#EF4444', '#D97706', '#2563EB', '#059669'];
+
+      fill.style.width = widths[score];
+      fill.style.background = colors[score];
+      label.textContent = val ? labels[score] : 'Min 8 characters with letters & numbers';
+      label.style.color = lColors[score];
+    }
+
+    // ── Step 2 Validation ──
+    function validateStep2() {
+      const name = document.getElementById('full_name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const pw = document.getElementById('password').value;
+      const pw2 = document.getElementById('confirm_password').value;
+
+      if (!name || !email || !phone) {
+        alert('Please fill in your name, email, and phone number.');
+        return;
+      }
+      if (pw.length < 8) {
+        alert('Password must be at least 8 characters long.');
+        return;
+      }
+      if (pw !== pw2) {
+        document.getElementById('pw-match-err').style.display = 'block';
+        return;
+      }
+      document.getElementById('pw-match-err').style.display = 'none';
+      goTo(3);
+    }
+
+    // ── Country and Regional Tax Configuration ──
+    const COUNTRY_CONFIG = {
+      'United Arab Emirates': {
+        code: 'AE',
+        flag: '🇦🇪',
+        currency: 'AED',
+        regime: 'GCC_VAT',
+        taxLabel: 'TRN',
+        taxFullName: 'Tax Registration Number (TRN - 15 digits)',
+        taxPlaceholder: 'e.g. 100XXXXXXXXX003',
+        taxQuestion: 'Is this company VAT registered (FTA UAE)?',
+        taxYesText: 'Yes, VAT Registered (TRN)',
+        taxNoText: 'No VAT Registration (Unregistered)',
+        taxHint: 'Standard UAE VAT is 5%. FTA-compliant tax invoicing.',
+        addressPlaceholder: 'Office/Building, Area, Emirate (e.g. Dubai, Abu Dhabi), P.O. Box',
+        phonePlaceholder: 'e.g. +971 50 123 4567',
+      },
+      'Saudi Arabia': {
+        code: 'SA',
+        flag: '🇸🇦',
+        currency: 'SAR',
+        regime: 'GCC_VAT',
+        taxLabel: 'VAT Number',
+        taxFullName: 'VAT Registration Number (ZATCA - 15 digits)',
+        taxPlaceholder: 'e.g. 300XXXXXXXXX003',
+        taxQuestion: 'Is this company VAT registered (ZATCA)?',
+        taxYesText: 'Yes, VAT Registered (15%)',
+        taxNoText: 'No VAT Registration',
+        taxHint: 'Standard KSA VAT is 15%. Tax invoices compliant with ZATCA regulations.',
+        addressPlaceholder: 'Building No, District, City, Postal Code, National Address',
+        phonePlaceholder: 'e.g. +966 50 123 4567',
+      },
+      'Kuwait': {
+        code: 'KW',
+        flag: '🇰🇼',
+        currency: 'KWD',
+        regime: 'NONE',
+        taxLabel: 'CR / Tax ID',
+        taxFullName: 'Commercial Registration (CR) / Tax ID',
+        taxPlaceholder: 'e.g. CR-123456 or Ministry Tax ID',
+        taxQuestion: 'Commercial / Tax Registered in Kuwait?',
+        taxYesText: 'Yes, Registered (CR / Tax ID)',
+        taxNoText: 'No / Unregistered',
+        taxHint: 'Kuwait standard VAT is 0%. Invoices display your Commercial Registration & business details.',
+        addressPlaceholder: 'Building/Floor, Block, Street, Area / Governorate, Kuwait',
+        phonePlaceholder: 'e.g. +965 9123 4567',
+      },
+      'Bahrain': {
+        code: 'BH',
+        flag: '🇧🇭',
+        currency: 'BHD',
+        regime: 'GCC_VAT',
+        taxLabel: 'VAT Number',
+        taxFullName: 'VAT Account Number (NBR - 15 digits)',
+        taxPlaceholder: 'e.g. 200XXXXXXXXX003',
+        taxQuestion: 'Is this company VAT registered (NBR Bahrain)?',
+        taxYesText: 'Yes, VAT Registered (10%)',
+        taxNoText: 'No VAT Registration',
+        taxHint: 'Standard Bahrain VAT is 10%. Compliant with National Bureau for Revenue (NBR).',
+        addressPlaceholder: 'Building, Road, Block, City / Governorate, Bahrain',
+        phonePlaceholder: 'e.g. +973 3123 4567',
+      },
+      'Oman': {
+        code: 'OM',
+        flag: '🇴🇲',
+        currency: 'OMR',
+        regime: 'GCC_VAT',
+        taxLabel: 'VATIN',
+        taxFullName: 'VAT Identification Number (OTA VATIN)',
+        taxPlaceholder: 'e.g. OM1XXXXXXXXX',
+        taxQuestion: 'Is this company VAT registered (Oman Tax Authority)?',
+        taxYesText: 'Yes, VAT Registered (5%)',
+        taxNoText: 'No VAT Registration',
+        taxHint: 'Standard Oman VAT is 5%. Tax invoices display your OTA VATIN.',
+        addressPlaceholder: 'Building, Way No, Wilayat / Governorate, P.O. Box & Postal Code',
+        phonePlaceholder: 'e.g. +968 9123 4567',
+      },
+      'Qatar': {
+        code: 'QA',
+        flag: '🇶🇦',
+        currency: 'QAR',
+        regime: 'NONE',
+        taxLabel: 'TIN / CR No.',
+        taxFullName: 'Tax Identification Number (TIN) / CR No.',
+        taxPlaceholder: 'e.g. Dhareeba TIN or CR-XXXXXX',
+        taxQuestion: 'Tax / Commercial Registered (Dhareeba / MOCI)?',
+        taxYesText: 'Yes, Registered (TIN / CR)',
+        taxNoText: 'No / Unregistered',
+        taxHint: 'Qatar standard VAT is 0%. Invoices display your Tax Identification / CR details.',
+        addressPlaceholder: 'Building, Zone, Street, City / Municipality, Qatar',
+        phonePlaceholder: 'e.g. +974 5123 4567',
+      },
+      'India': {
+        code: 'IN',
+        flag: '🇮🇳',
+        currency: 'INR',
+        regime: 'GST',
+        taxLabel: 'GSTIN',
+        taxFullName: 'GST Identification Number (GSTIN - 15 characters)',
+        taxPlaceholder: 'e.g. 27AAABC1234F1Z5',
+        taxQuestion: 'Is this company GST registered?',
+        taxYesText: 'Yes, GST Registered',
+        taxNoText: 'No GST Registration',
+        taxHint: 'Standard India GST with CGST, SGST & IGST breakdown and HSN/SAC codes.',
+        addressPlaceholder: 'Complete address with City, State & Pincode',
+        phonePlaceholder: 'e.g. 9876543210',
+      },
+      'United States': {
+        code: 'US',
+        flag: '🇺🇸',
+        currency: 'USD',
+        regime: 'SALES_TAX',
+        taxLabel: 'EIN / Tax ID',
+        taxFullName: 'Employer Identification Number (EIN) / Tax ID',
+        taxPlaceholder: 'e.g. XX-XXXXXXX',
+        taxQuestion: 'Tax Registered (EIN / State Tax)?',
+        taxYesText: 'Yes, Tax Registered',
+        taxNoText: 'No / Exempt',
+        taxHint: 'US Sales Tax invoices generated in USD.',
+        addressPlaceholder: 'Street address, Suite, City, State & ZIP Code',
+        phonePlaceholder: 'e.g. +1 555 123 4567',
+      },
+      'United Kingdom': {
+        code: 'GB',
+        flag: '🇬🇧',
+        currency: 'GBP',
+        regime: 'VAT',
+        taxLabel: 'VAT Number',
+        taxFullName: 'HMRC VAT Registration Number',
+        taxPlaceholder: 'e.g. GB999 9999 73 (9 digits)',
+        taxQuestion: 'Is this company VAT registered (HMRC)?',
+        taxYesText: 'Yes, VAT Registered (20%)',
+        taxNoText: 'No VAT Registration',
+        taxHint: 'UK standard VAT is 20%. Tax invoices generated in GBP.',
+        addressPlaceholder: 'Street, City, Postal Code, United Kingdom',
+        phonePlaceholder: 'e.g. +44 20 1234 5678',
+      },
+      'European Union': {
+        code: 'EU',
+        flag: '🇪🇺',
+        currency: 'EUR',
+        regime: 'VAT',
+        taxLabel: 'VAT ID',
+        taxFullName: 'EU VAT Identification Number',
+        taxPlaceholder: 'e.g. Country code + VAT number',
+        taxQuestion: 'Is this company VAT registered in the EU?',
+        taxYesText: 'Yes, VAT Registered',
+        taxNoText: 'No VAT Registration',
+        taxHint: 'Standard European VAT invoices generated in EUR.',
+        addressPlaceholder: 'Address, Postal Code, City, Country',
+        phonePlaceholder: 'e.g. +49 151 12345678',
+      },
+      'Other': {
+        code: 'OT',
+        flag: '🌐',
+        currency: 'USD',
+        regime: 'NONE',
+        taxLabel: 'Tax ID',
+        taxFullName: 'Business / Tax Registration Number',
+        taxPlaceholder: 'e.g. Business Registration or Tax ID',
+        taxQuestion: 'Business / Tax Registered?',
+        taxYesText: 'Yes, Registered',
+        taxNoText: 'No / Unregistered',
+        taxHint: 'Standard commercial invoices in selected currency.',
+        addressPlaceholder: 'Complete business address, City, Country',
+        phonePlaceholder: 'e.g. Phone number with country code',
+      }
+    };
+
+    // ── Step 3: Build Company Slots ──
+    function buildCompanySlots() {
+      const plan = PLANS[selectedPlan] || PLANS['trial'];
+      const max = maxCompanies;
+      const isUnlimited = plan.maxCompanies === 'Unlimited';
+
+      document.getElementById('company-step-subtitle').textContent =
+        `Your ${plan.name} allows up to ${isUnlimited ? 'Unlimited' : plan.maxCompanies} ${plan.maxCompanies === '1' ? 'company' : 'companies'}. The primary company is required.`;
+
+      const container = document.getElementById('company-slots');
+      container.innerHTML = '';
+
+      const showSlots = Math.min(max, isUnlimited ? 3 : max);
+
+      for (let i = 1; i <= showSlots; i++) {
+        container.innerHTML += buildSlotHTML(i, i === 1);
+      }
+
+      // Initialize country handlers for each slot
+      for (let i = 1; i <= showSlots; i++) {
+        onCountryChange(i);
+      }
+    }
+
+    function buildSlotHTML(num, required) {
+      const defaultCountry = (num > 1 && document.getElementById('country_1'))
+        ? document.getElementById('country_1').value
+        : 'United Arab Emirates';
+      const cfg = COUNTRY_CONFIG[defaultCountry] || COUNTRY_CONFIG['United Arab Emirates'];
+
+      return `
+      <div class="form-section" id="slot-${num}">
+        <div class="form-section-head" style="justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div class="form-section-icon">🏢</div>
+            <div class="form-section-title">${required ? 'Primary Company' : 'Additional Company / Branch ' + num}</div>
+          </div>
+          <span style="font-size:11px; font-weight:700; padding:3px 8px; border-radius:12px; background:${required ? '#DCFCE7; color:#166534;' : '#F1F5F9; color:#64748B;'}">
+            ${required ? 'Required' : 'Optional'}
+          </span>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Company / Brand Name ${required ? '*' : ''}</label>
+            <input type="text" name="company_name_${num}" id="cname_${num}" class="form-control"
+                   placeholder="e.g. Acme Trading LLC" ${required ? 'required' : ''}>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Operating Country *</label>
+            <select name="country_${num}" id="country_${num}" class="form-control" onchange="onCountryChange(${num})" style="font-weight:600; cursor:pointer;">
+              <optgroup label="GCC Countries (Gulf)">
+                <option value="United Arab Emirates" ${defaultCountry === 'United Arab Emirates' ? 'selected' : ''}>🇦🇪 United Arab Emirates (UAE)</option>
+                <option value="Saudi Arabia" ${defaultCountry === 'Saudi Arabia' ? 'selected' : ''}>🇸🇦 Saudi Arabia (KSA)</option>
+                <option value="Kuwait" ${defaultCountry === 'Kuwait' ? 'selected' : ''}>🇰🇼 Kuwait</option>
+                <option value="Oman" ${defaultCountry === 'Oman' ? 'selected' : ''}>🇴🇲 Oman</option>
+                <option value="Bahrain" ${defaultCountry === 'Bahrain' ? 'selected' : ''}>🇧🇭 Bahrain</option>
+                <option value="Qatar" ${defaultCountry === 'Qatar' ? 'selected' : ''}>🇶🇦 Qatar</option>
+              </optgroup>
+              <optgroup label="South Asia">
+                <option value="India" ${defaultCountry === 'India' ? 'selected' : ''}>🇮🇳 India</option>
+              </optgroup>
+              <optgroup label="International">
+                <option value="United States" ${defaultCountry === 'United States' ? 'selected' : ''}>🇺🇸 United States</option>
+                <option value="United Kingdom" ${defaultCountry === 'United Kingdom' ? 'selected' : ''}>🇬🇧 United Kingdom</option>
+                <option value="European Union" ${defaultCountry === 'European Union' ? 'selected' : ''}>🇪🇺 European Union</option>
+                <option value="Other" ${defaultCountry === 'Other' ? 'selected' : ''}>🌐 Other International</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Base Currency</label>
+            <select name="currency_${num}" id="currency_${num}" class="form-control" style="font-weight:600; cursor:pointer;">
+              <option value="AED" ${cfg.currency === 'AED' ? 'selected' : ''}>AED · UAE Dirham (د.إ)</option>
+              <option value="SAR" ${cfg.currency === 'SAR' ? 'selected' : ''}>SAR · Saudi Riyal (﷼)</option>
+              <option value="KWD" ${cfg.currency === 'KWD' ? 'selected' : ''}>KWD · Kuwaiti Dinar (د.ك)</option>
+              <option value="BHD" ${cfg.currency === 'BHD' ? 'selected' : ''}>BHD · Bahraini Dinar (.د.ب)</option>
+              <option value="OMR" ${cfg.currency === 'OMR' ? 'selected' : ''}>OMR · Omani Rial (ر.ع.)</option>
+              <option value="QAR" ${cfg.currency === 'QAR' ? 'selected' : ''}>QAR · Qatari Riyal (ر.ق)</option>
+              <option value="INR" ${cfg.currency === 'INR' ? 'selected' : ''}>INR · Indian Rupee (₹)</option>
+              <option value="USD" ${cfg.currency === 'USD' ? 'selected' : ''}>USD · US Dollar ($)</option>
+              <option value="GBP" ${cfg.currency === 'GBP' ? 'selected' : ''}>GBP · British Pound (£)</option>
+              <option value="EUR" ${cfg.currency === 'EUR' ? 'selected' : ''}>EUR · Euro (€)</option>
+            </select>
+            <div class="form-hint">Default currency for invoices & financial records.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Business Phone</label>
+            <input type="tel" name="company_phone_${num}" id="cphone_${num}" class="form-control" placeholder="${cfg.phonePlaceholder}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Office / Billing Address</label>
+          <input type="text" name="company_address_${num}" id="caddr_${num}" class="form-control" placeholder="${cfg.addressPlaceholder}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="tax_question_label_${num}">${cfg.taxQuestion}</label>
+          <div class="radio-pill-group">
+            <label class="radio-pill active" id="gst-yes-${num}">
+              <input type="radio" name="is_gst_registered_${num}" value="1" checked onchange="toggleGstField(${num}, true)">
+              <span id="tax_yes_text_${num}">${cfg.taxYesText}</span>
+            </label>
+            <label class="radio-pill" id="gst-no-${num}">
+              <input type="radio" name="is_gst_registered_${num}" value="0" onchange="toggleGstField(${num}, false)">
+              <span id="tax_no_text_${num}">${cfg.taxNoText}</span>
+            </label>
+          </div>
+          <div id="country_tax_badge_${num}" class="country-tax-badge">
+            ⚡ ${cfg.flag} ${defaultCountry}: ${cfg.taxHint}
+          </div>
+        </div>
+
+        <div id="gst-field-${num}">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" id="tax_id_input_label_${num}">${cfg.taxFullName}</label>
+            <input type="text" name="gst_number_${num}" id="gst_num_${num}" class="form-control"
+                   placeholder="${cfg.taxPlaceholder}" style="font-family:'JetBrains Mono',monospace; letter-spacing:0.5px; text-transform:uppercase;">
+            <div class="form-hint">Printed on tax invoices, credit notes & client statements.</div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function onCountryChange(num) {
+      const countryEl = document.getElementById('country_' + num);
+      if (!countryEl) return;
+      const country = countryEl.value;
+      const cfg = COUNTRY_CONFIG[country] || COUNTRY_CONFIG['United Arab Emirates'];
+
+      // 1. Auto-select currency
+      const currEl = document.getElementById('currency_' + num);
+      if (currEl) {
+        currEl.value = cfg.currency;
+      }
+
+      // 2. Update address placeholder
+      const addrEl = document.getElementById('caddr_' + num);
+      if (addrEl) {
+        addrEl.placeholder = cfg.addressPlaceholder;
+      }
+
+      // 3. Update phone placeholder
+      const phoneEl = document.getElementById('cphone_' + num);
+      if (phoneEl) {
+        phoneEl.placeholder = cfg.phonePlaceholder;
+      }
+
+      // 4. Update tax question label
+      const qLabel = document.getElementById('tax_question_label_' + num);
+      if (qLabel) {
+        qLabel.textContent = cfg.taxQuestion;
+      }
+
+      // 5. Update yes / no radio text
+      const yesText = document.getElementById('tax_yes_text_' + num);
+      if (yesText) {
+        yesText.textContent = cfg.taxYesText;
+      }
+
+      const noText = document.getElementById('tax_no_text_' + num);
+      if (noText) {
+        noText.textContent = cfg.taxNoText;
+      }
+
+      // 6. Update tax ID input label and placeholder
+      const idLabel = document.getElementById('tax_id_input_label_' + num);
+      if (idLabel) {
+        idLabel.textContent = cfg.taxFullName;
+      }
+
+      const idInput = document.getElementById('gst_num_' + num);
+      if (idInput) {
+        idInput.placeholder = cfg.taxPlaceholder;
+      }
+
+      // 7. Update country tax badge
+      const badge = document.getElementById('country_tax_badge_' + num);
+      if (badge) {
+        badge.innerHTML = `⚡ ${cfg.flag} ${country}: ${cfg.taxHint}`;
+      }
+    }
+
+    function toggleGstField(num, show) {
+      const yesEl = document.getElementById('gst-yes-' + num);
+      const noEl = document.getElementById('gst-no-' + num);
+      if (yesEl) yesEl.classList.toggle('active', show);
+      if (noEl) noEl.classList.toggle('active', !show);
+      const fEl = document.getElementById('gst-field-' + num);
+      if (fEl) fEl.style.display = show ? 'block' : 'none';
+      if (!show) {
+        const gstInput = document.getElementById('gst_num_' + num);
+        if (gstInput) gstInput.value = '';
+      }
+    }
+
+    // ── Step 3 Validation ──
+    function validateStep3() {
+      const c1 = document.getElementById('cname_1');
+      if (!c1 || !c1.value.trim()) {
+        alert('Please enter your primary company name.');
+        return;
+      }
+      goTo(4);
+    }
+
+    // ── Step 4: Build Review Panel ──
+    function getSelectedPlanAmount() {
+      const plan = PLANS[selectedPlan] || PLANS['trial'];
+      if (selectedPlan === 'trial') return 0;
+      if (currentDuration === '1_year') return parseInt(plan.price1yr) || 0;
+      if (currentDuration === '3_years') return parseInt(plan.price3yr) || 0;
+      if (currentDuration === 'lifetime') return parseInt(plan.priceLifetime) || 0;
+      return 0;
+    }
+
+    function updateReviewPrice() {
+      const plan = PLANS[selectedPlan] || PLANS['trial'];
+      const amount = getSelectedPlanAmount();
+
+      document.getElementById('rv-plan-badge').textContent = plan.name;
+      document.getElementById('rv-max-companies').textContent = plan.maxCompanies + ' Companies';
+      document.getElementById('rv-max-users').textContent = plan.maxUsers + ' Users';
+
+      document.getElementById('rv-duration').textContent = '14-day trial · then ' + (currentDuration === '3_years' ? '3 years' : '1 year');
+      document.getElementById('rv-price').textContent = '₹0 today · then ₹' + amount.toLocaleString('en-IN');
+      document.getElementById('trial-submit-btn').style.display = 'inline-flex';
+      document.getElementById('pay-razorpay-btn').style.display = 'none';
+    }
+
+    function buildReview() {
+      updateReviewPrice();
+
+      document.getElementById('rv-name').textContent = document.getElementById('full_name').value || '—';
+      document.getElementById('rv-email').textContent = document.getElementById('email').value || '—';
+      document.getElementById('rv-phone').textContent = document.getElementById('phone').value || '—';
+
+      let companiesHTML = '';
+      for (let i = 1; i <= maxCompanies; i++) {
+        const nameEl = document.getElementById('cname_' + i);
+        if (!nameEl) break;
+        const name = nameEl.value.trim();
+        if (!name) continue;
+
+        const countryEl = document.getElementById('country_' + i);
+        const country = countryEl ? countryEl.value : 'United Arab Emirates';
+        const cfg = COUNTRY_CONFIG[country] || COUNTRY_CONFIG['United Arab Emirates'];
+
+        const currEl = document.getElementById('currency_' + i);
+        const currency = currEl ? currEl.value : cfg.currency;
+
+        const gstEl = document.getElementById('gst_num_' + i);
+        const gstYes = document.getElementById('gst-yes-' + i);
+        const isRegistered = gstYes && gstYes.classList.contains('active');
+        const taxVal = (gstEl && gstEl.value.trim()) ? gstEl.value.trim() : '';
+
+        let taxDisplay = '';
+        if (isRegistered && taxVal) {
+          taxDisplay = `✓ ${cfg.taxLabel}: ${taxVal}`;
+        } else if (isRegistered) {
+          taxDisplay = `✓ Registered (${cfg.taxLabel} pending)`;
+        } else {
+          taxDisplay = `• Standard Invoicing (Tax Exempt / Unregistered)`;
+        }
+
+        companiesHTML += `
+          <div style="background:#fff; border:1px solid var(--border); border-radius:8px; padding:12px 14px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="color:var(--q-dark-2); font-size:14px;">${name}</strong>
+                <span style="font-size:11px; background:#F1F5F9; color:#475569; padding:2px 8px; border-radius:6px; font-weight:600;">${cfg.flag} ${country} · ${currency}</span>
+              </div>
+              <div style="font-size:11.5px; color:var(--ink-muted); margin-top:4px;">
+                ${taxDisplay}
+              </div>
+            </div>
+            <span style="font-size:11px; font-weight:700; color:var(--q-emerald); background:#ECFDF5; padding:3px 9px; border-radius:10px;">Ready</span>
+          </div>`;
+      }
+      document.getElementById('rv-companies').innerHTML = companiesHTML || '<div style="color:var(--ink-muted); font-size:12px;">No companies specified.</div>';
+    }
+
+    // ── Razorpay Payment Trigger ──
+    async function initiateRazorpayPayment() {
+      if (!document.getElementById('terms-check').checked) {
+        alert('Please accept the Terms of Service to continue.');
+        return;
+      }
+
+      const email = document.getElementById('email').value.trim();
+      const name = document.getElementById('full_name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+
+      if (!email || !name || !phone) {
+        alert('Please complete your account details.');
+        goTo(2);
+        return;
+      }
+
+      const rzpBtn = document.getElementById('pay-razorpay-btn');
+      const rzpSpinner = document.getElementById('rzp-spinner');
+      rzpBtn.disabled = true;
+      rzpSpinner.style.display = 'block';
+
+      try {
+        const res = await fetch('/api/payment/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            plan_id: selectedPlan,
+            duration: currentDuration,
+            email: email
+          })
+        });
+
+        const orderData = await res.json();
+        if (orderData.status !== 'success') {
+          alert(orderData.message || 'Error initiating payment order.');
+          rzpBtn.disabled = false;
+          rzpSpinner.style.display = 'none';
+          return;
+        }
+
+        const options = {
+          key: orderData.key_id,
+          amount: orderData.amount_paise,
+          currency: 'INR',
+          name: 'Qiyadah ERP',
+          description: `${PLANS[selectedPlan].name} (${currentDuration === '1_year' ? '1 Year' : currentDuration === '3_years' ? '3 Years' : 'Lifetime'})`,
+          order_id: orderData.order_id,
+          prefill: {
+            name: name,
+            email: email,
+            contact: phone
+          },
+          theme: {
+            color: '#07383A'
+          },
+          handler: async function (response) {
+            try {
+              const verifyRes = await fetch('/api/payment/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  transaction_id: orderData.transaction_id,
+                  plan_id: selectedPlan,
+                  duration: currentDuration,
+                  email: email
+                })
+              });
+
+              const verifyData = await verifyRes.json();
+              if (verifyData.status === 'success') {
+                document.getElementById('rzp_payment_id').value = response.razorpay_payment_id;
+                document.getElementById('rzp_order_id').value = response.razorpay_order_id;
+                document.getElementById('rzp_signature').value = response.razorpay_signature;
+
+                document.getElementById('regForm').submit();
+              } else {
+                alert(verifyData.message || 'Payment verification failed.');
+                rzpBtn.disabled = false;
+                rzpSpinner.style.display = 'none';
+              }
+            } catch (err) {
+              alert('Error verifying payment: ' + err.message);
+              rzpBtn.disabled = false;
+              rzpSpinner.style.display = 'none';
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              rzpBtn.disabled = false;
+              rzpSpinner.style.display = 'none';
+            }
+          }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+
+      } catch (err) {
+        alert('Error initiating payment gateway: ' + err.message);
+        rzpBtn.disabled = false;
+        rzpSpinner.style.display = 'none';
+      }
+    }
+
+    // ── Form Submit Handler ──
+    function handleSubmit() {
+      if (!document.getElementById('terms-check').checked) {
+        alert('Please agree to the Terms of Service to continue.');
+        return false;
+      }
+
+      const form = document.getElementById('regForm');
+      if (!form) return false;
+
+      // Ensure subscription_plan and billing_duration are guaranteed to match user selection
+      let hPlan = document.getElementById('subscription_plan');
+      if (!hPlan) {
+        hPlan = document.createElement('input');
+        hPlan.type = 'hidden';
+        hPlan.name = 'subscription_plan';
+        hPlan.id = 'subscription_plan';
+        form.appendChild(hPlan);
+      }
+      hPlan.value = selectedPlan;
+
+      let hDur = document.getElementById('billing_duration');
+      if (!hDur) {
+        hDur = document.createElement('input');
+        hDur.type = 'hidden';
+        hDur.name = 'billing_duration';
+        hDur.id = 'billing_duration';
+        form.appendChild(hDur);
+      }
+      hDur.value = currentDuration;
+
+      // Primary Company (num = 1)
+      const c1 = document.getElementById('cname_1');
+      if (c1) {
+        const h = document.createElement('input');
+        h.type = 'hidden'; h.name = 'company_name'; h.value = c1.value.trim();
+        form.appendChild(h);
+      }
+
+      const country1 = (document.getElementById('country_1') || {}).value || 'United Arab Emirates';
+      const currency1 = (document.getElementById('currency_1') || {}).value || 'AED';
+      const cfg1 = COUNTRY_CONFIG[country1] || COUNTRY_CONFIG['United Arab Emirates'];
+
+      const hCountry = document.createElement('input');
+      hCountry.type = 'hidden'; hCountry.name = 'country'; hCountry.value = country1;
+      form.appendChild(hCountry);
+
+      const hCurrency = document.createElement('input');
+      hCurrency.type = 'hidden'; hCurrency.name = 'currency'; hCurrency.value = currency1;
+      form.appendChild(hCurrency);
+
+      const hRegime = document.createElement('input');
+      hRegime.type = 'hidden'; hRegime.name = 'tax_regime'; hRegime.value = cfg1.regime;
+      form.appendChild(hRegime);
+
+      const hTaxLabel = document.createElement('input');
+      hTaxLabel.type = 'hidden'; hTaxLabel.name = 'tax_id_label'; hTaxLabel.value = cfg1.taxLabel;
+      form.appendChild(hTaxLabel);
+
+      // is_gst_registered + gst_number / tax_registration_number for company 1
+      const gstYes1 = document.getElementById('gst-yes-1');
+      const isGST1 = gstYes1 && gstYes1.classList.contains('active');
+      const gstNum1 = document.getElementById('gst_num_1');
+      const taxVal1 = (gstNum1 && isGST1) ? gstNum1.value.trim().toUpperCase() : '';
+
+      const hGST = document.createElement('input');
+      hGST.type = 'hidden'; hGST.name = 'is_gst_registered'; hGST.value = isGST1 ? '1' : '0';
+      form.appendChild(hGST);
+
+      if (isGST1 && taxVal1) {
+        const hGSTN = document.createElement('input');
+        hGSTN.type = 'hidden'; hGSTN.name = 'gst_number'; hGSTN.value = taxVal1;
+        form.appendChild(hGSTN);
+
+        const hTRN = document.createElement('input');
+        hTRN.type = 'hidden'; hTRN.name = 'tax_registration_number'; hTRN.value = taxVal1;
+        form.appendChild(hTRN);
+      }
+
+      // Default hidden AWB fields so background models are satisfied
+      const hAwbP = document.createElement('input');
+      hAwbP.type = 'hidden'; hAwbP.name = 'awb_prefix'; hAwbP.value = 'AHL';
+      form.appendChild(hAwbP);
+
+      const hAwbS = document.createElement('input');
+      hAwbS.type = 'hidden'; hAwbS.name = 'awb_start'; hAwbS.value = 81000;
+      form.appendChild(hAwbS);
+
+      // extra companies JSON
+      const extraCompanies = [];
+      for (let i = 2; i <= maxCompanies; i++) {
+        const nameEl = document.getElementById('cname_' + i);
+        if (!nameEl || !nameEl.value.trim()) continue;
+        const gY = document.getElementById('gst-yes-' + i);
+        const gN = document.getElementById('gst_num_' + i);
+        const cCountry = (document.getElementById('country_' + i) || {}).value || country1;
+        const cCurrency = (document.getElementById('currency_' + i) || {}).value || currency1;
+        const cCfg = COUNTRY_CONFIG[cCountry] || COUNTRY_CONFIG['United Arab Emirates'];
+        const isReg = gY && gY.classList.contains('active');
+        const numVal = (gN && isReg) ? gN.value.trim().toUpperCase() : '';
+
+        extraCompanies.push({
+          name: nameEl.value.trim(),
+          country: cCountry,
+          currency: cCurrency,
+          tax_regime: cCfg.regime,
+          tax_id_label: cCfg.taxLabel,
+          is_gst_registered: isReg,
+          gst_number: numVal,
+          tax_registration_number: numVal,
+          address: (document.querySelector(`input[name="company_address_${i}"]`) || {}).value || '',
+          phone: (document.querySelector(`input[name="company_phone_${i}"]`) || {}).value || '',
+          awb_prefix: 'AHL',
+          awb_start: 81000,
+        });
+      }
+      const hExtra = document.createElement('input');
+      hExtra.type = 'hidden'; hExtra.name = 'extra_companies';
+      hExtra.value = JSON.stringify(extraCompanies);
+      form.appendChild(hExtra);
+
+      setTimeout(function() {
+        const spinner = document.getElementById('trial-spinner');
+        if (spinner) spinner.style.display = 'block';
+        const submitBtn = document.getElementById('trial-submit-btn');
+        if (submitBtn) submitBtn.disabled = true;
+      }, 0);
+
+      return true;
+    }
+
+    // Initialize with trial pre-selected
+    selectPlan('finance');
+  </script>
+</body>
+</html>

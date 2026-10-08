@@ -1,0 +1,1021 @@
+{% extends "base.html" %}
+{% block title %}Analytics Dashboard{% endblock %}
+{% block page_title %}Analytics & Reports{% endblock %}
+{% set active = 'reports_dashboard' %}
+{% block hub_tag %}REPORTS HUB{% endblock %}
+
+{% block extra_style %}
+<style>
+  .reports-container {
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  /* Tab Navigation */
+  .tabs-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: var(--bg-card);
+    border-radius: 20px;
+    padding: 8px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .tab-btn {
+    padding: 12px 24px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .tab-btn:hover {
+    background: var(--border-color);
+    color: var(--text-body);
+  }
+  .tab-btn.active {
+    background: #2563EB;
+    color: white;
+    box-shadow: 0 4px 10px rgba(37,99,235,0.2);
+  }
+  .tab-pane {
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .tab-pane.active {
+    display: block;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* KPI Grid */
+  .kpi-grid-4, .kpi-grid-5, .kpi-grid-6 {
+    display: grid;
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+  .kpi-grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .kpi-grid-5 { grid-template-columns: repeat(5, 1fr); }
+  .kpi-grid-6 { grid-template-columns: repeat(6, 1fr); }
+  
+  .kpi-card {
+    background: var(--bg-card);
+    border-radius: 18px;
+    padding: 22px 24px;
+    border: 1.5px solid var(--border-color);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  }
+  .kpi-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(0,0,0,.09); }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+  }
+  .kpi-card.blue::before { background: linear-gradient(90deg, #2563EB, #60A5FA); }
+  .kpi-card.green::before { background: linear-gradient(90deg, #059669, #34D399); }
+  .kpi-card.orange::before { background: linear-gradient(90deg, #D97706, #FCD34D); }
+  .kpi-card.red::before { background: linear-gradient(90deg, #DC2626, #F87171); }
+  .kpi-card.purple::before { background: linear-gradient(90deg, #7C3AED, #A78BFA); }
+  .kpi-card.teal::before { background: linear-gradient(90deg, #0D9488, #2DD4BF); }
+  
+  .kpi-icon { font-size: 30px; margin-bottom: 12px; display: inline-block; transition: transform 0.2s ease; }
+  .kpi-card:hover .kpi-icon { transform: scale(1.1); }
+  .kpi-label { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); }
+  .kpi-value { font-size: 28px; font-weight: 850; color: var(--text-body); margin-top: 6px; line-height: 1.2; letter-spacing: -0.02em; }
+  .kpi-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 6px; font-weight: 500; }
+
+  /* Filter Bar */
+  .filter-bar {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: flex-end;
+  }
+  .fg {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .fg label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+  }
+  .fg input, .fg select {
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border-color);
+    font-size: 13px;
+    min-width: 140px;
+    font-family: inherit;
+    background: var(--bg-card);
+  }
+  .fg input:focus, .fg select:focus {
+    outline: none;
+    border-color: #2563EB;
+  }
+
+  /* Charts Grid */
+  .charts-row-2 {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .charts-row-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+  .chart-card {
+    background: var(--bg-card);
+    border-radius: 18px;
+    padding: 18px;
+    border: 1px solid var(--border-color);
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .chart-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-body);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  canvas { max-height: 260px; width: 100%; }
+
+  /* Data Table */
+  .data-table-card {
+    background: var(--bg-card);
+    border-radius: 18px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    margin-top: 24px;
+  }
+  .data-table-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .data-table-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-body);
+  }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .data-table th {
+    padding: 12px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    background: var(--border-color);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .data-table td {
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .data-table tr:hover td { background: var(--border-color); }
+
+  /* Rankings */
+  .rank-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .rank-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .rank-item:last-child { border-bottom: none; }
+  .rank-name {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .rank-number {
+    width: 28px;
+    height: 28px;
+    background: var(--border-color);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--text-muted);
+  }
+  .rank-number.top1 { background: #FEF3C7; color: #D97706; }
+  .rank-number.top2 { background: #EFF6FF; color: #2563EB; }
+  .rank-number.top3 { background: #DCFCE7; color: #059669; }
+  .rank-value { font-weight: 700; color: var(--text-body); }
+
+  @media (max-width: 1200px) {
+    .kpi-grid-4, .kpi-grid-5, .kpi-grid-6 { grid-template-columns: repeat(3, 1fr); }
+    .charts-row-2, .charts-row-3 { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .kpi-grid-4, .kpi-grid-5, .kpi-grid-6 { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="reports-container">
+
+  <!-- Global Date Filter -->
+  <div class="filter-bar">
+    <div class="fg">
+      <label>📅 From Date</label>
+      <input type="date" id="globalFromDate" value="{{ from_date }}">
+    </div>
+    <div class="fg">
+      <label>📅 To Date</label>
+      <input type="date" id="globalToDate" value="{{ to_date }}">
+    </div>
+    <div class="fg">
+      <label>⏱️ Quick Range</label>
+      <select id="globalPreset">
+        <option value="custom">Custom Range</option>
+        <option value="today">Today</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+        <option value="quarter">This Quarter</option>
+        <option value="year">This Year</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="globalApplyBtn">↻ Apply</button>
+    <button class="btn btn-ghost" id="globalResetBtn">Reset</button>
+    <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+      <a href="{{ url_for('bi_intelligence') }}" class="btn" style="background:#07383A;color:#fff;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:6px;">🧠 Back to BI Workspace</a>
+      <a href="{{ url_for('bi_dashboard') }}" class="btn" style="background:#0b6652;color:#fff;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:6px;">📊 BI Dashboard</a>
+      <a href="{{ url_for('bi_builder') }}" class="btn" style="background:#fcc605;color:#0b3d32;text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:6px;">⚙ BI Studio Builder</a>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tabs-nav">
+    <button class="tab-btn active" data-tab="sales">
+      <span>📈</span> Sales Report
+    </button>
+    <button class="tab-btn" data-tab="purchase">
+      <span>🛒</span> Purchase Report
+    </button>
+    <button class="tab-btn" data-tab="stock">
+      <span>📦</span> Stock Report
+    </button>
+    <button class="tab-btn" data-tab="tax">
+      <span>📋</span> Tax/{{ billing_tax.label if billing_tax is defined else "Tax" }} Report
+    </button>
+    <button class="tab-btn" data-tab="financial">
+      <span>💰</span> Financial Report
+    </button>
+  </div>
+
+  <!-- ==================== TAB 1: SALES REPORT ==================== -->
+  <div id="salesTab" class="tab-pane active">
+    <!-- KPI Cards -->
+    <div class="kpi-grid-5">
+      <div class="kpi-card blue">
+        <div class="kpi-icon">💰</div>
+        <div class="kpi-label">Total Revenue</div>
+        <div class="kpi-value" id="salesRevenue">{{ currency_symbol|default("₹") }}0</div>
+        <div class="kpi-sub">Total sales amount</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-icon">🧾</div>
+        <div class="kpi-label">Total Tax ({{ billing_tax.label if billing_tax is defined else "Tax" }})</div>
+        <div class="kpi-value" id="salesTax">{{ currency_symbol|default("₹") }}0</div>
+        <div class="kpi-sub">Collected {{ billing_tax.label }}</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-icon">✅</div>
+        <div class="kpi-label">Amount Received</div>
+        <div class="kpi-value" id="salesReceived">{{ currency_symbol|default("₹") }}0</div>
+        <div class="kpi-sub">Total payments received</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-icon">⏳</div>
+        <div class="kpi-label">Pending Amount</div>
+        <div class="kpi-value" id="salesPending">{{ currency_symbol|default("₹") }}0</div>
+        <div class="kpi-sub">Outstanding payments</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-icon">📊</div>
+        <div class="kpi-label">Total Invoices</div>
+        <div class="kpi-value" id="salesCount">0</div>
+        <div class="kpi-sub">Invoices issued</div>
+      </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="charts-row-2">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">📈 Monthly Revenue Trend</div>
+        </div>
+        <canvas id="salesTrendChart" height="220"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">🌍 Top 5 Categories & Destinations</div>
+        </div>
+        <canvas id="destinationChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="charts-row-3">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">📦 Top 5 Products & Services</div>
+        </div>
+        <canvas id="topProductsChart" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">🏆 Top 5 Customers</div>
+        </div>
+        <div id="topCustomersList" style="max-height: 220px; overflow-y: auto;"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title">📊 Payment Status</div>
+        </div>
+        <canvas id="paymentStatusChart" height="180"></canvas>
+      </div>
+    </div>
+
+    <!-- Sales Data Table -->
+    <div class="data-table-card">
+      <div class="data-table-header">
+        <div class="data-table-title">📋 Recent Sales Invoices</div>
+        <button class="btn btn-sm btn-ghost" onclick="exportTableToCSV('salesTable', 'sales_report')">⬇ Export CSV</button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="data-table" id="salesTable">
+          <thead>
+            <tr><th>Invoice #</th><th>Date</th><th>Customer</th><th>Category / State</th><th>Subtotal</th><th>{{ billing_tax.label if billing_tax is defined else "Tax" }}</th><th>Total</th><th>Status</th></tr>
+          </thead>
+          <tbody id="salesTableBody">
+            <tr><td colspan="8" style="text-align:center;">Loading data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 2: PURCHASE REPORT ==================== -->
+  <div id="purchaseTab" class="tab-pane">
+    <div class="kpi-grid-5">
+      <div class="kpi-card blue">
+        <div class="kpi-icon">🧾</div>
+        <div class="kpi-label">Total Purchases</div>
+        <div class="kpi-value" id="purchaseTotal">{{ currency_symbol|default("₹") }}0</div>
+        <div class="kpi-sub">Purchase value</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-icon">🏛</div>
+        <div class="kpi-label">Input {{ billing_tax.label if billing_tax is defined else "Tax" }}</div>
+        <div class="kpi-value" id="purchaseGST">{{ currency_symbol|default("₹") }}0</div>
+        <div class="kpi-sub">{{ billing_tax.label }} paid on purchases</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-icon">✅</div>
+        <div class="kpi-label">Amount Paid</div>
+        <div class="kpi-value" id="purchasePaid">{{ currency_symbol|default("₹") }}0</div>
+        <div class="kpi-sub">Payments made</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-icon">⏳</div>
+        <div class="kpi-label">Pending Payable</div>
+        <div class="kpi-value" id="purchasePending">{{ currency_symbol|default("₹") }}0</div>
+        <div class="kpi-sub">Amount due</div>
+      </div>
+      <div class="kpi-card purple">
+        <div class="kpi-icon">🏭</div>
+        <div class="kpi-label">Unique Suppliers</div>
+        <div class="kpi-value" id="supplierCount">0</div>
+        <div class="kpi-sub">Active suppliers</div>
+      </div>
+    </div>
+
+    <div class="charts-row-2">
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">📉 Monthly Purchase Trend</div></div>
+        <canvas id="purchaseTrendChart" height="220"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">🏭 Top 5 Suppliers</div></div>
+        <div id="topSuppliersList" style="max-height: 220px; overflow-y: auto;"></div>
+      </div>
+    </div>
+
+    <div class="charts-row-2">
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">📦 Most Purchased Products</div></div>
+        <canvas id="topPurchasedProductsChart" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">💰 Purchase by Status</div></div>
+        <canvas id="purchaseStatusChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <div class="data-table-card">
+      <div class="data-table-header">
+        <div class="data-table-title">📋 Recent Purchase Invoices</div>
+        <button class="btn btn-sm btn-ghost" onclick="exportTableToCSV('purchaseTable', 'purchase_report')">⬇ Export CSV</button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="data-table" id="purchaseTable">
+          <thead><tr><th>Invoice #</th><th>Date</th><th>Supplier</th><th>Subtotal</th><th>{{ billing_tax.label if billing_tax is defined else "Tax" }}</th><th>Total</th><th>Status</th></tr></thead>
+          <tbody id="purchaseTableBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 3: STOCK REPORT ==================== -->
+  <div id="stockTab" class="tab-pane">
+    <div class="kpi-grid-6">
+      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-label">Total Items</div><div class="kpi-value" id="stockTotalItems">0</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">💎</div><div class="kpi-label">Stock Value</div><div class="kpi-value" id="stockTotalValue">{{ currency_symbol|default("₹") }}0</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">✅</div><div class="kpi-label">In Stock</div><div class="kpi-value" id="stockInCount">0</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-label">Low Stock</div><div class="kpi-value" id="stockLowCount">0</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">❌</div><div class="kpi-label">Out of Stock</div><div class="kpi-value" id="stockOutCount">0</div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">🏷️</div><div class="kpi-label">Categories</div><div class="kpi-value" id="stockCategories">0</div></div>
+    </div>
+
+    <div class="charts-row-2">
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">📦 Stock by Category</div></div>
+        <canvas id="stockCategoryChart" height="220"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">🏆 Top 10 Selling Items</div></div>
+        <canvas id="topSellingChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <div class="data-table-card">
+      <div class="data-table-header">
+        <div class="data-table-title">📋 Current Stock Inventory</div>
+        <button class="btn btn-sm btn-ghost" onclick="exportTableToCSV('stockTable', 'stock_report')">⬇ Export CSV</button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="data-table" id="stockTable">
+          <thead><tr><th>Code</th><th>Product</th><th>Category</th><th>Quantity</th><th>Unit Price</th><th>Total Value</th><th>Status</th></tr></thead>
+          <tbody id="stockTableBody"><tr><td colspan="7">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 4: TAX/GST REPORT ==================== -->
+  <div id="taxTab" class="tab-pane">
+    <div class="kpi-grid-4">
+      <div class="kpi-card blue"><div class="kpi-icon">📤</div><div class="kpi-label">Output {{ billing_tax.label if billing_tax is defined else "Tax" }} (Sales)</div><div class="kpi-value" id="outputGST">{{ currency_symbol|default("₹") }}0</div><div class="kpi-sub">{{ 'CGST + SGST + IGST' if billing_tax.is_gst else billing_tax.label }}</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📥</div><div class="kpi-label">Input {{ billing_tax.label if billing_tax is defined else "Tax" }} (Purchases)</div><div class="kpi-value" id="inputGST">{{ currency_symbol|default("₹") }}0</div><div class="kpi-sub">{{ 'CGST + SGST + IGST' if billing_tax.is_gst else billing_tax.label }}</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">💎</div><div class="kpi-label">Net {{ billing_tax.label if billing_tax is defined else "Tax" }} Payable</div><div class="kpi-value" id="netGST">{{ currency_symbol|default("₹") }}0</div><div class="kpi-sub">Output - Input</div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">📊</div><div class="kpi-label">Effective Tax Rate</div><div class="kpi-value" id="taxRate">0%</div><div class="kpi-sub">On total sales</div></div>
+    </div>
+
+    <div class="charts-row-2">
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">📊 Monthly {{ billing_tax.label }} Collection</div></div>
+        <canvas id="gstMonthlyChart" height="220"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">🍩 {{ billing_tax.label }} Breakdown</div></div>
+        <canvas id="gstBreakdownChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <div class="data-table-card">
+      <div class="data-table-header">
+        <div class="data-table-title">📋 Item-wise {{ billing_tax.label }} Summary</div>
+        <button class="btn btn-sm btn-ghost" onclick="exportTableToCSV('gstTable', 'gst_report')">⬇ Export CSV</button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="data-table" id="gstTable">
+          <thead><tr><th>HSN Code</th><th>Description</th><th>Quantity</th><th>Value</th><th>{{ billing_tax.label if billing_tax is defined else "Tax" }} Rate</th>{% if billing_tax.is_gst %}<th>CGST</th><th>SGST</th>{% endif %}<th>Total {{ billing_tax.label if billing_tax is defined else "Tax" }}</th></tr></thead>
+          <tbody id="gstTableBody"><tr><td colspan="8">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 5: FINANCIAL REPORT ==================== -->
+  <div id="financialTab" class="tab-pane">
+    <div class="kpi-grid-4">
+      <div class="kpi-card green"><div class="kpi-icon">💰</div><div class="kpi-label">Total Income</div><div class="kpi-value" id="totalIncome">{{ currency_symbol|default("₹") }}0</div><div class="kpi-sub">Sales + Other Income</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">💸</div><div class="kpi-label">Total Expenses</div><div class="kpi-value" id="totalExpenses">{{ currency_symbol|default("₹") }}0</div><div class="kpi-sub">Purchases + Operating</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">💎</div><div class="kpi-label">Net Profit</div><div class="kpi-value" id="netProfit">{{ currency_symbol|default("₹") }}0</div><div class="kpi-sub">Income - Expenses</div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">📈</div><div class="kpi-label">Profit Margin</div><div class="kpi-value" id="profitMargin">0%</div><div class="kpi-sub">Net Profit / Income</div></div>
+    </div>
+
+    <div class="charts-row-2">
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">📈 Profit Trend (Last 6 Months)</div></div>
+        <canvas id="profitTrendChart" height="220"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">💰 Income vs Expenses</div></div>
+        <canvas id="incomeExpenseChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <div class="charts-row-2">
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">🏦 Cash vs Bank Balance</div></div>
+        <canvas id="cashBankChart" height="200"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">📊 Expense Breakdown</div></div>
+        <canvas id="expenseBreakdownChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <div class="data-table-card">
+      <div class="data-table-header">
+        <div class="data-table-title">📋 Cash Flow Statement</div>
+        <button class="btn btn-sm btn-ghost" onclick="exportTableToCSV('cashflowTable', 'cashflow_report')">⬇ Export CSV</button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="data-table" id="cashflowTable">
+          <thead><tr><th>Date</th><th>Transaction Type</th><th>Category</th><th>Description</th><th>Amount</th><th>Mode</th></tr></thead>
+          <tbody id="cashflowTableBody"><tr><td colspan="6">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  let charts = {};
+
+  // ── Theme-aware chart colors ──
+  function isDarkMode() { return document.body.classList.contains('dark-theme'); }
+  function chartTextColor() { return isDarkMode() ? '#9CA3AF' : '#64748B'; }
+  function chartGridColor() { return isDarkMode() ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)'; }
+  Chart.defaults.color = chartTextColor();
+  Chart.defaults.borderColor = chartGridColor();
+
+  document.addEventListener('themechange', function() {
+    Chart.defaults.color = chartTextColor();
+    Chart.defaults.borderColor = chartGridColor();
+    refreshAllData();
+  });
+
+
+  // ==================== TAB SWITCHING ====================
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab + 'Tab').classList.add('active');
+      // Refresh charts when tab changes
+      setTimeout(() => { Object.values(charts).forEach(c => c?.resize()); }, 100);
+    });
+  });
+
+  // Finance navigation can open an existing report tab directly.
+  const requestedReportTab = new URLSearchParams(window.location.search).get('tab');
+  if (requestedReportTab === 'tax') {
+    document.querySelector('.tab-btn[data-tab="tax"]')?.click();
+  }
+
+  // ==================== DATE PRESET ====================
+  function setDatePreset() {
+    const preset = document.getElementById('globalPreset').value;
+    if (preset === 'custom') return;
+    const today = new Date();
+    let from = new Date(today);
+    if (preset === 'today') from = today;
+    else if (preset === 'week') from.setDate(today.getDate() - today.getDay());
+    else if (preset === 'month') from = new Date(today.getFullYear(), today.getMonth(), 1);
+    else if (preset === 'quarter') from = new Date(today.getFullYear(), Math.floor(today.getMonth()/3)*3, 1);
+    else if (preset === 'year') from = new Date(today.getFullYear(), 0, 1);
+    document.getElementById('globalFromDate').value = from.toISOString().slice(0,10);
+    document.getElementById('globalToDate').value = today.toISOString().slice(0,10);
+    refreshAllData();
+  }
+  document.getElementById('globalPreset').addEventListener('change', setDatePreset);
+  document.getElementById('globalApplyBtn').addEventListener('click', refreshAllData);
+  document.getElementById('globalResetBtn').addEventListener('click', () => {
+    const today = new Date();
+    document.getElementById('globalFromDate').value = '2000-01-01';
+    document.getElementById('globalToDate').value = today.toISOString().slice(0,10);
+    document.getElementById('globalPreset').value = 'custom';
+    refreshAllData();
+  });
+
+  function refreshAllData() {
+    const fromDate = document.getElementById('globalFromDate').value;
+    const toDate = document.getElementById('globalToDate').value;
+    fetchSalesData(fromDate, toDate);
+    fetchPurchaseData(fromDate, toDate);
+    fetchStockData(fromDate, toDate);
+    fetchTaxData(fromDate, toDate);
+    fetchFinancialData(fromDate, toDate);
+  }
+
+  // ==================== SALES DATA ====================
+  async function fetchSalesData(fromDate, toDate) {
+    try {
+      const resp = await fetch(`/api/reports/sales-data?from_date=${fromDate}&to_date=${toDate}`);
+      const data = await resp.json();
+      
+      // Update KPIs
+      document.getElementById('salesRevenue').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_revenue);
+      document.getElementById('salesTax').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_tax);
+      document.getElementById('salesReceived').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_received);
+      document.getElementById('salesPending').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_pending);
+      document.getElementById('salesCount').innerHTML = data.total_invoices;
+      
+      // Monthly Trend Chart
+      if (charts.salesTrend) charts.salesTrend.destroy();
+      const salesCtx = document.getElementById('salesTrendChart').getContext('2d');
+      charts.salesTrend = new Chart(salesCtx, {
+        type: 'line',
+        data: { labels: data.month_labels, datasets: [{ label: 'Revenue ({{ currency_symbol|default("₹") }})', data: data.monthly_revenue, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,0.05)', fill: true, tension: 0.3 }] },
+        options: { responsive: true, maintainAspectRatio: true }
+      });
+      
+      // Destination Chart
+      if (charts.destination) charts.destination.destroy();
+      const destCtx = document.getElementById('destinationChart').getContext('2d');
+      charts.destination = new Chart(destCtx, {
+        type: 'bar',
+        data: { labels: data.top_destinations.map(d => d.name), datasets: [{ label: 'Invoices / Count', data: data.top_destinations.map(d => d.count), backgroundColor: '#059669', borderRadius: 8 }] },
+        options: { responsive: true, maintainAspectRatio: true, indexAxis: 'y' }
+      });
+      
+      // Top Products Chart
+      if (charts.topProducts) charts.topProducts.destroy();
+      const prodCtx = document.getElementById('topProductsChart').getContext('2d');
+      charts.topProducts = new Chart(prodCtx, {
+        type: 'bar',
+        data: { labels: data.top_products.map(p => p.name), datasets: [{ label: 'Quantity / Units', data: data.top_products.map(p => p.qty), backgroundColor: '#7C3AED', borderRadius: 8 }] },
+        options: { responsive: true, maintainAspectRatio: true }
+      });
+      
+      // Top Customers List
+      const topCustomersHtml = data.top_customers.map((c, i) => `
+        <div class="rank-item">
+          <div class="rank-name"><span class="rank-number ${i===0?'top1':i===1?'top2':i===2?'top3':''}">${i+1}</span>${c.name}</div>
+          <div class="rank-value">{{ currency_symbol|default("₹") }}${formatNumber(c.amount)}</div>
+        </div>
+      `).join('');
+      document.getElementById('topCustomersList').innerHTML = topCustomersHtml || '<div style="padding:20px;text-align:center;">No data</div>';
+      
+      // Payment Status Chart
+      if (charts.paymentStatus) charts.paymentStatus.destroy();
+      const statusCtx = document.getElementById('paymentStatusChart').getContext('2d');
+      charts.paymentStatus = new Chart(statusCtx, {
+        type: 'doughnut',
+        data: { labels: ['Paid', 'Partial', 'Pending'], datasets: [{ data: [data.paid_count, data.partial_count, data.pending_count], backgroundColor: ['#059669', '#D97706', '#DC2626'], borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, cutout: '55%' }
+      });
+      
+      // Sales Table
+      const salesTableHtml = data.invoices.map(inv => `
+        <tr><td>${inv.id}</td><td>${inv.date}</td><td>${inv.customer}</td><td>${inv.destination || '—'}</td>
+        <td>{{ currency_symbol|default("₹") }}${formatNumber(inv.subtotal)}</td><td>{{ currency_symbol|default("₹") }}${formatNumber(inv.tax)}</td>
+        <td><strong>{{ currency_symbol|default("₹") }}${formatNumber(inv.total)}</strong></td>
+        <td><span class="status-badge ${inv.status === 'Paid' ? 'status-delivered' : inv.status === 'Partial' ? 'status-transit' : 'status-pending'}">${inv.status}</span></td>
+      `).join('');
+      document.getElementById('salesTableBody').innerHTML = salesTableHtml || '<tr><td colspan="8" style="text-align:center;">No sales data found</td></tr>';
+      
+    } catch(e) { console.error('Sales data error:', e); }
+  }
+
+  // ==================== PURCHASE DATA ====================
+  async function fetchPurchaseData(fromDate, toDate) {
+    try {
+      const resp = await fetch(`/api/reports/purchase-data?from_date=${fromDate}&to_date=${toDate}`);
+      const data = await resp.json();
+      
+      document.getElementById('purchaseTotal').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_amount);
+      document.getElementById('purchaseGST').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_gst);
+      document.getElementById('purchasePaid').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_paid);
+      document.getElementById('purchasePending').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_pending);
+      document.getElementById('supplierCount').innerHTML = data.supplier_count;
+      
+      if (charts.purchaseTrend) charts.purchaseTrend.destroy();
+      const purCtx = document.getElementById('purchaseTrendChart').getContext('2d');
+      charts.purchaseTrend = new Chart(purCtx, {
+        type: 'line',
+        data: { labels: data.month_labels, datasets: [{ label: 'Purchases ({{ currency_symbol|default("₹") }})', data: data.monthly_purchases, borderColor: '#D97706', backgroundColor: 'rgba(217,119,6,0.05)', fill: true, tension: 0.3 }] },
+        options: { responsive: true, maintainAspectRatio: true }
+      });
+      
+      const topSuppliersHtml = data.top_suppliers.map((s, i) => `
+        <div class="rank-item"><div class="rank-name"><span class="rank-number">${i+1}</span>${s.name}</div><div class="rank-value">{{ currency_symbol|default("₹") }}${formatNumber(s.amount)}</div></div>
+      `).join('');
+      document.getElementById('topSuppliersList').innerHTML = topSuppliersHtml || '<div style="padding:20px;text-align:center;">No data</div>';
+      
+      if (charts.topPurchased) charts.topPurchased.destroy();
+      const tpCtx = document.getElementById('topPurchasedProductsChart').getContext('2d');
+      charts.topPurchased = new Chart(tpCtx, {
+        type: 'bar',
+        data: { labels: data.top_products.map(p => p.name), datasets: [{ label: 'Quantity', data: data.top_products.map(p => p.qty), backgroundColor: '#0D9488', borderRadius: 8 }] },
+        options: { responsive: true, maintainAspectRatio: true, indexAxis: 'y' }
+      });
+      
+      if (charts.purchaseStatus) charts.purchaseStatus.destroy();
+      const psCtx = document.getElementById('purchaseStatusChart').getContext('2d');
+      charts.purchaseStatus = new Chart(psCtx, {
+        type: 'doughnut',
+        data: { labels: ['Paid', 'Partial', 'Pending'], datasets: [{ data: [data.paid_count, data.partial_count, data.pending_count], backgroundColor: ['#059669', '#D97706', '#DC2626'], borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, cutout: '55%' }
+      });
+      
+      document.getElementById('purchaseTableBody').innerHTML = data.invoices.map(p => `
+        <tr><td>${p.id}</td><td>${p.date}</td><td>${p.supplier}</td><td>{{ currency_symbol|default("₹") }}${formatNumber(p.subtotal)}</td>
+        <td>{{ currency_symbol|default("₹") }}${formatNumber(p.tax)}</td><td><strong>{{ currency_symbol|default("₹") }}${formatNumber(p.total)}</strong></td>
+        <td><span class="status-badge ${p.status === 'Paid' ? 'status-delivered' : p.status === 'Partial' ? 'status-transit' : 'status-pending'}">${p.status}</span></td></tr>
+      `).join('');
+    } catch(e) { console.error('Purchase data error:', e); }
+  }
+
+ // ==================== STOCK DATA ====================
+async function fetchStockData(fromDate, toDate) {
+    try {
+        // Stock data doesn't need date filters (stock is current snapshot)
+        // But we still pass dates for consistency
+        const resp = await fetch(`/api/reports/stock-data?from_date=${fromDate}&to_date=${toDate}`);
+        const data = await resp.json();
+        
+        document.getElementById('stockTotalItems').innerHTML = data.total_items || 0;
+        document.getElementById('stockTotalValue').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_value || 0);
+        document.getElementById('stockInCount').innerHTML = data.in_stock || 0;
+        document.getElementById('stockLowCount').innerHTML = data.low_stock || 0;
+        document.getElementById('stockOutCount').innerHTML = data.out_stock || 0;
+        document.getElementById('stockCategories').innerHTML = data.category_count || 0;
+        
+        // Stock by Category Chart
+        if (charts.stockCategory) charts.stockCategory.destroy();
+        const catCtx = document.getElementById('stockCategoryChart').getContext('2d');
+        const catLabels = data.categories ? data.categories.map(c => c.name) : [];
+        const catValues = data.categories ? data.categories.map(c => c.count) : [];
+        charts.stockCategory = new Chart(catCtx, {
+            type: 'bar',
+            data: {
+                labels: catLabels,
+                datasets: [{ 
+                    label: 'Items', 
+                    data: catValues, 
+                    backgroundColor: ['#2563EB', '#059669', '#D97706', '#7C3AED', '#DC2626', '#0D9488', '#EAB308', '#0891B2'],
+                    borderRadius: 8 
+                }]
+            },
+            options: {
+                responsive: true, 
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } }
+            }
+        });
+        
+        // Top Selling Items Chart
+        if (charts.topSelling) charts.topSelling.destroy();
+        const tsCtx = document.getElementById('topSellingChart').getContext('2d');
+        const topLabels = data.top_selling ? data.top_selling.map(p => p.name) : [];
+        const topValues = data.top_selling ? data.top_selling.map(p => p.qty) : [];
+        charts.topSelling = new Chart(tsCtx, {
+            type: 'bar',
+            data: {
+                labels: topLabels,
+                datasets: [{ 
+                    label: 'Quantity Sold', 
+                    data: topValues, 
+                    backgroundColor: '#059669', 
+                    borderRadius: 8 
+                }]
+            },
+            options: {
+                responsive: true, 
+                maintainAspectRatio: true,
+                indexAxis: 'y',
+                plugins: { legend: { display: false } }
+            }
+        });
+        
+        // Stock Table
+        document.getElementById('stockTableBody').innerHTML = data.stock_items && data.stock_items.length
+            ? data.stock_items.map(s => `
+                <tr>
+                    <td>${s.code || '—'}</td>
+                    <td><strong>${s.name || '—'}</strong></td>
+                    <td>${s.category || '—'}</td>
+                    <td><strong>${s.quantity || 0}</strong></td>
+                    <td>{{ currency_symbol|default("₹") }}${formatNumber(s.price || 0)}</td>
+                    <td>{{ currency_symbol|default("₹") }}${formatNumber(s.total || 0)}</td>
+                    <td><span class="status-badge ${s.status === 'in' ? 'status-delivered' : s.status === 'low' ? 'status-transit' : 'status-pending'}">${s.status_label || '—'}</span></td>
+                </tr>
+            `).join('')
+            : '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted);">No stock items found</td></tr>';
+            
+    } catch(e) { 
+        console.error('Stock data error:', e);
+        document.getElementById('stockTableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;padding:30px;color:#DC2626;">Error loading stock data</td></tr>';
+    }
+}
+
+  // ==================== TAX DATA ====================
+  async function fetchTaxData(fromDate, toDate) {
+    try {
+      const resp = await fetch(`/api/reports/tax-data?from_date=${fromDate}&to_date=${toDate}`);
+      const data = await resp.json();
+      
+      document.getElementById('outputGST').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.output_gst);
+      document.getElementById('inputGST').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.input_gst);
+      document.getElementById('netGST').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.net_gst);
+      document.getElementById('taxRate').innerHTML = data.effective_rate + '%';
+      
+      if (charts.gstMonthly) charts.gstMonthly.destroy();
+      const gmCtx = document.getElementById('gstMonthlyChart').getContext('2d');
+      charts.gstMonthly = new Chart(gmCtx, {
+        type: 'line',
+        data: { labels: data.month_labels, datasets: [{ label: '{{ billing_tax.label }} Collected ({{ currency_symbol|default("₹") }})', data: data.monthly_gst, borderColor: '#7C3AED', fill: true, tension: 0.3 }] },
+        options: { responsive: true, maintainAspectRatio: true }
+      });
+      
+      if (charts.gstBreakdown) charts.gstBreakdown.destroy();
+      const gbCtx = document.getElementById('gstBreakdownChart').getContext('2d');
+      charts.gstBreakdown = new Chart(gbCtx, {
+        type: 'doughnut',
+        data: { labels: data.is_gst ? ['CGST', 'SGST', 'IGST'] : [data.tax_label], datasets: [{ data: data.is_gst ? [data.cgst, data.sgst, data.igst] : [data.output_gst], backgroundColor: ['#2563EB', '#059669', '#D97706'], borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, cutout: '55%' }
+      });
+      
+      document.getElementById('gstTableBody').innerHTML = data.hsn_summary.map(h => `
+        <tr><td>${h.hsn}</td><td>${h.description || '—'}</td><td>${h.quantity}</td><td>{{ currency_symbol|default("₹") }}${formatNumber(h.value)}</td>
+        <td>${h.rate}%</td>{% if billing_tax.is_gst %}<td>{{ currency_symbol|default("₹") }}${formatNumber(h.cgst)}</td><td>{{ currency_symbol|default("₹") }}${formatNumber(h.sgst)}</td>{% endif %}<td><strong>{{ currency_symbol|default("₹") }}${formatNumber(h.total)}</strong></td></tr>
+      `).join('');
+    } catch(e) { console.error('Tax data error:', e); }
+  }
+
+  // ==================== FINANCIAL DATA ====================
+  async function fetchFinancialData(fromDate, toDate) {
+    try {
+      const resp = await fetch(`/api/reports/financial-data?from_date=${fromDate}&to_date=${toDate}`);
+      const data = await resp.json();
+      
+      document.getElementById('totalIncome').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_income);
+      document.getElementById('totalExpenses').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.total_expenses);
+      document.getElementById('netProfit').innerHTML = '{{ currency_symbol|default("₹") }}' + formatNumber(data.net_profit);
+      document.getElementById('profitMargin').innerHTML = data.profit_margin + '%';
+      
+      if (charts.profitTrend) charts.profitTrend.destroy();
+      const ptCtx = document.getElementById('profitTrendChart').getContext('2d');
+      charts.profitTrend = new Chart(ptCtx, {
+        type: 'line',
+        data: { labels: data.month_labels, datasets: [{ label: 'Profit ({{ currency_symbol|default("₹") }})', data: data.monthly_profit, borderColor: '#059669', fill: true, tension: 0.3 }] },
+        options: { responsive: true, maintainAspectRatio: true }
+      });
+      
+      if (charts.incomeExpense) charts.incomeExpense.destroy();
+      const ieCtx = document.getElementById('incomeExpenseChart').getContext('2d');
+      charts.incomeExpense = new Chart(ieCtx, {
+        type: 'bar',
+        data: { labels: data.month_labels, datasets: [{ label: 'Income', data: data.monthly_income, backgroundColor: '#059669', borderRadius: 6 }, { label: 'Expenses', data: data.monthly_expenses, backgroundColor: '#DC2626', borderRadius: 6 }] },
+        options: { responsive: true, maintainAspectRatio: true }
+      });
+      
+      if (charts.cashBank) charts.cashBank.destroy();
+      const cbCtx = document.getElementById('cashBankChart').getContext('2d');
+      charts.cashBank = new Chart(cbCtx, {
+        type: 'doughnut',
+        data: { labels: ['Cash in Hand', 'Bank Balance'], datasets: [{ data: [data.cash_balance, data.bank_balance], backgroundColor: ['#0D9488', '#2563EB'], borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, cutout: '55%' }
+      });
+      
+      if (charts.expenseBreakdown) charts.expenseBreakdown.destroy();
+      const ebCtx = document.getElementById('expenseBreakdownChart').getContext('2d');
+      charts.expenseBreakdown = new Chart(ebCtx, {
+        type: 'doughnut',
+        data: { labels: Object.keys(data.expense_breakdown), datasets: [{ data: Object.values(data.expense_breakdown), backgroundColor: ['#D97706', '#DC2626', '#7C3AED', '#0891B2', '#EAB308'], borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: true, cutout: '55%' }
+      });
+      
+      document.getElementById('cashflowTableBody').innerHTML = data.cashflow.map(c => `
+        <tr><td>${c.date}</td><td>${c.type}</td><td>${c.category}</td><td>${c.description}</td>
+        <td class="${c.type === 'income' ? 'trend-up' : 'trend-down'}">{{ currency_symbol|default("₹") }}${formatNumber(c.amount)}</td><td>${c.mode}</td></tr>
+      `).join('');
+    } catch(e) { console.error('Financial data error:', e); }
+  }
+
+  function formatNumber(n) { return new Intl.NumberFormat('en-IN').format(Math.round(n || 0)); }
+  function exportTableToCSV(tableId, filename) {
+    const table = document.getElementById(tableId);
+    const rows = Array.from(table.querySelectorAll('tr'));
+    const csv = rows.map(row => Array.from(row.querySelectorAll('th,td')).map(cell => `"${cell.innerText.replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = `${filename}_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  }
+
+
+  // ==================== DATE PRESET ====================
+function setDatePreset() {
+    const preset = document.getElementById('globalPreset').value;
+    if (preset === 'custom') return;
+    const today = new Date();
+    let from = new Date(today);
+    if (preset === 'today') from = today;
+    else if (preset === 'week') from.setDate(today.getDate() - today.getDay());
+    else if (preset === 'month') from = new Date(today.getFullYear(), today.getMonth(), 1);
+    else if (preset === 'quarter') from = new Date(today.getFullYear(), Math.floor(today.getMonth()/3)*3, 1);
+    else if (preset === 'year') from = new Date(today.getFullYear(), 0, 1);
+    document.getElementById('globalFromDate').value = from.toISOString().slice(0,10);
+    document.getElementById('globalToDate').value = today.toISOString().slice(0,10);
+    refreshAllData();
+}
+
+document.getElementById('globalPreset').addEventListener('change', setDatePreset);
+document.getElementById('globalApplyBtn').addEventListener('click', refreshAllData);
+document.getElementById('globalResetBtn').addEventListener('click', () => {
+    const today = new Date();
+    document.getElementById('globalFromDate').value = '2000-01-01';
+    document.getElementById('globalToDate').value = today.toISOString().slice(0,10);
+    document.getElementById('globalPreset').value = 'custom';
+    refreshAllData();
+});
+
+function refreshAllData() {
+    const fromDate = document.getElementById('globalFromDate').value;
+    const toDate = document.getElementById('globalToDate').value;
+    console.log('Refreshing data from', fromDate, 'to', toDate);
+    fetchSalesData(fromDate, toDate);
+    fetchPurchaseData(fromDate, toDate);
+    fetchStockData(fromDate, toDate);
+    fetchTaxData(fromDate, toDate);
+    fetchFinancialData(fromDate, toDate);
+}
+
+
+  // Initial load — default to all-time so no data is hidden
+  const today = new Date();
+  document.getElementById('globalFromDate').value = '2000-01-01';
+  document.getElementById('globalToDate').value = today.toISOString().slice(0,10);
+  refreshAllData();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const qiyadahBiRequestedTab = new URLSearchParams(window.location.search).get('tab');
+  if (!qiyadahBiRequestedTab) return;
+  const target = document.querySelector('.tab-btn[data-tab="' + qiyadahBiRequestedTab + '"]');
+  if (target) target.click();
+});
+</script>
+{% endblock %}

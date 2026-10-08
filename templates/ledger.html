@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+{% block title %}General Ledger{% endblock %}
+{% block page_title %}General Ledger{% endblock %}
+{% set active = 'ledger' %}
+
+{% block extra_style %}
+<style>
+  /* ── Page header ── */
+  .gl-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .gl-header h2 {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--gray-900);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .gl-header h2 span.icon-wrap {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .gl-sub {
+    font-size: 13px;
+    color: var(--gray-500);
+    font-weight: 400;
+    margin-top: 3px;
+  }
+
+  /* ── Filter card ── */
+  .filter-card {
+    background: #fff;
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    padding: 18px 20px;
+    margin-bottom: 22px;
+  }
+  .filter-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto;
+    gap: 14px;
+    align-items: end;
+  }
+  .filter-actions { display: flex; gap: 8px; }
+
+  /* ── KPI strip ── */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  .kpi-card {
+    background: #fff;
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .kpi-icon-box {
+    width: 46px; height: 46px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .kpi-icon-box.blue   { background: var(--primary-light); }
+  .kpi-icon-box.green  { background: var(--success-light); }
+  .kpi-icon-box.amber  { background: var(--warning-light); }
+  .kpi-label { font-size: 11.5px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .kpi-value { font-size: 20px; font-weight: 800; color: var(--gray-900); letter-spacing: -0.5px; }
+  .kpi-value.blue  { color: var(--primary); }
+  .kpi-value.green { color: var(--success); }
+  .kpi-value.amber { color: var(--warning); }
+
+  /* ── Main card ── */
+  .gl-card {
+    background: #fff;
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    overflow: hidden;
+  }
+  .gl-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--gray-100);
+    background: var(--gray-50);
+  }
+  .gl-card-header strong { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+  .gl-card-header .date-range {
+    font-size: 12px; color: var(--gray-500); font-weight: 500;
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 20px;
+    padding: 4px 12px;
+  }
+
+  /* ── Table ── */
+  .gl-table { width: 100%; border-collapse: collapse; }
+  .gl-table thead th {
+    padding: 11px 16px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--gray-500);
+    background: var(--gray-50);
+    text-align: left;
+    border-bottom: 1px solid var(--gray-100);
+    white-space: nowrap;
+  }
+  .gl-table thead th.num { text-align: right; }
+  .gl-table tbody td {
+    padding: 13px 16px;
+    font-size: 13px;
+    color: var(--gray-700);
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .gl-table tbody tr:last-child td { border-bottom: none; }
+  .gl-table tbody tr:hover { background: #FAFBFF; }
+  .gl-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .gl-table tfoot td {
+    padding: 13px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gray-900);
+    background: var(--gray-50);
+    border-top: 2px solid var(--gray-200);
+  }
+  .gl-table tfoot td.num { text-align: right; }
+
+  /* ── Voucher badges ── */
+  .vbadge {
+    display: inline-flex; align-items: center;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; letter-spacing: .2px;
+    white-space: nowrap;
+  }
+  .vbadge-invoice  { background: var(--primary-light); color: var(--primary); }
+  .vbadge-payment  { background: var(--success-light); color: var(--success); }
+  .vbadge-default  { background: var(--gray-100); color: var(--gray-600); }
+
+  /* ── Amount colours ── */
+  .amt-debit  { color: var(--success); font-weight: 700; }
+  .amt-credit { color: var(--danger);  font-weight: 700; }
+  .amt-pos    { color: var(--success); font-weight: 700; }
+  .amt-neg    { color: var(--danger);  font-weight: 700; }
+  .amt-zero   { color: var(--gray-400); font-weight: 500; }
+  .dash       { color: var(--gray-300); }
+
+  /* ── Empty state ── */
+  .empty-row td {
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--gray-400);
+    font-size: 13px;
+  }
+  .table-wrap th {
+    background: #012926;
+    color: #F59E0B;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .filter-row { grid-template-columns: 1fr 1fr; }
+    .filter-actions { grid-column: 1 / -1; }
+    .kpi-strip { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .filter-row { grid-template-columns: 1fr; }
+  }
+
+  /* ── Print header (hidden on screen, shown only when printing) ── */
+  .print-only-header { display: none; }
+
+  /* ── Print mode ──
+     Only #printSection is shown; everything else (sidebar, filter card,
+     buttons, KPI strip) is hidden regardless of the base layout markup. */
+  @media print {
+    @page {
+      size: A4 landscape;
+      margin: 12mm 10mm;
+    }
+    body * { visibility: hidden; }
+    #printSection, #printSection * { visibility: visible; }
+    #printSection {
+      position: absolute; left: 0; top: 0; width: 100%;
+      margin: 0; padding: 0; box-shadow: none; border: none;
+    }
+    .print-only-header {
+      display: block;
+      margin-bottom: 16px;
+    }
+    .print-only-header h2 { font-size: 18px; font-weight: 800; margin: 0 0 4px 0; }
+    .print-only-header .print-range { font-size: 12px; color: #555; }
+    .gl-card-header { display: none; }
+    .gl-table tbody tr:hover { background: none; }
+    .gl-table { width: 100%; font-size: 11px; }
+    .gl-table thead th { font-size: 9.5px; padding: 6px 8px; background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .gl-table tbody td { padding: 5px 8px; }
+    .gl-table tfoot td { padding: 6px 8px; font-size: 11px; background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .vbadge { padding: 1px 6px; font-size: 9.5px; }
+    .gl-card { border: none; }
+    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    a[href]:after { content: ""; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="gl-header">
+  <div>
+    <h2>
+      <span class="icon-wrap">📒</span>
+      General Ledger
+    </h2>
+    <div class="gl-sub">Double-entry record of all financial transactions</div>
+  </div>
+  <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print Ledger</button>
+</div>
+
+<!-- Filter -->
+<div class="filter-card">
+  <form method="GET" action="{{ url_for('ledger') }}">
+    <div class="filter-row">
+      <div class="form-group" style="margin-bottom:0">
+        <label>From Date</label>
+        <input type="date" name="from_date" value="{{ from_date.isoformat() if from_date else '' }}">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>To Date</label>
+        <input type="date" name="to_date" value="{{ to_date.isoformat() if to_date else '' }}">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Account Type</label>
+        <select name="account_id">
+                    <option value="">All Accounts</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}" {% if account_id == acc.id %}selected{% endif %}>{{ acc.code }} · {{ acc.name }}</option>
+                    {% endfor %}
+                </select>
+      </div>
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">Apply</button>
+        <a href="{{ url_for('ledger') }}" class="btn btn-ghost">Reset</a>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- KPI Strip -->
+<div class="kpi-strip">
+  <div class="kpi-card">
+    <div class="kpi-icon-box blue">💰</div>
+    <div>
+      <div class="kpi-label">Total Debits</div>
+      <div class="kpi-value blue">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(total_debits) }}</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon-box green">💳</div>
+    <div>
+      <div class="kpi-label">Total Credits</div>
+      <div class="kpi-value green">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(total_credits) }}</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon-box amber">⚖️</div>
+    <div>
+      <div class="kpi-label">Closing Balance</div>
+      <div class="kpi-value amber">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(closing_balance) }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Ledger Table (this section, and only this section, is what gets printed) -->
+<div id="printSection">
+  <div class="print-only-header">
+    <h2>General Ledger</h2>
+    <div class="print-range">
+      {% if filter_applied %}
+        {% if from_date and to_date %}
+          Period: {{ from_date.strftime('%d %b %Y') }} → {{ to_date.strftime('%d %b %Y') }}
+        {% elif from_date %}
+          From: {{ from_date.strftime('%d %b %Y') }} onward
+        {% elif to_date %}
+          Up to: {{ to_date.strftime('%d %b %Y') }}
+        {% endif %}
+        {% if account_type != 'all' %} • {{ account_type|capitalize }} only{% endif %}
+      {% else %}
+        Full Ledger — All Transactions
+      {% endif %}
+    </div>
+  </div>
+<div class="gl-card">
+  <div class="gl-card-header">
+    <strong>Ledger Entries</strong>
+    <span class="date-range">
+      {% if from_date or to_date %}
+        📅 {{ from_date.strftime('%d %b %Y') if from_date else 'Start' }} → {{ to_date.strftime('%d %b %Y') if to_date else 'Today' }}
+      {% else %}
+        📅 Full Ledger (All Dates)
+      {% endif %}
+    </span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Voucher Type</th>
+          <th>Voucher No.</th>
+          <th>Party Name</th>
+          <th class="num">Debit ({{ currency_symbol|default("₹") }})</th>
+          <th class="num">Credit ({{ currency_symbol|default("₹") }})</th>
+          <th class="num">Balance ({{ currency_symbol|default("₹") }})</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in ledger_entries %}
+        <tr>
+          <td style="white-space:nowrap; color:var(--gray-500); font-size:12.5px;">
+            {{ entry.date.strftime('%d %b %Y') if entry.date else '—' }}
+          </td>
+          <td>
+            {% if 'Invoice' in entry.voucher_type %}
+              <span class="vbadge vbadge-invoice">{{ entry.voucher_type }}</span>
+            {% elif 'Payment' in entry.voucher_type %}
+              <span class="vbadge vbadge-payment">{{ entry.voucher_type }}</span>
+            {% else %}
+              <span class="vbadge vbadge-default">{{ entry.voucher_type }}</span>
+            {% endif %}
+          </td>
+          <td style="font-weight:600; color:var(--primary);">{{ entry.voucher_no }}</td>
+          <td style="font-weight:500;">{{ entry.party_name }}</td>
+          <td class="num">
+            {% if entry.debit > 0 %}
+              <span class="amt-debit">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(entry.debit) }}</span>
+            {% else %}
+              <span class="dash">—</span>
+            {% endif %}
+          </td>
+          <td class="num">
+            {% if entry.credit > 0 %}
+              <span class="amt-credit">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(entry.credit) }}</span>
+            {% else %}
+              <span class="dash">—</span>
+            {% endif %}
+          </td>
+          <td class="num">
+            {% if entry.balance > 0 %}
+              <span class="amt-pos">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(entry.balance) }}</span>
+            {% elif entry.balance < 0 %}
+              <span class="amt-neg">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(entry.balance) }}</span>
+            {% else %}
+              <span class="amt-zero">{{ currency_symbol|default("₹") }}0.00</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr class="empty-row">
+          <td colspan="7">
+            <div style="font-size:32px;margin-bottom:8px;">📭</div>
+            No ledger entries found for the selected period
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="4" style="text-align:right; color:var(--gray-500); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;">Totals</td>
+          <td class="num">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(total_debits) }}</td>
+          <td class="num">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(total_credits) }}</td>
+          <td class="num">{{ currency_symbol|default("₹") }}{{ "{:,.2f}".format(closing_balance) }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+</div>
+
+{% endblock %}
