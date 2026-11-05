@@ -22,6 +22,7 @@ FINANCE_SECTIONS = (
         ('Supplier payables', 'creditors_list', 'creditors'),
         ('Record payments', 'payment_new', 'receipts_payments'),
         ('Expenses', 'expenses', 'expenses'),
+        ('Products & stock', 'inventory_list', 'stock'),
     )),
     ('Cash & banking', (
         ('Bank accounts', 'bank_accounts', 'bank'),
@@ -89,8 +90,12 @@ def invoice_balances(cdb, company_id, can, today):
 
 # A missing endpoint denotes a planned capability, never an empty working screen.
 FINANCE_NAV = (
-    ('CORE FINANCE', (('Finance Dashboard', 'finance_dashboard_view', 'finance', {}),)),
+    ('CORE FINANCE', (
+        ('Finance Dashboard', 'finance_dashboard_view', 'finance', {}),
+        ('Products & Stock', 'inventory_list', 'stock', {}),
+    )),
     ('RECEIVABLES', (
+        ('Client Master', 'finance_party_master', 'clients', {'kind': 'clients'}),
         ('Customer Receivables', 'debtors_list', 'debtors', {}),
         ('Sales Invoices', 'customer_invoice_list', 'invoices', {}),
         ('GST e-Invoice & e-Way Bill', 'gst_portal', 'invoices|customer_invoices', {}),
@@ -100,6 +105,7 @@ FINANCE_NAV = (
         ('Receivable Ageing', 'finance_records', 'invoices|customer_invoices', {'kind':'receivables'}),
     )),
     ('PAYABLES', (
+        ('Supplier Master', 'finance_party_master', 'suppliers', {'kind': 'suppliers'}),
         ('Supplier Payables', 'creditors_list', 'creditors', {}),
         ('Purchase Invoices', 'purchase_invoice_list', 'purchase', {}),
         ('Payments', 'payment_new', 'receipts_payments', {}),
@@ -131,8 +137,7 @@ FINANCE_NAV = (
     )),
     ('EXPENSES & ASSETS', (
         ('Expenses', 'expenses', 'expenses', {}),
-        ('Fixed Assets', 'fixed_assets', 'finance', {}),
-        ('Depreciation', 'fixed_assets', 'finance', {}),
+        ('Fixed Assets & Depreciation', 'fixed_assets', 'finance', {}),
     )),
     ('REPORTS', (('Finance Reports', 'reports_dashboard', 'analytics', {}),)),
 )
@@ -303,6 +308,8 @@ def register_finance_workspace(app, login_required, require_permission, get_cdb,
         card('Purchases', data['purchases'], drill('purchases',f), 'Period invoice subtotal · excluding tax', purchase_access)
         card('Expenses', {currency:data['expenses']}, url_for('expenses',from_date=f['start'],to_date=f['end']),
              'Period expense-register total', has_permission('expenses','view'))
+        card('Stock Valuation', {currency:data.get('stock_value', 0)}, url_for('inventory_list'),
+             f"Current recorded inventory · {data.get('stock_count', 0)} items", has_permission('stock','view'))
         for label in ('Gross Profit','Net Profit'):
             card(label, {}, '#profitability', 'Requires posted revenue, costs and adjustments', pending='Needs accounting engine')
         tax_lbl = f.get('tax_label', 'Tax')

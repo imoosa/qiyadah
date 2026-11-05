@@ -44,6 +44,25 @@ class _CustomerDB:
 customer_db = _CustomerDB()
 
 
+class OfflineRevision(customer_db.Model):
+    __tablename__ = 'qiyadah_offline_revisions'
+    company_id = Column(String(20), primary_key=True)
+    revision = Column(Integer, nullable=False, default=0)
+
+
+class OfflineReceipt(customer_db.Model):
+    __tablename__ = 'qiyadah_offline_receipts'
+    request_id = Column(String(36), primary_key=True)
+    company_id = Column(String(20), nullable=False, index=True)
+    scope = Column(String(64), nullable=False)
+    fingerprint = Column(String(64), nullable=False)
+    state = Column(String(20), nullable=False)
+    response_json = Column(Text, nullable=True)
+    previous_revision = Column(Integer, nullable=False)
+    revision = Column(Integer, nullable=False)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+
 class FinancePeriodControl(customer_db.Model):
     __tablename__ = 'finance_period_controls'
     company_id = Column(String(20), primary_key=True)
@@ -223,6 +242,63 @@ class Supplier(customer_db.Model):
 
     def __repr__(self):
         return f"<Supplier {self.id} – {self.name}>"
+
+
+# ── 5a. Party opening bills (bill-wise opening balance for clients/suppliers) ──
+# Imported from another application (Tally, Busy, Zoho, Vyapar, Excel …) or
+# keyed in manually. Each row is one outstanding bill as on the opening date;
+# their sum normally equals the party's opening_balance. Any difference is
+# shown on statements as an unallocated "on account" opening line.
+class PartyImportBatch(customer_db.Model):
+    __tablename__ = "party_import_batches"
+
+    id            = customer_db.Column(customer_db.Integer,    primary_key=True, autoincrement=True)
+    company_id    = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    party_type    = customer_db.Column(customer_db.String(10), nullable=False)   # client | supplier
+    source_format = customer_db.Column(customer_db.String(20), nullable=False)   # xlsx | csv | json | tally | paste …
+    file_name     = customer_db.Column(customer_db.String(255), nullable=True)
+    created_count = customer_db.Column(customer_db.Integer,    nullable=False, default=0)
+    updated_count = customer_db.Column(customer_db.Integer,    nullable=False, default=0)
+    skipped_count = customer_db.Column(customer_db.Integer,    nullable=False, default=0)
+    bill_count    = customer_db.Column(customer_db.Integer,    nullable=False, default=0)
+    opening_total = customer_db.Column(customer_db.Float,      nullable=False, default=0.0)
+    imported_by   = customer_db.Column(customer_db.String(255), nullable=True)
+    created_at    = customer_db.Column(customer_db.DateTime,   nullable=False, default=datetime.utcnow)
+
+
+class PartyOpeningBill(customer_db.Model):
+    __tablename__ = "party_opening_bills"
+
+    id         = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id = customer_db.Column(customer_db.String(20),  nullable=False, index=True)
+    party_type = customer_db.Column(customer_db.String(10),  nullable=False)          # client | supplier
+    party_id   = customer_db.Column(customer_db.Integer,     nullable=False, index=True)  # clients.id / suppliers.id
+    bill_no    = customer_db.Column(customer_db.String(100), nullable=True)
+    bill_date  = customer_db.Column(customer_db.Date,        nullable=True)
+    due_date   = customer_db.Column(customer_db.Date,        nullable=True)
+    # Signed on the party's normal side: positive = receivable from a client /
+    # payable to a supplier; negative = advance / on-account credit.
+    amount     = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    notes      = customer_db.Column(customer_db.String(300), nullable=True)
+    batch_id   = customer_db.Column(customer_db.Integer,     nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+
+
+class ProductImportBatch(customer_db.Model):
+    __tablename__ = "product_import_batches"
+
+    id              = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id      = customer_db.Column(customer_db.String(20),  nullable=False, index=True)
+    source_format   = customer_db.Column(customer_db.String(20),  nullable=False)   # xlsx | csv | json | paste
+    file_name       = customer_db.Column(customer_db.String(255), nullable=True)
+    created_count   = customer_db.Column(customer_db.Integer,     nullable=False, default=0)
+    updated_count   = customer_db.Column(customer_db.Integer,     nullable=False, default=0)
+    skipped_count   = customer_db.Column(customer_db.Integer,     nullable=False, default=0)
+    stock_total_qty = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    stock_total_val = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    imported_by     = customer_db.Column(customer_db.String(255), nullable=True)
+    created_at      = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+
 
 
 # ── 5b. Supplier Brands (courier tie-ups under one supplier, e.g. IMD → Bluedart, DPD, DHL) ──
@@ -984,6 +1060,14 @@ class BankReconciliationItem(customer_db.Model):
 
 
 # ── Finance Step 14: Fixed Assets ─────────────────────────────────────────────
+class AssetCategory(customer_db.Model):
+    __tablename__ = "asset_categories"
+    __table_args__ = (customer_db.UniqueConstraint("company_id", "name", name="uq_asset_category_company_name"),)
+    id = customer_db.Column(customer_db.Integer, primary_key=True)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False, index=True)
+    name = customer_db.Column(customer_db.String(80), nullable=False)
+
+
 class FixedAsset(customer_db.Model):
     __tablename__ = "fixed_assets"
     __table_args__ = (
@@ -1184,7 +1268,6 @@ class WhatsAppLog(customer_db.Model):
     template_key   = customer_db.Column(customer_db.String(50),  nullable=True)
     to_phone       = customer_db.Column(customer_db.String(20),  nullable=False)
     invoice_id     = customer_db.Column(customer_db.String(30),  nullable=True)  # set for transactional sends
-    manifest_id    = customer_db.Column(customer_db.String(30),  nullable=True)  # set for manifest/AWB sends
     campaign_id    = customer_db.Column(customer_db.String(50),  nullable=True)  # set for bulk campaign sends
     status         = customer_db.Column(customer_db.String(20),  nullable=False, default="pending")  # pending|sent|failed|manual_pending
     provider       = customer_db.Column(customer_db.String(20),  nullable=True)
@@ -1826,7 +1909,7 @@ class CRMSetting(customer_db.Model):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class CustomerVehicle(customer_db.Model):
-    """Master record for customer vehicles (2W, 4W, EV, Commercial)."""
+    """Customer repair assets: vehicles or machines (legacy table name retained)."""
     __tablename__ = 'customer_vehicles'
 
     id                  = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
@@ -1854,6 +1937,14 @@ class CustomerVehicle(customer_db.Model):
     updated_at          = customer_db.Column(customer_db.DateTime, nullable=True, onupdate=datetime.utcnow)
 
     @property
+    def is_machine(self):
+        return self.vehicle_type == 'Machine'
+
+    @property
+    def meter_unit(self):
+        return 'hours' if self.is_machine else 'KM'
+
+    @property
     def client_obj(self):
         from sqlalchemy.orm import object_session
         sess = object_session(self)
@@ -1873,6 +1964,12 @@ class CustomerVehicle(customer_db.Model):
             'client_email': client.email if client else '',
             'registration_no': self.registration_no,
             'vehicle_type': self.vehicle_type,
+            'is_machine': self.is_machine,
+            'meter_unit': self.meter_unit,
+            'asset_number': self.registration_no,
+            'serial_number': self.vin_chassis_no or '',
+            'machine_category': self.variant or '',
+            'running_hours': self.odometer_reading if self.is_machine else None,
             'brand': self.brand,
             'model': self.model,
             'variant': self.variant or '',
@@ -1958,6 +2055,8 @@ class WorkshopJobCard(customer_db.Model):
             'vehicle_reg': veh.registration_no if veh else 'Unknown',
             'vehicle_model': f"{veh.brand} {veh.model}" if veh else '',
             'vehicle_type': veh.vehicle_type if veh else '',
+            'meter_unit': veh.meter_unit if veh else 'KM',
+            'serial_number': veh.vin_chassis_no if veh and veh.is_machine else '',
             'vehicle_uuid': veh.uuid if veh else '',
             'client_name': cli.name if cli else (veh.client_obj.name if (veh and veh.client_obj) else 'Walk-in Customer'),
             'client_phone': cli.phone if cli else (veh.client_obj.phone if (veh and veh.client_obj) else ''),
@@ -2293,6 +2392,7 @@ class ServiceReminder(customer_db.Model):
             'vehicle_id': self.vehicle_id,
             'client_id': self.client_id,
             'registration_no': veh.registration_no if veh else '',
+            'meter_unit': veh.meter_unit if veh else 'KM',
             'vehicle_model': f"{veh.brand} {veh.model}" if veh else '',
             'client_name': cli.name if cli else '',
             'client_phone': cli.phone if cli else '',

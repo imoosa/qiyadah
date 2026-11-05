@@ -10,7 +10,7 @@ from decimal import Decimal
 from sqlalchemy import func
 
 from customer_models import (CustomerInvoice, PurchaseInvoice, WorkshopJobCard, FinanceNote,
-                             CashTransaction, BankAccount, Expense)
+                             CashTransaction, BankAccount, Expense, StockItem)
 
 ZERO = Decimal('0')
 BUCKETS = ('Not due', '1–30 days', '31–60 days', '61–90 days', '90+ days', 'No due date')
@@ -184,6 +184,18 @@ def dashboard_data(cdb, company_id, can, filters, base_currency='INR'):
         banks = [dict(id=b.id, name=b.bank_name, account=b.account_name, balance=money(b.balance))
                  for b in cdb.query(BankAccount).filter_by(company_id=company_id, status='Active').order_by(BankAccount.bank_name).all()]
     bank_total = sum((b['balance'] for b in banks), ZERO) if can('bank', 'view') else None
+    stock_value = ZERO
+    stock_count = 0
+    if can('stock', 'view'):
+        try:
+            for item in cdb.query(StockItem).filter_by(company_id=company_id).all():
+                qty = money(item.quantity)
+                cost = money(item.purchase_rate or item.last_purchase_rate or item.unit_price)
+                stock_value += (qty * cost)
+                stock_count += 1
+        except Exception:
+            stock_value = ZERO
+            stock_count = 0
     input_tax, output_tax = totals(purchases, 'tax'), totals(sales, 'tax')
     tax_difference = {c: output_tax.get(c, ZERO)-input_tax.get(c, ZERO) for c in sorted(set(input_tax) | set(output_tax))}
     months = {}
@@ -204,6 +216,7 @@ def dashboard_data(cdb, company_id, can, filters, base_currency='INR'):
                 sales=totals(sales, 'subtotal'), purchases=totals(purchases, 'subtotal'),
                 expenses=sum((e['amount'] for e in expenses), ZERO), cash=cash, banks=banks,
                 bank_total=bank_total, liquidity=cash+bank_total if cash is not None and bank_total is not None else None,
+                stock_value=stock_value, stock_count=stock_count,
                 input_tax=input_tax, output_tax=output_tax, tax_difference=tax_difference,
                 months=list(months.values()), base_currency=base_currency)
 

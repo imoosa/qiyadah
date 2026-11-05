@@ -19,6 +19,7 @@ from customer_models import (
     PurchaseInvoice, PurchaseInvoiceItem, StockPurchaseHistory, OrderFlow
 )
 from platform_models import Company
+from invoice_numbering import next_sales_invoice_number
 from tax_service import tax_profile, billing_rate, split_tax
 
 
@@ -389,11 +390,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
                 cdb.commit()
                 return redirect(url_for("customer_invoice_view", cust_inv_id=existing.id))
         company = Company.query.filter_by(company_id=company_id).first()
-        count = cdb.query(CustomerInvoice).count()
-        inv_no = f"INV-{count + 1:04d}"
-        while cdb.query(CustomerInvoice).filter_by(invoice_number=inv_no).first():
-            count += 1
-            inv_no = f"INV-{count + 1:04d}"
+        inv_no = next_sales_invoice_number(cdb, company_id, company)
 
         cust_inv = CustomerInvoice(
             sales_order_id=sales_order.id if sales_order else None,
@@ -913,11 +910,7 @@ def register_erp_routes(app, login_required, require_permission, get_cdb, get_cu
         company = Company.query.filter_by(company_id=company_id).first()
         client = cdb.query(Client).filter_by(id=order.client_id, company_id=company_id).first() if order.client_id else None
         address = ", ".join(p for p in (client.address_line1, client.city, client.state, client.pincode) if p) if client else ""
-        count = cdb.query(CustomerInvoice).count()
-        inv_no = f"INV-{count + 1:04d}"
-        while cdb.query(CustomerInvoice).filter_by(invoice_number=inv_no).first():
-            count += 1
-            inv_no = f"INV-{count + 1:04d}"
+        inv_no = next_sales_invoice_number(cdb, company_id, company)
 
         cust_inv = CustomerInvoice(
             sales_order_id=order.id,

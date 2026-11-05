@@ -8,7 +8,8 @@ from plan_catalog import plan_modules
 MODULES = {'crm': 'CRM', 'repair': 'Repair & Management', 'orderflow': 'Supply Chain Management', 'core': 'Finance & Accounting', 'hr': 'HR & Payroll', 'bi': 'Business Intelligence'}
 SHARED_ENDPOINTS = {'apps_hub','login','logout','force_change_password','verify_otp','resend_otp',
     'select_company','switch_company','profile','no_access','onboard_company','account_setup',
-    'upgrade_plan','register','trial_checkout','subscription','static','service_worker','health_check'}
+    'upgrade_plan','register','trial_checkout','subscription','static','service_worker','health_check',
+    'regional_pricing_page', 'api_ai_chat', 'api_ai_chat_clear', 'api_ai_suggestions'}
 
 
 def rule(scope, target):
@@ -121,7 +122,8 @@ def register_module_access(app, get_current_user, get_current_company, get_custo
             return False
         company_id = get_current_company()
         company = Company.query.filter_by(company_id=company_id).first() if company_id else None
-        return bool(company and company.subscription_plan == 'unified')
+        plan_id = str(company.subscription_plan or '') if company else ''
+        return plan_id == 'unified' or plan_id.startswith('unified_')
 
     app.extensions['bi_unified_access'] = bi_unified_access
 
@@ -136,10 +138,32 @@ def register_module_access(app, get_current_user, get_current_company, get_custo
         user = get_current_user() or {}
         if not user or not request.endpoint:
             return
+        # Developer accounts are confined to their studio, even if an older
+        # permission matrix still contains grants for other workspaces.
+        cid = get_current_company()
+        member = None
+        if cid and user.get('role') not in ('owner', 'super_admin'):
+            member = get_customer_session(cid).query(CompanyUser).filter_by(
+                company_id=cid, user_id=user.get('user_id'), email=user.get('email')).first()
+        if user.get('role') == 'bi_developer' or (member and member.role == 'bi_developer'):
+            shared = {'apps_hub', 'login', 'logout', 'force_change_password', 'verify_otp',
+                      'resend_otp', 'select_company', 'switch_company', 'profile', 'no_access',
+                      'static', 'service_worker', 'health_check'}
+            studio = request.path.rstrip('/') in ('/bi-builder', '/api/bi/v1/filter-options') or request.path.startswith('/api/bi/v1/builder/')
+            if request.endpoint not in shared and not studio:
+                return jsonify(success=False, error='BI Developer accounts can access only the BI Developer workspace.'), 403
         if request.endpoint in SHARED_ENDPOINTS:
             return
         path = request.path
-        if path.startswith(('/admin/', '/api/admin/', '/migrations', '/company/', '/settings/', '/onboarding/', '/payment', '/subscription', '/razorpay', '/upgrade', '/renew')):
+        # Owner-managed communication is an independent workspace, like company
+        # settings. Its routes validate the live company and owner themselves.
+        if (request.endpoint in ('marketing_workspace', 'marketing_module', 'marketing_summary',
+                                 'marketing_records', 'marketing_record_delete',
+                                 'marketing_contacts_import', 'meta_whatsapp',
+                                 'whatsapp_activate', 'whatsapp_inbox', 'whatsapp_campaign')
+                or path.startswith(('/marketing/', '/api/whatsapp/', '/api/marketing/'))):
+            return
+        if path.startswith(('/admin/', '/api/admin/', '/migrations', '/company/', '/settings/', '/onboarding/', '/payment', '/subscription', '/razorpay', '/upgrade', '/renew', '/ai-automation', '/api/ai-automation', '/api/eship/ai-bridge')):
             return
         view = app.view_functions.get(request.endpoint)
         source = getattr(view, '__module__', '')
@@ -183,8 +207,9 @@ def register_module_access(app, get_current_user, get_current_company, get_custo
                                 return jsonify(success=False, error=reason, required_plan='unified'), 403
                             return render_template('module_access_denied.html', module_name='Unified BI', reason=reason), 403
                 else:
-                    is_dev_path = path.rstrip('/').startswith(('/bi-builder', '/api/bi/v1/builder'))
-                    premium = path.rstrip('/') not in standard_paths and not (is_dev_path and user.get('role') == 'bi_developer')
+                    is_dev_path = path.rstrip('/').startswith(('/bi-builder', '/api/bi/v1/builder')) or path.rstrip('/') == '/api/bi/v1/filter-options'
+                    is_published_view = path.rstrip('/') == '/bi-developed' or path.startswith(('/bi-developed/', '/api/bi/v1/developed/'))
+                    premium = path.rstrip('/') not in standard_paths and not is_published_view and not (is_dev_path and user.get('role') == 'bi_developer')
                     if premium and not bi_unified_access():
                         reason = 'This BI feature is available only in Qiyadah Unified.'
                         if path.startswith('/api/') or request.is_json:

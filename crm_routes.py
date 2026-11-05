@@ -346,6 +346,8 @@ def register_crm_routes(app, login_required, get_cdb, get_current_company, get_c
     @app.route('/api/crm/contacts/<contact_id>', methods=['DELETE'])
     @login_required
     def api_crm_contact_delete(contact_id):
+        if not is_owner_user():
+            return jsonify(error='Only company owners can delete CRM contacts.'), 403
         cdb = get_cdb()
         company_id = get_current_company()
         contact = cdb.query(CRMContact).filter_by(id=contact_id, company_id=company_id).first()

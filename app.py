@@ -35,7 +35,7 @@ from customer_models import (
     BankAccount, BankTransaction, Expense, Supplier, SupplierBrand,
     PriceList, RateLookup, Cheque, CompanyRolePermission, PurchasePayment, WhatsAppLog, StatementClosing,
     DeletedInvoiceLog, CustomerInvoice, CustomerInvoiceItem, ChartOfAccount, JournalEntry, JournalEntryLine,
-    BankReconciliation, BankReconciliationItem, FixedAsset )
+    BankReconciliation, BankReconciliationItem, FixedAsset, AssetCategory )
 from db_router import get_customer_session, get_customer_session_with_retry, init_customer_db_for_company
 from backup_utils import BACKUP_DESTINATIONS
 import permissions as perms_module
@@ -61,6 +61,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
+app.config['APP_ENV'] = os.environ.get('APP_ENV', 'production')
+app.config['PRIVATE_DOCUMENT_ROOT'] = os.environ.get('PRIVATE_DOCUMENT_ROOT', str(Path(__file__).resolve().parent / 'private_documents'))
+from web_security import register_web_security
+register_web_security(app)
+proxy_hops = int(os.environ.get('TRUST_PROXY_HOPS', '0'))
+if proxy_hops:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=proxy_hops, x_proto=proxy_hops, x_host=0, x_port=0, x_prefix=0)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 if not app.secret_key:
     raise RuntimeError("FLASK_SECRET_KEY not set in environment")
@@ -99,7 +107,7 @@ app.config['MAIL_USE_TLS'] = False
 app.config['MAIL_USE_SSL'] = True
 app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
 app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
-app.config['MAIL_DEFAULT_SENDER'] = 'support@magnustic.com'
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER') or 'support@magnustic.com'
 app.config['SESSION_COOKIE_MAX_SIZE'] = 4000
 
 
@@ -133,14 +141,14 @@ def send_otp_email(to_email, otp_code):
     # If no logo found, use a text placeholder
     logo_html = f'''
     <div style="background: #1a237e; color: white; padding: 12px 24px; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 20px; letter-spacing: 1px;">
-        MAGNUSTIC ERP
+        QIYADAH ERP
     </div>
     ''' if not logo_base64 else f'''
-    <img src="data:image/png;base64,{logo_base64}" alt="Magnustic Logo" style="max-width: 180px; height: auto;">
+    <img src="data:image/png;base64,{logo_base64}" alt="Qiyadah Logo" style="max-width: 180px; height: auto;">
     '''
     
     # Get company name for personalization
-    company_name = company.company_name if company else "Magnustic ERP"
+    company_name = company.company_name if company else "Qiyadah ERP"
     
     msg = Message(
         subject=f"Verify your email — {company_name}",
@@ -201,7 +209,7 @@ def send_otp_email(to_email, otp_code):
                 <td style="padding: 10px 0 0 0; border-top: 1px solid #e5e7eb;">
                     <p style="font-size: 14px; color: #555; margin: 10px 0 0 0;">
                         Best regards,<br>
-                        <strong style="color: #1a237e; font-size: 15px;">Team Magnustic</strong>
+                        <strong style="color: #0F766E; font-size: 15px;">Team Qiyadah</strong>
                     </p>
                 </td>
             </tr>
@@ -211,7 +219,7 @@ def send_otp_email(to_email, otp_code):
                         © 2026 {company_name}. All rights reserved.
                     </p>
                     <p style="font-size: 12px; color: #999; margin: 4px 0 0 0;">
-                        <a href="https://www.magnustic.com" style="color: #1a237e; text-decoration: none;">www.magnustic.com</a>
+                        <a href="https://www.qiyadah.com" style="color: #0F766E; text-decoration: none;">www.qiyadah.com</a>
                     </p>
                     <p style="font-size: 11px; color: #bbb; margin: 8px 0 0 0;">
                         This is an automated message, please do not reply to this email.
@@ -237,32 +245,29 @@ def send_otp_email(to_email, otp_code):
     Thank you for choosing {company_name}.
     
     Best regards,
-    Team Magnustic
-    www.magnustic.com
+    Team Qiyadah
+    www.qiyadah.com
     """
     
     mail.send(msg)
    
 
 def _generate_and_send_otp(email):
-    try:
-        otp = f"{secrets.randbelow(1000000):06d}"
-        session["otp_email"]   = email
-        session["otp_hash"]    = hashlib.sha256(otp.encode()).hexdigest()
-        session["otp_expires"] = (datetime.utcnow() + timedelta(minutes=10)).isoformat()
-        
-        # Try to send email with error handling
-        try:
-            send_otp_email(email, otp)
-            print(f"[OK] OTP sent to {email}: {otp}")
-        except Exception as e:
-            print(f"[ERROR] Failed to send OTP email: {e}")
-            # For testing, we can still allow login with a fallback
-            # Store the OTP in session anyway so user can see it in logs
-            flash(f"Email sending failed. For testing, your OTP is: {otp}", "warning")
-    except Exception as e:
-        print(f"[ERROR] Error in _generate_and_send_otp: {e}")
-        flash("Error sending verification code. Please try again.", "error")
+    from auth_security import issue_challenge
+    # Keep the retry destination even if delivery fails. Never keep a challenge
+    # from a different account when a user starts a new verification flow.
+    if session.get('otp_email') != email:
+        session.pop('otp_challenge', None)
+    session['otp_email'] = email
+    identifier = issue_challenge(email, send_otp_email)
+    session.pop('otp_hash', None)
+    session.pop('otp_expires', None)
+    if identifier:
+        session['otp_email'] = email
+        session['otp_challenge'] = identifier
+        return True
+    flash('Unable to send a verification code. Please wait a minute and try again.', 'error')
+    return False
 
 def _finish_owner_login(reg_user):
     # Each successful login starts with an explicit company choice.
@@ -339,7 +344,8 @@ def format_currency_filter(value, currency_code=None, show_symbol=True):
 # ── Database Configuration ────────────────────────────────────────────────────
 PLATFORM_DB_URI = os.environ.get("PLATFORM_DB_URI", "mysql+pymysql://root@localhost/qiyadah_erp")
 from platform_bootstrap import ensure_platform_database
-ensure_platform_database(PLATFORM_DB_URI)
+if os.environ.get('QIYADAH_INITIALIZE_DATABASE') == '1':
+    ensure_platform_database(PLATFORM_DB_URI)
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}           
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -350,59 +356,66 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "max_overflow": 20,
 }
 db.init_app(app)
+# Register security tables before platform initialization.
+import auth_security
+import database_access  # Explicit initialization creates access and audit tables.
 
 @app.before_request
 def _fk_on():
     pass  # MySQL enforces FK by default; no PRAGMA needed
 
-with app.app_context():
-    db.create_all()
+if os.environ.get('QIYADAH_INITIALIZE_DATABASE') == '1':
+    with app.app_context():
+        db.create_all()
 
-    # ── Patch existing companies table for new columns ─────────────────────
-    # db.create_all() only creates tables that don't exist yet — it never
-    # alters a `companies` table that's already there, so a new column added
-    # to the Company model (like credit_limit_action) silently does nothing
-    # on every database except a brand new one. This app has no migration
-    # framework for the platform DB (schema_migrations further down is
-    # per-tenant customer DBs only), so patch it in here directly, checking
-    # first so this is a no-op once the column actually exists.
-    try:
-        from sqlalchemy import inspect as _sa_inspect
-        _existing_cols = {c["name"] for c in _sa_inspect(db.engine).get_columns("companies")}
-        if "credit_limit_action" not in _existing_cols:
-            db.session.execute(text(
-                "ALTER TABLE companies ADD COLUMN credit_limit_action "
-                "VARCHAR(10) NOT NULL DEFAULT 'warn'"
-            ))
-            db.session.commit()
-            print("✅ Added missing companies.credit_limit_action column")
+        # ── Patch existing companies table for new columns ─────────────────────
+        # db.create_all() only creates tables that don't exist yet — it never
+        # alters a `companies` table that's already there, so a new column added
+        # to the Company model (like credit_limit_action) silently does nothing
+        # on every database except a brand new one. This app has no migration
+        # framework for the platform DB (schema_migrations further down is
+        # per-tenant customer DBs only), so patch it in here directly, checking
+        # first so this is a no-op once the column actually exists.
+        try:
+            from sqlalchemy import inspect as _sa_inspect
+            _existing_cols = {c["name"] for c in _sa_inspect(db.engine).get_columns("companies")}
+            if "credit_limit_action" not in _existing_cols:
+                db.session.execute(text(
+                    "ALTER TABLE companies ADD COLUMN credit_limit_action "
+                    "VARCHAR(10) NOT NULL DEFAULT 'warn'"
+                ))
+                db.session.commit()
+                print("✅ Added missing companies.credit_limit_action column")
         
-        # Multi-currency & regional tax columns
-        for col_name, col_type in [
-            ("branch_name", "VARCHAR(100) NULL"),
-            ("currency", "VARCHAR(10) NOT NULL DEFAULT 'INR'"),
-            ("currency_symbol", "VARCHAR(10) NOT NULL DEFAULT '₹'"),
-            ("country", "VARCHAR(100) NOT NULL DEFAULT 'India'"),
-            ("tax_regime", "VARCHAR(50) NOT NULL DEFAULT 'GST'"),
-            ("tax_id_label", "VARCHAR(50) NOT NULL DEFAULT 'GSTIN'"),
-        ]:
-            if col_name not in _existing_cols:
-                try:
-                    db.session.execute(text(f"ALTER TABLE companies ADD COLUMN {col_name} {col_type}"))
-                    db.session.commit()
-                    print(f"✅ Added missing companies.{col_name} column")
-                except Exception as _ce:
-                    db.session.rollback()
-                    print(f"⚠ Could not add companies.{col_name}: {_ce}")
-    except Exception as e:
-        db.session.rollback()
-        print(f"⚠  Could not verify/add companies multi-currency columns: {e}")
+            # Multi-currency & regional tax columns
+            for col_name, col_type in [
+                ("branch_name", "VARCHAR(100) NULL"),
+                ("sales_invoice_start", "INTEGER NOT NULL DEFAULT 1"),
+                ("sales_invoice_prefix", "VARCHAR(20) NOT NULL DEFAULT 'INV-'"),
+                ("sales_invoice_digits", "INTEGER NOT NULL DEFAULT 4"),
+                ("currency", "VARCHAR(10) NOT NULL DEFAULT 'INR'"),
+                ("currency_symbol", "VARCHAR(10) NOT NULL DEFAULT '₹'"),
+                ("country", "VARCHAR(100) NOT NULL DEFAULT 'India'"),
+                ("tax_regime", "VARCHAR(50) NOT NULL DEFAULT 'GST'"),
+                ("tax_id_label", "VARCHAR(50) NOT NULL DEFAULT 'GSTIN'"),
+            ]:
+                if col_name not in _existing_cols:
+                    try:
+                        db.session.execute(text(f"ALTER TABLE companies ADD COLUMN {col_name} {col_type}"))
+                        db.session.commit()
+                        print(f"✅ Added missing companies.{col_name} column")
+                    except Exception as _ce:
+                        db.session.rollback()
+                        raise
+        except Exception as e:
+            db.session.rollback()
+            raise
 
 
-# ── Create tables and seed on first startup ────────────────────────────────────
-with app.app_context():
-    # Only create platform tables - customer DBs are created per-company
-    db.create_all()
+    # ── Create tables and seed on first startup ────────────────────────────────────
+    with app.app_context():
+        # Only create platform tables - customer DBs are created per-company
+        db.create_all()
 
 UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads', 'purchase_invoices')
 ALLOWED_EXTENSIONS = {
@@ -508,23 +521,13 @@ def generate_next_user_id():
 
 # ADD (whole function, new)
 def save_client_id_doc(file_storage, client_id, doc_label, old_filename=None):
-    """Same contract as save_shipper_id_doc(), but for the permanent copy that
-    lives on a credit client's own record (static/client_docs/) instead of a
-    single booking's (static/invoice_docs/). client_id here is Client.client_id
-    (e.g. 'ACM001'), not the numeric PK, so filenames stay readable."""
     if not file_storage or not file_storage.filename:
         return old_filename
     if not allowed_id_doc_file(file_storage.filename):
-        flash(f"{doc_label.upper()} file must be a PNG or JPG image.")
+        flash(f'{doc_label.upper()} file must be a PNG or JPG image.')
         return old_filename
-    ext = file_storage.filename.rsplit('.', 1)[1].lower()
-    new_filename = secure_filename(f"{client_id}_{doc_label}.{ext}")
-    if old_filename and old_filename != new_filename:
-        old_path = os.path.join(CLIENT_DOCS_UPLOAD_FOLDER, old_filename)
-        if os.path.exists(old_path):
-            os.remove(old_path)
-    file_storage.save(os.path.join(CLIENT_DOCS_UPLOAD_FOLDER, new_filename))
-    return new_filename
+    from private_documents import save_private_file
+    return save_private_file(file_storage, get_current_company(), 'client_docs')
 
 
 def _save_client_id_docs(cdb, client_row, form_files):
@@ -837,22 +840,35 @@ def handle_db_operational_error(e):
         return redirect(request.url)
     raise e
 
+@app.errorhandler(400)
+def handle_bad_request(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"success": False, "error": getattr(e, "description", "Bad request")}), 400
+    return render_template("errors/500.html"), 400
+
+@app.errorhandler(413)
+def handle_request_entity_too_large(e):
+    if request.path.startswith('/api/'):
+        return jsonify({"success": False, "error": "Uploaded file is too large (maximum 10 MB allowed)."}), 413
+    flash("Uploaded file is too large (maximum 10 MB allowed).", "error")
+    return redirect(request.referrer or url_for("dashboard"))
+
 @app.errorhandler(404)
 def handle_not_found(e):
     if request.path.startswith('/api/'):
-        return jsonify({"error": "Not found"}), 404
+        return jsonify({"success": False, "error": "Not found"}), 404
     return render_template("errors/404.html"), 404
 
 @app.errorhandler(403)
 def handle_forbidden(e):
     if request.path.startswith('/api/'):
-        return jsonify({"error": "Forbidden"}), 403
+        return jsonify({"success": False, "error": "Forbidden"}), 403
     return render_template("errors/403.html"), 403
 
 @app.errorhandler(500)
 def handle_server_error(e):
     if request.path.startswith('/api/'):
-        return jsonify({"error": "Internal server error"}), 500
+        return jsonify({"success": False, "error": "Internal server error"}), 500
     return render_template("errors/500.html"), 500
 
 @app.before_request
@@ -966,17 +982,12 @@ def _current_session_password_hash():
         return None
 
 def verify_admin_password(password):
-    """Re-check the submitted password against the logged-in user's OWN
-    password. This is a re-authentication step, not a role check — role
-    (@owner_required / @super_admin_required) still decides WHO can reach
-    the route at all; this decides whether the correct password was
-    re-entered right before something gets deleted."""
-    if not password:
+    """Re-authenticate only the user performing this action."""
+    if not isinstance(password, str) or not password or len(password) > 1024:
         return False
     hashed = _current_session_password_hash()
-    if not hashed:
-        return False
-    return verify_password(password, hashed)
+    return bool(hashed and verify_password(password, hashed))
+
 
 def require_admin_password(f):
     """Blocks a destructive route unless the logged-in user's password was
@@ -986,9 +997,17 @@ def require_admin_password(f):
     redirect) and JSON/DELETE-style API calls (jsonify error)."""
     @wraps(f)
     def decorated(*args, **kwargs):
+        if request.method in ("GET", "HEAD", "OPTIONS"):
+            abort(405)
+        from auth_security import allow_attempt
+        actor = get_current_user() or {}
+        if not allow_attempt('destructive-password', actor.get('user_id') or request.remote_addr or '', 5, 300):
+            return jsonify(success=False, message='Too many password attempts. Try again in five minutes.'), 429
         password = request.form.get("admin_password")
         if password is None and request.is_json:
             password = (request.get_json(silent=True) or {}).get("admin_password")
+
+        password = request.headers.get("X-Admin-Password") or password
 
         if not verify_admin_password(password):
             wants_json = (
@@ -1001,6 +1020,7 @@ def require_admin_password(f):
             flash("Incorrect password — nothing was deleted.", "error")
             return redirect(request.referrer or url_for("dashboard"))
         return f(*args, **kwargs)
+    decorated.requires_admin_password = True
     return decorated
 
 
@@ -1438,7 +1458,7 @@ PLAN_PRICING = {
     "lifetime_maintenance": {"1_year": 2500, "3_years": 2500, "lifetime": 2500},
 }
 
-from plan_catalog import PUBLIC_PLANS
+from plan_catalog import ALL_PUBLIC_PLANS as PUBLIC_PLANS
 SUBSCRIPTION_PLANS_DATA.update(PUBLIC_PLANS)
 PLAN_PRICING.update({key: {'1_year': int(p['price_1yr']), '3_years': int(p['price_3yr'])}
                      for key, p in PUBLIC_PLANS.items()})
@@ -1484,8 +1504,11 @@ def seed_database():
         try:
             db.session.execute(text(stmt))
             db.session.commit()
-        except Exception:
+        except Exception as error:
             db.session.rollback()
+            code = getattr(getattr(error, 'orig', None), 'args', (None,))[0]
+            if code not in (1060, 1061):
+                raise
 
     # ── Subscription Plans (Platform DB) ─────────────────────────────────────
     # Keep legacy and private plans referenced by existing customers.
@@ -1507,7 +1530,7 @@ def seed_database():
     print("[OK] Subscription plans synced.")
 
     # ── Registered Users (Platform DB) ──────────────────────────────────────
-    if RegisteredUser.query.count() == 0:
+    if app.config["APP_ENV"] == "development" and os.environ.get("SEED_DEMO_DATA") == "1" and RegisteredUser.query.count() == 0:
         demo = RegisteredUser(
             user_id="USR001",
             email="demo@demo.com",
@@ -1545,7 +1568,7 @@ def seed_database():
             print("[INFO] No super admin configured. Set SUPER_ADMIN_PASSWORD for first-time setup.")
 
     # ── Companies (Platform DB) ─────────────────────────────────────────────
-    if Company.query.count() == 0:
+    if app.config["APP_ENV"] == "development" and os.environ.get("SEED_DEMO_DATA") == "1" and Company.query.count() == 0:
         comp1 = Company(
             company_id="DEMO001",
             company_name="Demo Company",
@@ -1627,7 +1650,7 @@ def seed_customer_database(company_id):
                 user_id="EMP001",
                 company_id=company_id,
                 email=company.owner_email,
-                password_hash=hash_password("Demo@123"),
+                password_hash=owner_reg.password_hash if owner_reg else hash_password(secrets.token_urlsafe(48)),
                 full_name=owner_reg.full_name if owner_reg else "Demo User",
                 role="owner",
                 department="Management",
@@ -1712,9 +1735,19 @@ def get_plan(plan_id):
         "features": [f.strip() for f in p.features.split(",") if f.strip()] if p.features else [],
     }
 
-def get_all_plans():
-    # Public registration never exposes private negotiated or legacy plans.
-    return {pid: get_plan(pid) for pid in (*PUBLIC_PLANS, 'trial')}
+def get_all_plans(market='IN', all_markets=False):
+    # Keep country and currency attached even when persistent plan rows are used.
+    result = {}
+    for pid, catalog in PUBLIC_PLANS.items():
+        if all_markets or catalog.get('market', 'IN') == market:
+            result[pid] = dict(get_plan(pid), market=catalog.get('market', 'IN'),
+                               price=catalog['price'], price_1yr=catalog['price_1yr'],
+                               price_3yr=catalog['price_3yr'],
+                               original_price_1yr=catalog.get('original_price_1yr'),
+                               limited_offer=catalog.get('limited_offer', False),
+                               currency=catalog.get('currency', 'INR'), symbol=catalog.get('symbol', '₹'))
+    result['trial'] = get_plan('trial')
+    return result
 
 
 # ── Company helpers ───────────────────────────────────────────────────────────
@@ -3235,7 +3268,9 @@ def api_ai_chat():
     ask about a different company's data by editing the payload.
     """
     payload = request.get_json(silent=True) or {}
-    user_message = (payload.get("message") or "").strip()
+    if not isinstance(payload, dict) or not isinstance(payload.get("message"), str):
+        return jsonify({"response": "Please send a text question.", "source": "error"}), 400
+    user_message = payload['message'].strip()
 
     if not user_message:
         return jsonify({"response": "Please type a question.", "source": "error"}), 400
@@ -3245,13 +3280,44 @@ def api_ai_chat():
 
     company_id = get_current_company()
 
-    result = _ai_assistant.chat(
-        user_message=user_message,
-        company_id=company_id,
-        has_permission=has_permission,   # your existing permissions.py-backed function
-    )
+    from utils.assistant_web import web_query, research
+    mode = payload.get('mode', 'auto')
+    if mode not in ('auto', 'web', 'erp'):
+        return jsonify({'response': 'Choose Auto, ERP or Web mode.', 'source': 'error'}), 400
+    public_query = web_query(user_message, mode, payload.get('previous_question', ''))
+    if public_query is not None:
+        if not company_id or not has_permission('dashboard', 'view'):
+            return jsonify({'response': 'Sign in with dashboard access to use web research.', 'source': 'permission_denied'}), 403
+        result = research(public_query, _ai_assistant.model_name)
+        response = jsonify(result)
+        response.headers['Cache-Control'] = 'no-store'
+        return response
 
-    return jsonify(result)
+    from utils.assistant_workspace import answer, scoped_permission
+    access = app.extensions.get('module_access')
+    result = answer(user_message, company_id, has_permission, access, payload.get('page', ''))
+    if result is None:
+        result = _ai_assistant.chat(
+            user_message=user_message,
+            company_id=company_id,
+            has_permission=scoped_permission(has_permission, access),
+        )
+
+    response = jsonify(result)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
+
+
+@app.route('/api/ai-chat/suggestions')
+@login_required
+def api_ai_suggestions():
+    from utils.assistant_workspace import suggestions
+    if not get_current_company():
+        return jsonify({'questions': []}), 403
+    response = jsonify({'questions': suggestions(request.args.get('page', ''), has_permission,
+                        app.extensions.get('module_access'))})
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 @app.route("/api/ai-chat/clear", methods=["POST"])
@@ -3274,10 +3340,15 @@ def health_check():
             cdb = get_cdb()
             if cdb:
                 cdb.execute(text("SELECT 1")).fetchone()
+
+        redis_service = app.extensions.get('redis_service')
+        if redis_service and redis_service.rate_limits_enabled and not redis_service.status()['connected']:
+            return jsonify({"status": "unhealthy"}), 503
         
         return jsonify({"status": "healthy"})
-    except Exception as e:
-        return jsonify({"status": "unhealthy", "error": str(e)}), 500
+    except Exception:
+        app.logger.exception('Database health check failed')
+        return jsonify({"status": "unhealthy"}), 503
 
 @app.route("/sw.js")
 def service_worker():
@@ -3312,8 +3383,8 @@ def login():
 
             # Owner: If email is not verified, require 6-digit OTP verification
             if not reg_user.email_verified:
-                _generate_and_send_otp(reg_user.email)
-                flash(f"Please enter the 6-digit verification code sent to {reg_user.email}.", "warning")
+                if _generate_and_send_otp(reg_user.email):
+                    flash(f"Please enter the 6-digit verification code sent to {reg_user.email}.", "warning")
                 return redirect(url_for("verify_otp"))
             elif reg_user.must_change_password:
                 session["pending_password_change_email"] = reg_user.email
@@ -3367,25 +3438,28 @@ def verify_otp():
 
     if request.method == "POST":
         entered = request.form.get("otp", "").strip()
-        expires = session.get("otp_expires")
-        if not expires or datetime.utcnow() > datetime.fromisoformat(expires):
-            flash("Verification code has expired. Please click Resend Code to receive a new one.", "error")
-            return redirect(url_for("verify_otp"))
-        if hashlib.sha256(entered.encode()).hexdigest() != session.get("otp_hash"):
-            flash("Incorrect verification code. Please check and try again.", "error")
-            return redirect(url_for("verify_otp"))
+        from auth_security import consume_challenge
+        verified_email = consume_challenge(session.get('otp_challenge'), entered)
+        if not verified_email or verified_email != email:
+            flash('Invalid or expired code. After five attempts, request a new code.', 'error')
+            return redirect(url_for('verify_otp'))
 
-        reg_user = RegisteredUser.query.filter_by(email=email).first()
+        reg_user = RegisteredUser.query.filter_by(email=email, is_active=True).first()
         if not reg_user:
             flash("User account not found. Please log in again.", "error")
             return redirect(url_for("login"))
 
         reg_user.email_verified = True
-        reg_user.must_change_password = False
         db.session.commit()
         session.pop("otp_email", None)
+        session.pop("otp_challenge", None)
         session.pop("otp_hash", None)
         session.pop("otp_expires", None)
+
+        if reg_user.must_change_password:
+            session.clear()
+            session['pending_password_change_email'] = reg_user.email
+            return redirect(url_for('force_change_password'))
 
         flash("Email verified successfully! Welcome to Qiyadah ERP.", "success")
         return _finish_owner_login(reg_user)
@@ -3393,13 +3467,61 @@ def verify_otp():
     return render_template("verify_otp.html", email=email)
 
 
-@app.route("/verify-otp/resend")
+@app.route("/verify-otp/resend", methods=["POST"])
 def resend_otp():
     email = session.get("otp_email")
-    if email:
-        _generate_and_send_otp(email)
+    if email and _generate_and_send_otp(email):
         flash("A new 6-digit verification code has been sent to your email.", "success")
     return redirect(url_for("verify_otp"))
+
+
+@app.route("/verify-otp/change-email", methods=["POST"])
+def change_verification_email():
+    from auth_security import allow_attempt
+    from email_correction import correct_email
+    email = session.get('otp_email')
+    if not email:
+        return redirect(url_for('login'))
+    account = RegisteredUser.query.filter_by(email=email, is_active=True).first()
+    if not account or account.email_verified or account.role != 'owner':
+        flash('Please log in again to continue.', 'error')
+        return redirect(url_for('login'))
+    if not allow_attempt('change-email-account', account.user_id, 5, 300):
+        flash('Too many attempts. Please wait five minutes.', 'error')
+        return redirect(url_for('verify_otp'))
+    new_email = request.form.get('email', '').strip().lower()
+    if len(new_email) > 200 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', new_email):
+        flash('Enter a valid email address.', 'error')
+        return redirect(url_for('verify_otp'))
+    if not verify_password(request.form.get('password', ''), account.password_hash):
+        flash('Your password is incorrect.', 'error')
+        return redirect(url_for('verify_otp'))
+    if new_email == email:
+        flash('Enter a different email address or use Resend Code.', 'warning')
+        return redirect(url_for('verify_otp'))
+    if RegisteredUser.query.filter_by(email=new_email).first():
+        flash('This email is already in use. Choose another email or log in.', 'error')
+        return redirect(url_for('verify_otp'))
+    try:
+        # Lock and recheck after rate limiting (which commits its own transaction).
+        account = RegisteredUser.query.filter_by(email=email, is_active=True).populate_existing().with_for_update().first()
+        if not account or account.email_verified:
+            db.session.rollback()
+            flash('This verification session has changed. Please log in again.', 'error')
+            return redirect(url_for('login'))
+        correct_email(account, new_email)
+    except Exception:
+        db.session.rollback()
+        app.logger.exception('Unable to correct verification email')
+        flash('Unable to change the email. Please try again or contact support.', 'error')
+        return redirect(url_for('verify_otp'))
+    session.pop('otp_challenge', None)
+    session['otp_email'] = new_email
+    if _generate_and_send_otp(new_email):
+        flash('Email updated. A new verification code has been sent.', 'success')
+    else:
+        flash('Email updated. Use Resend Code to try delivery again.', 'warning')
+    return redirect(url_for('verify_otp'))
 
 
 @app.route("/force-change-password", methods=["GET", "POST"])
@@ -3439,9 +3561,9 @@ def account_setup():
     return redirect(url_for("verify_otp"))
 
 
-@app.route("/account-setup/resend")
+@app.route("/account-setup/resend", methods=["POST"])
 def resend_account_setup_otp():
-    return redirect(url_for("resend_otp"))
+    return resend_otp()
 
 @app.route("/company/add", methods=["GET", "POST"])
 @login_required
@@ -3529,7 +3651,7 @@ def add_new_company():
             user_id=emp_id,
             company_id=new_company_id,
             email=user.get("email"),
-            password_hash=hash_password(request.form.get("password", "Temp@123")),
+            password_hash=RegisteredUser.query.filter_by(email=user.get("email")).one().password_hash,
             full_name=user.get("full_name", ""),
             role="owner",
             department="Management",
@@ -3893,6 +4015,10 @@ def create_payment_order():
             if not payer or payer.email != email or not payer_company:
                 return jsonify(status='error', message='Company does not belong to the signed-in payer.'), 403
 
+        if payer and payer.email == email and payer.subscription_plan in PUBLIC_PLANS and plan_id in PUBLIC_PLANS:
+            if PUBLIC_PLANS[payer.subscription_plan].get('market', 'IN') != PUBLIC_PLANS[plan_id].get('market', 'IN'):
+                return jsonify(status='error', message='Choose a plan in your account billing country.'), 400
+
         trial_payer = RegisteredUser.query.filter_by(email=email, payment_status='trial').first()
         if trial_payer and trial_payer.subscription_plan in PUBLIC_PLANS and (not payer or payer.email != email):
             return jsonify(status='error', message='Sign in to continue your saved trial plan.'), 401
@@ -3909,12 +4035,14 @@ def create_payment_order():
         if plan_id == "trial":
             return jsonify({"status": "trial", "message": "14-Day Free Trial requires no payment."})
 
-        amount_paise = int(amount * 100)
+        from plan_catalog import subscription_currency, payment_minor_units
+        currency = subscription_currency(plan_id)
+        amount_paise = payment_minor_units(amount, currency)
         tx_id = "TXN_" + secrets.token_hex(6).upper()
 
         order_payload = {
             "amount": amount_paise,
-            "currency": "INR",
+            "currency": currency,
             "receipt": tx_id,
             "payment_capture": 1,
             "notes": {
@@ -3929,12 +4057,12 @@ def create_payment_order():
         # Log PaymentTransaction in platform DB
         txn = PaymentTransaction(
             transaction_id=tx_id,
-            user_email=email or (session.get("user", {}).get("email") if "user" in session else "guest@magnustic.com"),
+            user_email=email or (session.get("user", {}).get("email") if "user" in session else "guest@qiyadah.com"),
             company_id=company_id if company_id else None,
             plan_id=plan_id,
             duration=duration,
             amount=amount,
-            currency="INR",
+            currency=currency,
             razorpay_order_id=rp_order["id"],
             status="created",
             created_at=datetime.utcnow()
@@ -3948,7 +4076,7 @@ def create_payment_order():
             "order_id": rp_order["id"],
             "amount": amount,
             "amount_paise": amount_paise,
-            "currency": "INR",
+            "currency": currency,
             "transaction_id": tx_id
         })
     except Exception as e:
@@ -3958,153 +4086,27 @@ def create_payment_order():
 
 @app.route("/api/payment/verify", methods=["POST"])
 def verify_payment():
+    from payment_security import fulfill_payment
     try:
-        data = request.get_json() or {}
-        razorpay_order_id = data.get("razorpay_order_id")
-        razorpay_payment_id = data.get("razorpay_payment_id")
-        razorpay_signature = data.get("razorpay_signature")
-        transaction_id = data.get("transaction_id")
-        plan_id = data.get("plan_id")
-        duration = data.get("duration", "1_year")
-        email = data.get("email", "").strip().lower()
-        company_id = data.get("company_id", "").strip()
+        payload, status = fulfill_payment(request.get_json(silent=True) or {}, RAZORPAY_KEY_SECRET, today_ist(), razorpay_client.payment.fetch)
+        if status == 200:
+            session.pop('lifetime_maintenance_due', None)
+            session.pop('maintenance_amount', None)
+        return jsonify(payload), status
+    except Exception:
+        app.logger.exception('Payment fulfillment failed')
+        return jsonify(status='error', message='Payment could not be applied. Please retry or contact support.'), 500
 
-        if not (razorpay_order_id and razorpay_payment_id and razorpay_signature):
-            return jsonify({"status": "error", "message": "Missing payment signature details."}), 400
 
-        # Verify HMAC SHA256 signature
-        msg = f"{razorpay_order_id}|{razorpay_payment_id}".encode("utf-8")
-        generated_signature = hmac.new(
-            RAZORPAY_KEY_SECRET.encode("utf-8"),
-            msg,
-            hashlib.sha256
-        ).hexdigest()
-
-        if generated_signature != razorpay_signature:
-            if transaction_id:
-                txn = PaymentTransaction.query.filter_by(transaction_id=transaction_id).first()
-                if txn:
-                    txn.status = "failed"
-                    txn.error_reason = "Signature mismatch"
-                    db.session.commit()
-            return jsonify({"status": "error", "message": "Payment signature verification failed."}), 400
-
-        # Update PaymentTransaction to success
-        txn = None
-        if transaction_id:
-            txn = PaymentTransaction.query.filter_by(transaction_id=transaction_id).first()
-        if not txn and razorpay_order_id:
-            txn = PaymentTransaction.query.filter_by(razorpay_order_id=razorpay_order_id).first()
-
-        if not txn or txn.razorpay_order_id != razorpay_order_id:
-            return jsonify(status='error', message='Payment order not found.'), 400
-        # Grant only the product and account recorded on the server-created order.
-        plan_id, duration, email, company_id = txn.plan_id, txn.duration, txn.user_email, txn.company_id
-        if txn:
-            txn.razorpay_payment_id = razorpay_payment_id
-            txn.razorpay_signature = razorpay_signature
-            txn.status = "success"
-            db.session.commit()
-
-        # Calculate new validity
-        plan_obj = SubscriptionPlan.query.get(plan_id)
-        days = 365
-        if duration == "3_years":
-            days = 365 * 3
-        elif duration == "lifetime":
-            days = 365 * 100
-
-        new_end_date = today_ist() + timedelta(days=days)
-
-        # Update in-session user / owner if logged in
-        if not email and "user" in session and session["user"].get("email"):
-            email = session["user"]["email"]
-
-        if plan_id == "lifetime_maintenance":
-            session.pop("lifetime_maintenance_due", None)
-            session.pop("maintenance_amount", None)
-            next_maint_date = today_ist() + timedelta(days=365)
-            if email:
-                reg_user = RegisteredUser.query.filter_by(email=email).first()
-                if reg_user:
-                    reg_user.last_maintenance_paid_at = today_ist()
-                    reg_user.maintenance_due_date = next_maint_date
-                    if txn:
-                        reg_user.amount_paid = float(reg_user.amount_paid or 0) + float(txn.amount or 0)
-                    comps = Company.query.filter_by(owner_email=email).all()
-                    for c in comps:
-                        c.last_maintenance_paid_at = today_ist()
-                        c.maintenance_due_date = next_maint_date
-                    db.session.commit()
-            elif company_id:
-                comp = Company.query.filter_by(company_id=company_id).first()
-                if comp:
-                    comp.last_maintenance_paid_at = today_ist()
-                    comp.maintenance_due_date = next_maint_date
-                    db.session.commit()
-
-            return jsonify({
-                "status": "success",
-                "message": "Annual Maintenance fee (₹2,500) paid successfully! Your lifetime ERP license is active.",
-                "plan_id": plan_id,
-                "duration": duration,
-                "valid_until": next_maint_date.strftime("%Y-%m-%d")
-            })
-
-        if email:
-            reg_user = RegisteredUser.query.filter_by(email=email).first()
-            if reg_user:
-                reg_user.subscription_plan = plan_id
-                reg_user.plan_duration = duration
-                reg_user.payment_status = "paid"
-                if duration == "lifetime":
-                    reg_user.maintenance_due_date = today_ist() + timedelta(days=365)
-                    reg_user.last_maintenance_paid_at = today_ist()
-                if txn:
-                    reg_user.amount_paid = float(reg_user.amount_paid or 0) + float(txn.amount or 0)
-                db.session.commit()
-
-                # Update all companies owned by this owner
-                comps = Company.query.filter_by(owner_email=email).all()
-                for c in comps:
-                    c.subscription_plan = plan_id
-                    c.plan_duration = duration
-                    c.subscription_start = today_ist()
-                    c.subscription_end = new_end_date
-                    if duration == "lifetime":
-                        c.maintenance_due_date = today_ist() + timedelta(days=365)
-                        c.last_maintenance_paid_at = today_ist()
-                    if plan_obj:
-                        c.max_companies_allowed = plan_obj.max_companies
-                        c.max_users_per_company = plan_obj.max_users
-                db.session.commit()
-
-        elif company_id:
-            comp = Company.query.filter_by(company_id=company_id).first()
-            if comp:
-                comp.subscription_plan = plan_id
-                comp.plan_duration = duration
-                comp.subscription_start = today_ist()
-                comp.subscription_end = new_end_date
-                if duration == "lifetime":
-                    comp.maintenance_due_date = today_ist() + timedelta(days=365)
-                    comp.last_maintenance_paid_at = today_ist()
-                if plan_obj:
-                    comp.max_companies_allowed = plan_obj.max_companies
-                    comp.max_users_per_company = plan_obj.max_users
-                db.session.commit()
-
-        return jsonify({
-            "status": "success",
-            "message": "Payment verified and subscription activated successfully!",
-            "plan_id": plan_id,
-            "duration": duration,
-            "valid_until": new_end_date.strftime("%Y-%m-%d")
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
+@app.route('/pricing')
+def regional_pricing_page():
+    from plan_catalog import regional_catalog
+    country = request.args.get('country', 'IN').upper()
+    country = {'UAE': 'AE', 'USA': 'US', 'UK': 'GB'}.get(country, country)
+    from plan_catalog import REGIONAL_PRICING
+    if country not in ('IN', *REGIONAL_PRICING):
+        abort(404)
+    return render_template('regional_pricing.html', region=regional_catalog(country), markets=[('IN', 'India')] + [(k,v['name']) for k,v in REGIONAL_PRICING.items()])
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -4165,8 +4167,14 @@ def register():
             flash("Choose an available plan and billing duration.", "error")
             return redirect(url_for('register'))
 
+        from plan_catalog import COUNTRY_MARKETS, subscription_currency
+        market = COUNTRY_MARKETS.get(request.form.get('country', 'India'))
+        if not market or PUBLIC_PLANS[plan_key].get('market', 'IN') != market:
+            flash('Select the plan for your primary company country.', 'error')
+            return redirect(url_for('register'))
+
         # ── Plan lookup ───────────────────────────────────────────────────────
-        plan_obj = SubscriptionPlan.query.get(plan_key) or SubscriptionPlan.query.get("trial") or SubscriptionPlan.query.order_by(SubscriptionPlan.id).first()
+        plan_obj = SubscriptionPlan.query.get(plan_key)
         if not plan_obj:
             flash("No subscription plans are configured. Contact support.", "error")
             return redirect(url_for("register"))
@@ -4175,7 +4183,12 @@ def register():
         paid_txn = PaymentTransaction.query.filter_by(razorpay_order_id=rzp_order_id,
             razorpay_payment_id=rzp_payment_id, user_email=email, plan_id=plan_key,
             duration=billing_duration, status='success').first() if rzp_payment_id else None
-        is_paid = bool(paid_txn)
+        expected_amount = calculate_plan_price(plan_key, billing_duration)
+        is_paid = bool(paid_txn and paid_txn.currency == subscription_currency(plan_key)
+                       and float(paid_txn.amount) == float(expected_amount))
+        if rzp_payment_id and not is_paid:
+            flash('The payment does not match the selected country, plan and term.', 'error')
+            return redirect(url_for('register'))
         if plan_key == "trial" or not is_paid:
             end_days = 14
             payment_status = "trial"
@@ -4363,14 +4376,19 @@ def register():
                 print(f"⚠  Could not create CompanyUser for {c_id}: {e}")
 
         total = len(all_company_ids)
-        _generate_and_send_otp(email)
-        flash(
-            f"Registration successful! A 6-digit verification code has been sent to {email}.",
-            "success"
-        )
+        if _generate_and_send_otp(email):
+            flash(
+                f"Registration successful! A 6-digit verification code has been sent to {email}.",
+                "success"
+            )
         return redirect(url_for("verify_otp"))
 
-    return render_template("register.html", plans=get_all_plans())
+    from plan_catalog import COUNTRY_MARKETS
+    requested_market = request.args.get('market', 'IN').upper()
+    initial_country = next((country for country, market in COUNTRY_MARKETS.items()
+                            if market == requested_market), 'India')
+    return render_template("register.html", plans=get_all_plans(all_markets=True),
+                           country_markets=COUNTRY_MARKETS, initial_country=initial_country)
 
 @app.route("/logout")
 def logout():
@@ -6187,7 +6205,7 @@ def client_remove(client_pk):
     c.status = "Deleted"
     cdb.commit()
     flash(f"'{c.name}' removed from the client list. Their bookings and ledger history are unaffected.")
-    return redirect(url_for("client_list"))
+    return redirect(url_for("finance_party_master", kind="clients"))
 
 
 @app.route("/clients/<int:client_pk>/restore", methods=["POST"])
@@ -6392,19 +6410,44 @@ def _build_client_ledger(cdb, company_id, c, since=None, until=None):
     # THIS statement (the cutoff date) — not the client's original
     # created_at — otherwise the statement's displayed "from" date is wrong.
     if running_balance:
-        ledger.append({
-            "date": since.date() if since else (c.created_at or today_ist()),
-            "type": "Balance Carried Forward" if since else "Opening Balance",
-            "ref": "—",
-            "awb": "", "consignee": "", "destination": "", "carrier_ref": "", "carrier": "",
-            "chrg_wt": 0, "act_wt": 0, "vol_wt": 0,
-            "grand_total": 0, "other_charges": 0, "billing_amount": 0,
-            "debit": running_balance,
-            "credit": 0,
-            "balance": running_balance,
-            "status": "",
-            "id": None,
-        })
+        unpacked = []
+        if not since:
+            try:
+                from party_import import opening_statement
+                op_bills = opening_statement(cdb, company_id, 'client', c, fallback_date=c.created_at or today_ist())
+                for b in op_bills:
+                    amt = b['amount'] or 0
+                    unpacked.append({
+                        "date": b['date'],
+                        "type": "Opening Bill" if b['kind'] == 'bill' else "Opening Balance (On Account)",
+                        "ref": b['bill_no'] or "—",
+                        "awb": "", "consignee": "", "destination": "", "carrier_ref": "", "carrier": "",
+                        "chrg_wt": 0, "act_wt": 0, "vol_wt": 0,
+                        "grand_total": 0, "other_charges": 0, "billing_amount": 0,
+                        "debit": amt if amt >= 0 else 0,
+                        "credit": -amt if amt < 0 else 0,
+                        "balance": b['balance'],
+                        "status": "",
+                        "id": None,
+                    })
+            except Exception:
+                unpacked = []
+        if unpacked:
+            ledger.extend(unpacked)
+        else:
+            ledger.append({
+                "date": since.date() if since else (c.created_at or today_ist()),
+                "type": "Balance Carried Forward" if since else "Opening Balance",
+                "ref": "—",
+                "awb": "", "consignee": "", "destination": "", "carrier_ref": "", "carrier": "",
+                "chrg_wt": 0, "act_wt": 0, "vol_wt": 0,
+                "grand_total": 0, "other_charges": 0, "billing_amount": 0,
+                "debit": running_balance,
+                "credit": 0,
+                "balance": running_balance,
+                "status": "",
+                "id": None,
+            })
 
     for inv in invoices:
         ship = _get_shipment_meta(inv)
@@ -7241,17 +7284,14 @@ def purchase_invoice_delete(invoice_id):
         flash("Cancel the posted credit/debit notes before editing or deleting this invoice.", "warning")
         return redirect(url_for("purchase_invoice_view", invoice_id=invoice_id))
 
-    # ── Reverse stock deductions ──────────────────────────────────────────────
-    # When a purchase bill was created, stock was DEDUCTED (OUT movement).
-    # Deleting the bill reverses that: add stock back.
-    for item in invoice.items:
-        if item.stock_item_id and item.quantity:
-            stock = cdb.query(StockItem).filter_by(
-                id=item.stock_item_id, company_id=company_id
-            ).first()
-            if stock:
-                stock.quantity    = (stock.quantity or 0) + item.quantity
-                stock.last_updated = today_ist()
+    # Reverse only the movements actually posted by this purchase.
+    from stock_movements import reverse_purchase_stock
+    try:
+        reverse_purchase_stock(cdb, company_id, invoice.id, today_ist().date())
+    except ValueError as exc:
+        cdb.rollback()
+        flash(str(exc), "error")
+        return redirect(url_for("purchase_invoice_view", invoice_id=invoice_id))
 
     # ── Reverse supplier payable ──────────────────────────────────────────────
     # Only reverse the UNPAID portion (paid_amount was already deducted from
@@ -7268,7 +7308,7 @@ def purchase_invoice_delete(invoice_id):
                             f"Purchase invoice {invoice.invoice_number or invoice.invoice_id} deleted")
     cdb.commit()
 
-    flash(f"Purchase {invoice_id} deleted and stock restored.")
+    flash(f"Purchase {invoice_id} deleted and its stock additions reversed.", "success")
     return redirect(url_for("purchase_invoice_list"))
 
 
@@ -7280,6 +7320,15 @@ def api_purchase_scan_bill():
     Direct local OCR / PDF bill scanner endpoint.
     Extracts vendor/supplier information, invoice metadata, line items, and financial totals.
     """
+    if not (has_permission('purchase', 'create') or has_permission('purchase', 'edit')):
+        abort(403)
+    from auth_security import allow_attempt
+    actor = get_current_user() or {}
+    company_scope = str(get_current_company())
+    if (not allow_attempt('invoice-scan-user', actor.get('user_id') or request.remote_addr or '', 10, 300)
+            or not allow_attempt('invoice-scan-company', company_scope, 20, 300)):
+        return jsonify(success=False, error='Too many scans. Try again in five minutes.'), 429
+
     if "bill_file" not in request.files:
         return jsonify({"success": False, "error": "No file uploaded"}), 400
 
@@ -7299,6 +7348,7 @@ def api_purchase_scan_bill():
 
         company_info = {
             "company_name": company.company_name if company else "",
+            "currency": getattr(company, "currency", "INR"),
             "gst_number": getattr(company, "gst_number", "") or "",
             "state": getattr(company, "state", "Maharashtra") or "Maharashtra",
             "email": company.email if company else ""
@@ -7307,83 +7357,40 @@ def api_purchase_scan_bill():
         existing_suppliers = cdb.query(Supplier).filter_by(company_id=company_id).all()
         existing_stock_items = cdb.query(StockItem).filter_by(company_id=company_id).all()
 
-        from ocr_parser import parse_purchase_invoice
+        from scan_security import run_invoice_scan, scan_slot, maintain_scan_staging
+        from private_documents import company_folder, scoped_name
 
-        parsed_data = parse_purchase_invoice(
-            file.stream,
-            filename=file.filename,
-            company_info=company_info,
-            existing_suppliers=existing_suppliers,
-            existing_stock_items=existing_stock_items
-        )
+        # Read file bytes once into memory so OCR and private file saving never exhaust the stream
+        file.stream.seek(0)
+        file_bytes = file.read()
+        file.stream.seek(0)
+        if not file_bytes:
+            return jsonify({"success": False, "error": "Uploaded file is empty"}), 400
 
-        # -------------------------------------------------------------------------
-        # Ensure every extracted item has an accurate product code:
-        # If product already exists in stock: take that product's code (and set stock_item_id)
-        # If product does NOT exist in stock: generate sequential PROD-xxx product code
-        # -------------------------------------------------------------------------
-        prefix = "PROD-"
-        existing_codes_q = cdb.query(StockItem.code).filter(
-            StockItem.company_id == company_id,
-            StockItem.code.like(f"{prefix}%")
-        ).all()
-        max_num = 0
-        for (c_val,) in existing_codes_q:
-            if not c_val:
-                continue
-            tail = c_val[len(prefix):]
-            try:
-                max_num = max(max_num, int(tail))
-            except ValueError:
-                continue
-
-        next_code_num = max_num + 1
-
-        stock_by_id = {st.id: st for st in existing_stock_items}
-        stock_by_code = {st.code.strip().lower(): st for st in existing_stock_items if st.code}
-        stock_by_name = {st.name.strip().lower(): st for st in existing_stock_items if st.name}
-
-        for item in parsed_data.get("items", []):
-            st = None
-            st_id = item.get("stock_item_id")
-            i_code = (item.get("item_code") or "").strip()
-            i_name = (item.get("item_name") or "").strip().lower()
-
-            if st_id and st_id in stock_by_id:
-                st = stock_by_id[st_id]
-            elif i_code and i_code.lower() in stock_by_code:
-                st = stock_by_code[i_code.lower()]
-            elif i_name and i_name in stock_by_name:
-                st = stock_by_name[i_name]
-            elif i_name and len(i_name) > 3:
-                for k_name, candidate_st in stock_by_name.items():
-                    if k_name in i_name or i_name in k_name:
-                        st = candidate_st
-                        break
-
-            if st:
-                # Existing product: adopt product code from stock
-                item["stock_item_id"] = st.id
-                item["item_code"] = st.code
-                item["matched_existing"] = True
-                if not item.get("hsn") and st.hsn:
-                    item["hsn"] = st.hsn
-                if not item.get("unit") and st.unit:
-                    item["unit"] = st.unit
-            else:
-                # New product: generate new product code and show in product code column
-                item["stock_item_id"] = None
-                item["matched_existing"] = False
-                item["item_code"] = f"{prefix}{next_code_num:03d}"
-                next_code_num += 1
-
-        # Save scanned file into upload folder so it can be saved with invoice
-        filename = secure_filename(f"OCR_{company_id}_{int(datetime.now().timestamp())}_{file.filename}")
-        upload_dir = app.config.get("UPLOAD_FOLDER", os.path.join(app.root_path, "uploads", "purchase_invoices"))
-        os.makedirs(upload_dir, exist_ok=True)
-        filepath = os.path.join(upload_dir, filename)
-        file.seek(0)
-        file.save(filepath)
+        folder = company_folder(company_id, 'purchase_invoices')
+        with scan_slot(folder):
+            referenced = {scoped_name(row.file_path, company_id) for row in
+                cdb.query(PurchaseInvoice).filter_by(company_id=company_id).all() if row.file_path}
+            maintain_scan_staging(folder, referenced, new_bytes=len(file_bytes))
+            parsed_data = run_invoice_scan(file_bytes, file.filename, company_info,
+                stock_items=[{'id':stock.id, 'code':stock.code, 'name':stock.name,
+                              'category':stock.category or ''} for stock in existing_stock_items])
+            if not parsed_data.get('success'):
+                return jsonify(parsed_data), 422
+            supplier = parsed_data.get('supplier', {})
+            for known in existing_suppliers:
+                tax_id = str(getattr(known, 'gst_number', '') or '').strip().upper()
+                scanned_tax_id = str(supplier.get('gstin', '')).strip().upper()
+                same_name = ((known.name or '').strip().casefold() ==
+                             str(supplier.get('name', '')).strip().casefold())
+                if ((tax_id and tax_id == scanned_tax_id) or
+                        (same_name and not (tax_id and scanned_tax_id))):
+                    supplier['id'], supplier['name'] = known.id, known.name
+                    break
+            # Only successfully validated scans may enter private staging.
+            file.stream.seek(0)
+            from private_documents import save_private_file
+            filename = save_private_file(file, company_id, 'purchase_invoices')
 
         parsed_data["saved_filename"] = filename
         parsed_data["stock_items_list"] = [
@@ -7397,7 +7404,13 @@ def api_purchase_scan_bill():
 
         base_currency = (getattr(company, "currency", None) or "INR").upper()
         detected_currency = (parsed_data.get("currency") or "INR").upper()
-        exchange_rate = currency_service.get_exchange_rate(detected_currency, base_currency)
+        try:
+            exchange_rate = (
+                1.0 if detected_currency == base_currency
+                else currency_service.get_exchange_rate(detected_currency, base_currency)
+            )
+        except Exception:
+            exchange_rate = 1.0
 
         parsed_data["currency"] = detected_currency
         parsed_data["base_currency"] = base_currency
@@ -7405,26 +7418,15 @@ def api_purchase_scan_bill():
         parsed_data["currencies_list"] = currency_service.get_all_currencies_list()
 
         return jsonify(parsed_data)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"success": False, "error": f"OCR processing failed: {str(e)}"}), 500
-
-
-@app.route("/uploads/purchase_invoices/<path:filename>")
-@app.route("/purchase/file/<path:filename>")
-@login_required
-def serve_purchase_invoice_file(filename):
-    """Serve uploaded purchase bill PDFs and images safely"""
-    from flask import send_from_directory
-    upload_dir = app.config.get("UPLOAD_FOLDER", os.path.join(app.root_path, "uploads", "purchase_invoices"))
-    if os.path.exists(os.path.join(upload_dir, filename)):
-        return send_from_directory(upload_dir, filename)
-    if os.path.exists(os.path.join(app.root_path, "uploads", filename)):
-        return send_from_directory(os.path.join(app.root_path, "uploads"), filename)
-    if os.path.exists(os.path.join(app.root_path, "static", filename)):
-        return send_from_directory(os.path.join(app.root_path, "static"), filename)
-    abort(404)
+    except BlockingIOError:
+        return jsonify(success=False, error='A scan is already running for this company. Try again shortly.'), 429
+    except TimeoutError as error:
+        return jsonify(success=False, error=str(error)), 408
+    except ValueError as error:
+        return jsonify(success=False, error=str(error)), 400
+    except Exception:
+        app.logger.exception('Purchase scan failed')
+        return jsonify(success=False, error='Could not scan the bill. Try again or enter the details manually.'), 500
 
 
 @app.route("/purchase/new", methods=["GET", "POST"])
@@ -7432,6 +7434,9 @@ def serve_purchase_invoice_file(filename):
 @require_permission("purchase", "view", method_actions={'POST': 'create'})
 def purchase_invoice_new():
     """Create a new standard ERP purchase bill / invoice"""
+    if request.method == 'POST':
+        from financial_validation import reject_invalid_invoice_form
+        reject_invalid_invoice_form(request.form)
     cdb = get_cdb()
     company_id = get_current_company()
     company = Company.query.filter_by(company_id=company_id).first()
@@ -7474,9 +7479,17 @@ def purchase_invoice_new():
                     continue
             invoice_id = f"{prefix}{max_num + 1:03d}"
 
-        # Auto-create supplier if new name typed
-        if not supplier_id and supplier_name:
-            sup = cdb.query(Supplier).filter_by(company_id=company_id, name=supplier_name).first()
+        # Resolve only within the current company, preferring tax identity.
+        from supplier_matching import find_supplier
+        supplier_created = False
+        try:
+            sup = find_supplier(cdb.query(Supplier).filter_by(company_id=company_id).all(),
+                                supplier_id, supplier_name, supplier_gstin)
+        except ValueError as exc:
+            abort(400, description=str(exc))
+        if supplier_id and sup is None:
+            abort(400, description="Selected supplier does not belong to this company.")
+        if supplier_name or sup:
             if not sup:
                 company_obj = Company.query.filter_by(company_id=company_id).first()
                 supplier_prefix = _company_name_prefix(company_obj.company_name if company_obj else "", from_end=False)
@@ -7485,17 +7498,21 @@ def purchase_invoice_new():
                     supplier_id=new_supplier_id,
                     company_id=company_id,
                     name=supplier_name,
-                    gst_number=supplier_gstin or None,
+                    gst_number=(supplier_gstin or None) if len(supplier_gstin) <= 20 else None,
                     state=supplier_state or None,
-                    address_line1=supplier_address or None,
+                    address_line1=supplier_address[:300] or None,
+                    address_line2=supplier_address[300:600] or None,
                     phone=supplier_phone or None,
                     email=supplier_email or None,
                     status="Active",
                     created_at=today_ist().date() if hasattr(today_ist(), "date") else today_ist()
                 )
+                sup.trn_number = supplier_gstin if supplier_gstin and not re.fullmatch(r"[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][A-Z0-9]Z[A-Z0-9]", supplier_gstin.upper()) else None
+                supplier_created = True
                 cdb.add(sup)
                 cdb.flush()
             supplier_id = sup.id
+            supplier_name = sup.name
 
         # Parse Line Items
         item_codes = request.form.getlist("item_code[]")
@@ -7611,12 +7628,13 @@ def purchase_invoice_new():
             # Auto-update stock inventory & resolve stock item
             stock = None
             if auto_add_stock:
-                # 1. Prioritize user-specified / edited code
-                if code:
-                    stock = cdb.query(StockItem).filter_by(code=code, company_id=company_id).first()
-                # 2. Fallback to st_id if not found by code
-                if not stock and st_id:
+                # A selected inventory ID is authoritative, including OCR matches.
+                if st_id:
                     stock = cdb.query(StockItem).filter_by(id=st_id, company_id=company_id).first()
+                    if stock is None:
+                        abort(400, description="Selected product is not in this company's stock.")
+                if not stock and code:
+                    stock = cdb.query(StockItem).filter_by(code=code, company_id=company_id).first()
                 # 3. Fallback to name if not found by code/st_id
                 if not stock and name:
                     stock = cdb.query(StockItem).filter_by(name=name, company_id=company_id).first()
@@ -7653,7 +7671,9 @@ def purchase_invoice_new():
                         code = stock.code
 
             resolved_stock_id = stock.id if stock else st_id
-            resolved_code = code or (stock.code if stock else "")
+            resolved_code = stock.code if stock else code
+            if stock:
+                name = stock.name
 
             pi_item = PurchaseInvoiceItem(
                 purchase_invoice_id=purchase_inv.id,
@@ -7697,7 +7717,7 @@ def purchase_invoice_new():
                     reference=purchase_inv.invoice_number or purchase_inv.invoice_id
                 ))
 
-        tax_total = cgst_total + sgst_total + igst_total
+        tax_total = cgst_total + sgst_total + igst_total + vat_total
         grand_total = subtotal + tax_total
 
         purchase_inv.subtotal = round(subtotal, 2)
@@ -7719,14 +7739,14 @@ def purchase_invoice_new():
         if "invoice_file" in request.files and request.files["invoice_file"].filename:
             file = request.files["invoice_file"]
             if file and file.filename and allowed_file(file.filename):
-                filename = secure_filename(f"{purchase_inv.invoice_id}_{file.filename}")
-                upload_dir = app.config.get("UPLOAD_FOLDER", os.path.join(app.root_path, "uploads", "purchase_invoices"))
-                os.makedirs(upload_dir, exist_ok=True)
-                filepath = os.path.join(upload_dir, filename)
-                file.save(filepath)
-                purchase_inv.file_path = filename
-        elif request.form.get("scanned_file_path"):
-            purchase_inv.file_path = request.form.get("scanned_file_path").strip()
+                from private_documents import save_private_file
+                purchase_inv.file_path = save_private_file(file, company_id, 'purchase_invoices')
+        elif request.form.get('scanned_file_path'):
+            from private_documents import validate_staged_purchase
+            staged = request.form['scanned_file_path'].strip()
+            if not validate_staged_purchase(staged, company_id):
+                abort(400, 'Invalid uploaded purchase document')
+            purchase_inv.file_path = staged
 
         if request.form.get("ocr_json_data"):
             purchase_inv.ocr_data = request.form.get("ocr_json_data").strip()
@@ -7743,15 +7763,20 @@ def purchase_invoice_new():
         cdb.commit()
         log_audit_event(cdb, company_id, "purchase_invoice", purchase_inv.id, "create", f"Purchase bill {purchase_inv.invoice_id} saved for {purchase_inv.supplier_name}")
 
+        success_message = f"Purchase bill {purchase_inv.invoice_id} recorded successfully!"
+        supplier_message = (f"{supplier_name} has been added to Supplier Master." if supplier_created else "")
         is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.form.get("is_ajax") == "1" or request.is_json
         if is_ajax:
             return jsonify({
-                "success": True,
-                "invoice_id": purchase_inv.invoice_id,
-                "message": f"Purchase bill {purchase_inv.invoice_id} recorded successfully!"
+                "success": True, "invoice_id": purchase_inv.invoice_id,
+                "message": success_message + (" " + supplier_message if supplier_message else ""),
+                "supplier_created": supplier_created, "supplier_id": supplier_id,
+                "supplier_message": supplier_message
             })
 
-        flash(f"Purchase bill {purchase_inv.invoice_id} recorded successfully!", "success")
+        flash(success_message, "success")
+        if supplier_created:
+            flash(supplier_message, "supplier_created")
         return redirect(url_for("purchase_invoice_view", invoice_id=purchase_inv.invoice_id))
 
     suppliers = cdb.query(Supplier).filter_by(company_id=company_id, status="Active").order_by(Supplier.name).all()
@@ -7805,6 +7830,9 @@ def purchase_invoice_new():
 @require_permission("purchase", "view", method_actions={'POST': 'edit'})
 def purchase_invoice_edit(invoice_id):
     """Edit an existing purchase bill"""
+    if request.method == 'POST':
+        from financial_validation import reject_invalid_invoice_form
+        reject_invalid_invoice_form(request.form)
     cdb = get_cdb()
     company_id = get_current_company()
     company = Company.query.filter_by(company_id=company_id).first()
@@ -8011,7 +8039,7 @@ def purchase_invoice_edit(invoice_id):
             )
             cdb.add(pi_item)
 
-        tax_total = cgst_total + sgst_total + igst_total
+        tax_total = cgst_total + sgst_total + igst_total + vat_total
         grand_total = subtotal + tax_total
 
         invoice.subtotal = round(subtotal, 2)
@@ -8028,6 +8056,12 @@ def purchase_invoice_edit(invoice_id):
         invoice.base_grand_total = round(invoice.grand_total * exchange_rate, 2)
         invoice.base_paid_amount = round((invoice.paid_amount or 0.0) * exchange_rate, 2)
         invoice.base_balance = round(invoice.balance * exchange_rate, 2)
+
+        if "invoice_file" in request.files and request.files["invoice_file"].filename:
+            file = request.files["invoice_file"]
+            if file and file.filename and allowed_file(file.filename):
+                from private_documents import save_private_file
+                invoice.file_path = save_private_file(file, company_id, 'purchase_invoices')
 
         _replace_purchase_invoice_journal(cdb, company_id, invoice, "Purchase invoice edited")
         cdb.commit()
@@ -8071,6 +8105,49 @@ def purchase_invoice_view(invoice_id):
         company=company,
         bank_accounts=bank_accounts,
         today_date=today_ist().strftime("%Y-%m-%d"),
+    )
+
+
+@app.route("/purchase/download/<invoice_id>")
+@app.route("/purchase/pdf/<invoice_id>")
+@login_required
+@require_permission("purchase", "view")
+def purchase_invoice_download(invoice_id):
+    """Download the currently selected/open purchase bill as a PDF."""
+    from xhtml2pdf import pisa
+    import io
+
+    cdb = get_cdb()
+    company_id = get_current_company()
+    invoice = cdb.query(PurchaseInvoice).filter_by(invoice_id=invoice_id, company_id=company_id).first()
+    if not invoice:
+        try:
+            invoice = cdb.query(PurchaseInvoice).filter_by(id=int(invoice_id), company_id=company_id).first()
+        except Exception:
+            pass
+    if not invoice:
+        abort(404)
+
+    company = Company.query.filter_by(company_id=company_id).first()
+    html_content = render_template(
+        "purchase_invoice_pdf.html",
+        invoice=invoice,
+        company=company,
+        today=today_ist().strftime("%d %b %Y"),
+    )
+    pdf_file = io.BytesIO()
+    pisa_status = pisa.CreatePDF(html_content, dest=pdf_file, encoding="UTF-8")
+    if pisa_status.err:
+        flash(f"PDF generation error: {pisa_status.err}", "error")
+        return redirect(url_for("purchase_invoice_view", invoice_id=invoice.invoice_id))
+
+    pdf_file.seek(0)
+    safe_ref = (invoice.invoice_id or f"PB-{invoice.id}").replace("/", "_").replace("\\", "_")
+    return send_file(
+        pdf_file,
+        as_attachment=True,
+        download_name=f"Purchase_Bill_{safe_ref}.pdf",
+        mimetype="application/pdf",
     )
 
 
@@ -8420,11 +8497,8 @@ def customer_invoice_new():
     company_id = get_current_company()
     company = Company.query.filter_by(company_id=company_id).first()
     
-    count = cdb.query(CustomerInvoice).filter_by(company_id=company_id).count()
-    default_invoice_no = f"INV-{count + 1:04d}"
-    while cdb.query(CustomerInvoice).filter_by(company_id=company_id, invoice_number=default_invoice_no).first():
-        count += 1
-        default_invoice_no = f"INV-{count + 1:04d}"
+    from invoice_numbering import next_sales_invoice_number
+    default_invoice_no = next_sales_invoice_number(cdb, company_id, company)
         
     clients = cdb.query(Client).filter_by(company_id=company_id).filter(Client.status != "Deleted").order_by(Client.name.asc()).all()
     stock_items = cdb.query(StockItem).filter(StockItem.company_id == company_id, StockItem.quantity > 0).order_by(StockItem.name.asc()).all()
@@ -8452,14 +8526,17 @@ def customer_invoice_new():
 @require_permission("customer_invoices", "create")
 def customer_invoice_create():
     """Save standard sales tax invoice with product rows and GST breakdown"""
+    if request.method == 'POST':
+        from financial_validation import reject_invalid_invoice_form
+        reject_invalid_invoice_form(request.form)
     cdb = get_cdb()
     company_id = get_current_company()
     company = Company.query.filter_by(company_id=company_id).first()
 
     invoice_number = request.form.get("invoice_number", "").strip()
     if not invoice_number:
-        count = cdb.query(CustomerInvoice).filter_by(company_id=company_id).count()
-        invoice_number = f"INV-{count + 1:04d}"
+        from invoice_numbering import next_sales_invoice_number
+        invoice_number = next_sales_invoice_number(cdb, company_id, company)
 
     client_id_val = request.form.get("client_id")
     client_id = int(client_id_val) if client_id_val and client_id_val.isdigit() else None
@@ -8610,17 +8687,14 @@ def customer_invoice_create():
         cdb.add(inv_item)
 
         if auto_deduct_stock:
-            stk = None
-            if stock_id:
-                stk = cdb.query(StockItem).filter_by(id=stock_id, company_id=company_id).first()
-            if not stk and icode:
-                stk = cdb.query(StockItem).filter_by(code=icode, company_id=company_id).first()
-            if not stk and iname:
-                stk = cdb.query(StockItem).filter_by(name=iname, company_id=company_id).first()
-
+            from stock_movements import deduct_sale_stock
+            try:
+                stk = deduct_sale_stock(cdb, company_id, inv_item, inv_date)
+            except ValueError as exc:
+                cdb.rollback()
+                flash(str(exc), "error")
+                return redirect(url_for("customer_invoice_new"))
             if stk:
-                stk.quantity = max(0.0, (stk.quantity or 0.0) - qty)
-                stk.last_updated = inv_date
                 cdb.add(StockPurchaseHistory(
                     stock_item_id=stk.id,
                     quantity=-qty,
@@ -8658,6 +8732,9 @@ def customer_invoice_create():
 @require_permission("customer_invoices", "edit")
 def customer_invoice_edit(cust_inv_id):
     """Edit an existing standard sales tax invoice"""
+    if request.method == 'POST':
+        from financial_validation import reject_invalid_invoice_form
+        reject_invalid_invoice_form(request.form)
     cdb = get_cdb()
     company_id = get_current_company()
     company = Company.query.filter_by(company_id=company_id).first()
@@ -9166,7 +9243,7 @@ def supplier_list():
     company_id    = get_current_company()
     filter_status = request.args.get("status", "All")
 
-    query = cdb.query(Supplier).filter_by(company_id=company_id)
+    query = cdb.query(Supplier).filter_by(company_id=company_id).filter(Supplier.status != "Deleted")
     if filter_status != "All":
         query = query.filter_by(status=filter_status)
 
@@ -9395,18 +9472,42 @@ def _build_supplier_ledger(cdb, company_id, s, since=None, until=None):
     # Opening balance / balance carried forward. Same fix as the client
     # ledger: use the cutoff date, not the supplier's original created_at.
     if running_balance:
-        ledger.append({
-            "date": since.date() if since else (s.created_at or today_ist()),
-            "type": "Balance Carried Forward" if since else "Opening Balance",
-            "ref": "—",
-            **blank_ship_fields,
-            "debit": 0,
-            "credit": running_balance,
-            "balance": running_balance,
-            "status": "",
-            "id": None,
-            "inv_id": None,
-        })
+        unpacked = []
+        if not since:
+            try:
+                from party_import import opening_statement
+                op_bills = opening_statement(cdb, company_id, 'supplier', s, fallback_date=s.created_at or today_ist())
+                for b in op_bills:
+                    amt = b['amount'] or 0
+                    unpacked.append({
+                        "date": b['date'],
+                        "type": "Opening Bill" if b['kind'] == 'bill' else "Opening Balance (On Account)",
+                        "ref": b['bill_no'] or "—",
+                        **blank_ship_fields,
+                        "debit": -amt if amt < 0 else 0,
+                        "credit": amt if amt >= 0 else 0,
+                        "balance": b['balance'],
+                        "status": "",
+                        "id": None,
+                        "inv_id": None,
+                    })
+            except Exception:
+                unpacked = []
+        if unpacked:
+            ledger.extend(unpacked)
+        else:
+            ledger.append({
+                "date": since.date() if since else (s.created_at or today_ist()),
+                "type": "Balance Carried Forward" if since else "Opening Balance",
+                "ref": "—",
+                **blank_ship_fields,
+                "debit": 0,
+                "credit": running_balance,
+                "balance": running_balance,
+                "status": "",
+                "id": None,
+                "inv_id": None,
+            })
 
     for e in events:
         running_balance += (e["credit"] or 0) - (e["debit"] or 0)
@@ -9549,6 +9650,20 @@ def supplier_edit(supplier_pk):
         form_data={},
         existing_brands=sorted(b.brand_name for b in s.brands)
     )
+
+
+@app.route("/suppliers/<int:supplier_pk>/remove", methods=["POST"])
+@login_required
+@owner_required
+@require_admin_password
+def supplier_remove(supplier_pk):
+    cdb = get_cdb()
+    company_id = get_current_company()
+    supplier = _first_or_404(cdb.query(Supplier).filter_by(id=supplier_pk, company_id=company_id).first())
+    supplier.status = "Deleted"
+    cdb.commit()
+    flash(f"'{supplier.name}' removed from the supplier list. Purchase invoices and ledger history are unaffected.")
+    return redirect(url_for("finance_party_master", kind="suppliers"))
 
 
 # /suppliers/<id>/delete  ── kept at the old URL/template link so nothing else
@@ -10035,7 +10150,9 @@ def estimate_convert_to_invoice(estimate_id):
         flash("Quotation not found.", "error")
         return redirect(url_for("estimate_list"))
 
-    inv_no = _next_numbered_id(cdb, CustomerInvoice.invoice_number, "INV-", extra_filters=[CustomerInvoice.company_id == company_id])
+    from invoice_numbering import next_sales_invoice_number
+    company = Company.query.filter_by(company_id=company_id).first()
+    inv_no = next_sales_invoice_number(cdb, company_id, company)
     inv = CustomerInvoice(
         invoice_number=inv_no,
         company_id=company_id,
@@ -11025,16 +11142,23 @@ def admin_dashboard():
         users_data.append({
             'user': u,
             'company_count': len(user_companies),
-            'companies': user_companies
+            'companies': user_companies,
+            'regions': [dict(id=c.company_id, name=c.company_name, country=c.country,
+                             currency=c.currency, registered=c.is_gst_registered,
+                             tax_number=c.gst_number or '') for c in user_companies],
         })
 
+    from admin_region import region_options
+    from currency_service import CURRENCIES
     return render_template("super_admin.html",
+                           region_countries=region_options(), region_currencies=CURRENCIES,
                            stats=stats,
                            companies=companies,
                            pending_clients=pending_clients,
                            users_data=users_data,
                            total_users=len(all_users),
                            plans=get_all_plans(),
+                           all_public_plans=PUBLIC_PLANS,
                            plan_distribution=plan_distribution,
                            today=today_ist())
 
@@ -11177,9 +11301,12 @@ def admin_edit_company(company_id):
 
         # ── Subscription Plan & Duration ──
         if "subscription_plan" in request.form:
-            sub_plan = request.form.get("subscription_plan", "").strip().lower()
-            if sub_plan:
-                company.subscription_plan = sub_plan
+            sub_plan_raw = request.form.get("subscription_plan", "").strip()
+            if sub_plan_raw:
+                company.subscription_plan = next(
+                    (k for k in SUBSCRIPTION_PLANS_DATA if k.lower() == sub_plan_raw.lower()),
+                    sub_plan_raw.lower(),
+                )
 
         if "plan_duration" in request.form:
             plan_dur = request.form.get("plan_duration", "").strip().lower()
@@ -11282,6 +11409,34 @@ def admin_edit_company(company_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
     
+@app.route("/admin/user/<user_id>/region", methods=["POST"])
+@login_required
+@super_admin_required
+def admin_user_region(user_id):
+    # Recheck the persisted administrator rather than trusting a stale session role.
+    actor = get_current_user() or {}
+    if not RegisteredUser.query.filter_by(email=actor.get('email'), role='super_admin', is_active=True).first():
+        return jsonify(error='Superadmin access required.'), 403
+    owner = RegisteredUser.query.filter_by(user_id=user_id, role='owner').first()
+    if not owner:
+        return jsonify(error='Registered owner not found.'), 404
+    company = Company.query.filter_by(company_id=request.form.get('company_id'), owner_email=owner.email).with_for_update().first()
+    if not company:
+        return jsonify(error='Select a company owned by this user.'), 404
+    try:
+        from admin_region import update_region
+        update_region(company, request.form)
+        db.session.commit()
+    except ValueError as exc:
+        db.session.rollback()
+        return jsonify(error=str(exc)), 400
+    except Exception:
+        db.session.rollback()
+        app.logger.exception('Regional settings update failed for company %s', company.company_id)
+        return jsonify(error='Could not save regional settings.'), 500
+    return jsonify(success=True, message='Company country, currency and tax settings updated. Existing amounts were not converted.')
+
+
 @app.route("/admin/user/<user_id>/edit", methods=["POST"])
 @login_required
 @super_admin_required
@@ -11301,9 +11456,12 @@ def admin_edit_user(user_id):
 
         # Subscription Plan & Duration
         if "subscription_plan" in request.form:
-            sub_plan = request.form.get("subscription_plan", "").strip().lower()
-            if sub_plan:
-                user.subscription_plan = sub_plan
+            sub_plan_raw = request.form.get("subscription_plan", "").strip()
+            if sub_plan_raw:
+                user.subscription_plan = next(
+                    (k for k in SUBSCRIPTION_PLANS_DATA if k.lower() == sub_plan_raw.lower()),
+                    sub_plan_raw.lower(),
+                )
 
         if "plan_duration" in request.form:
             plan_dur = request.form.get("plan_duration", "").strip().lower()
@@ -11831,8 +11989,9 @@ def cash_in_hand():
 @require_permission("cash", "create")
 def save_cash_transaction():
     """Save a cash transaction"""
+    cdb = get_cdb()
     company_id = get_current_company()
-    data = request.get_json()
+    data = request.get_json() or {}
     
     try:
         transaction = CashTransaction(
@@ -11847,11 +12006,13 @@ def save_cash_transaction():
             created_by=get_current_user().get('email')
         )
         cdb.add(transaction)
+        cdb.flush()
+        _auto_post_cash_transaction(cdb, company_id, transaction)
         cdb.commit()
         
         return jsonify({'success': True, 'message': 'Transaction saved successfully'})
     except Exception as e:
-        db.session.rollback()
+        cdb.rollback()
         return jsonify({'success': False, 'message': str(e)}), 400
 
 
@@ -11868,12 +12029,17 @@ def delete_cash_transaction(txn_id):
     if not transaction:
         return jsonify({'success': False, 'message': 'Transaction not found'}), 404
     
+    if transaction.applied_ref_type == 'bank_transfer':
+        return jsonify({'success': False, 'message':
+            'This cash entry belongs to a bank transfer and cannot be deleted separately.'}), 400
+
     try:
+        _reverse_source_journal(cdb, company_id, "cash_transaction", transaction.id, "Cash transaction deleted")
         cdb.delete(transaction)
         cdb.commit()
         return jsonify({'success': True, 'message': 'Transaction deleted'})
     except Exception as e:
-        db.session.rollback()
+        cdb.rollback()
         return jsonify({'success': False, 'message': str(e)}), 400
 
 # ============================================
@@ -12086,12 +12252,15 @@ def add_bank_transaction(account_id):
     txn_type = request.form.get("type")
     date_str = request.form.get("date")
     description = request.form.get("description", "").strip()
-    amount = float(request.form.get("amount", 0))
+    try:
+        amount = float(request.form.get("amount", 0))
+    except (TypeError, ValueError):
+        amount = 0
     reference = request.form.get("reference", "").strip()
     transaction_mode = request.form.get("transaction_mode", "Transfer")
     notes = request.form.get("notes", "").strip()
     
-    if not description or amount <= 0:
+    if txn_type not in ("credit", "debit") or not description or not (0 < amount < float("inf")):
         flash("Description and valid amount are required!")
         return redirect(url_for("bank_transactions", account_id=account_id))
     
@@ -12109,6 +12278,29 @@ def add_bank_transaction(account_id):
         created_by=get_current_user().get('email')
     )
     cdb.add(transaction)
+
+    if transaction_mode.strip().lower() == 'cash':
+        cdb.flush()
+        cash_entry = CashTransaction(
+            company_id=company_id,
+            type='expense' if txn_type == 'credit' else 'income',
+            date=transaction.date, category='Bank Transfer',
+            description=f"{'Cash deposit to' if txn_type == 'credit' else 'Cash withdrawal from'} {account.bank_name}: {description}"[:300],
+            amount=amount, reference=reference, notes=notes,
+            created_by=transaction.created_by,
+            applied_ref_type='bank_transfer', applied_ref_id=transaction.id,
+        )
+        cdb.add(cash_entry)
+        cdb.flush()
+        # A single contra journal records both asset accounts, without income/expense.
+        _post_auto_journal(
+            cdb, company_id, transaction.date, description,
+            'bank_cash_transfer', transaction.id, reference or f'BANK-{transaction.id}',
+            [('1200', amount if txn_type == 'credit' else 0,
+              amount if txn_type == 'debit' else 0, description),
+             ('1100', amount if txn_type == 'debit' else 0,
+              amount if txn_type == 'credit' else 0, description)],
+        )
     
     # Update account balance
     if txn_type == 'credit':
@@ -12141,7 +12333,7 @@ def delete_bank_account(account_id):
     return redirect(url_for("bank_accounts"))
 
 
-@app.route("/bank-accounts/<int:account_id>/reactivate", methods=["GET", "POST"])
+@app.route("/bank-accounts/<int:account_id>/reactivate", methods=["POST"])
 @login_required
 @owner_required
 def reactivate_bank_account(account_id):
@@ -13747,7 +13939,11 @@ def profit_loss():
             else:
                 expense_categories[acc.name] = round(float(amount), 2)
 
-    total_expenses = Decimal(str(round(sum(expense_categories.values()), 2)))
+    from profit_loss_costing import stock_cost_adjustment, expense_breakdown
+    stock_adjustment, costing_warnings = stock_cost_adjustment(cdb, company_id, from_date, to_date)
+    cogs += stock_adjustment
+    expense_categories = expense_breakdown(cdb, company_id, from_date, to_date)
+    total_expenses = sum((_money(value) for value in expense_categories.values()), Decimal('0.00'))
     gross_profit = operating_revenue - cogs
     net_profit = gross_profit + other_income - total_expenses
     gross_margin = float(gross_profit / operating_revenue * 100) if operating_revenue else 0
@@ -13761,7 +13957,8 @@ def profit_loss():
         expense_categories=expense_categories, total_expenses=float(total_expenses),
         net_profit=float(net_profit), gross_margin=gross_margin,
         net_margin=net_margin, today=today,
-        report_basis="Central posted journal",
+        report_basis="Posted journals with FIFO cost of goods sold (oldest purchases first)",
+        costing_warnings=costing_warnings,
     )
 
 
@@ -13821,7 +14018,14 @@ def balance_sheet():
         elif acc.account_type == "Liability": liabilities[label] = float(amount)
         else: equity[label] = float(amount)
 
-    # Current-period cumulative profit/loss belongs in equity on a balance sheet.
+    from profit_loss_costing import stock_cost_adjustment, closing_stock_value
+    closing_stock = closing_stock_value(cdb, company_id, as_on_date)
+    if closing_stock:
+        existing_inv = _money(assets.pop("1400 · Inventory", 0))
+        assets["1400 · Inventory (Left-Out Stock)"] = float(existing_inv + closing_stock)
+
+    # Current-period cumulative profit/loss from P&L (including FIFO closing stock adjustment)
+    # belongs in equity on a balance sheet.
     pnl = cdb.query(
         ChartOfAccount.account_type,
         func.coalesce(func.sum(JournalEntryLine.debit), 0),
@@ -13839,8 +14043,10 @@ def balance_sheet():
     for typ, debit, credit in pnl:
         d, c = _money(debit), _money(credit)
         retained += (c - d) if typ == "Income" else -(d - c)
-    if retained:
-        equity["Current Earnings"] = float(retained)
+    stock_adjustment, _ = stock_cost_adjustment(cdb, company_id, date.min, as_on_date)
+    retained -= stock_adjustment
+    pnl_label = "Profit & Loss (Net Profit)" if retained >= 0 else "Profit & Loss (Net Loss)"
+    equity[pnl_label] = float(retained)
 
     total_assets = round(sum(assets.values()), 2)
     total_liabilities = round(sum(liabilities.values()), 2)
@@ -13851,11 +14057,13 @@ def balance_sheet():
     return render_template(
         "balance_sheet.html", active="balance_sheet", as_on_date=as_on_date,
         assets=assets, liabilities=combined,
+        liabilities_only=liabilities, equity_only=equity,
+        pnl_balance=float(retained), closing_stock=float(closing_stock),
         total_assets=total_assets, total_liabilities=total_liabilities,
         estimated_equity=total_equity,
         total_liabilities_equity=round(total_liabilities + total_equity, 2),
         balance_difference=round(total_assets - total_liabilities - total_equity, 2),
-        report_basis="Central posted journal",
+        report_basis="Central posted journal with FIFO closing stock & P&L balance",
     )
 
 
@@ -14054,7 +14262,7 @@ def company_settings():
         except Exception as e:
             print(f"⚠  Could not read users for {c.company_id}: {e}")
 
-    plans = get_all_plans()
+    plans = get_all_plans(market=PUBLIC_PLANS.get(company.subscription_plan if company else '', {}).get('market', 'IN'))
 
     current_plan = plans.get(company.subscription_plan) if company else None
 
@@ -14213,6 +14421,14 @@ def whatsapp_settings():
         provider = request.form.get("whatsapp_provider", "").strip()
         base_url = request.form.get("whatsapp_base_url", "").strip()
         
+        if base_url:
+            from outbound_security import validate_public_url
+            try:
+                validate_public_url(base_url)
+            except ValueError as error:
+                flash(str(error), 'error')
+                return redirect(url_for('whatsapp_settings'))
+
         # Save API Key (encrypted)
         if raw_key:
             company.whatsapp_api_key = encrypt_secret(raw_key)
@@ -14366,6 +14582,10 @@ def update_company_info():
     company_id = get_current_company()
     company    = get_company_by_id(company_id)
     if company:
+        repair_industry = request.form.get('repair_industry', getattr(company, 'repair_industry', None) or 'vehicle')
+        if repair_industry not in ('vehicle', 'industrial'):
+            flash('Choose Vehicle Repair or Industrial / Material Repair.', 'error')
+            return redirect(url_for('company_settings'))
         new_name = request.form.get("company_name", company.company_name).strip()
         branch_name = request.form.get("branch_name", company.branch_name or "").strip()
         if not new_name or len(branch_name) > 100:
@@ -14374,6 +14594,22 @@ def update_company_info():
         if is_company_name_taken(company.owner_email, new_name, company_id, branch_name):
             flash("This company and branch already exist. Please use a different branch name.", "error")
             return redirect(url_for("company_settings"))
+        invoice_start = getattr(company, 'sales_invoice_start', 1) or 1
+        invoice_prefix = getattr(company, 'sales_invoice_prefix', None)
+        if invoice_prefix is None:
+            invoice_prefix = 'INV-'
+        invoice_digits = getattr(company, 'sales_invoice_digits', 4) or 4
+        from invoice_numbering import parse_invoice_start, parse_invoice_prefix, parse_invoice_digits
+        try:
+            if 'sales_invoice_start' in request.form:
+                invoice_start = parse_invoice_start(request.form['sales_invoice_start'])
+            if 'sales_invoice_prefix' in request.form:
+                invoice_prefix = parse_invoice_prefix(request.form['sales_invoice_prefix'])
+            if 'sales_invoice_digits' in request.form:
+                invoice_digits = parse_invoice_digits(request.form['sales_invoice_digits'])
+        except ValueError as error:
+            flash(str(error), 'error')
+            return redirect(url_for('company_settings'))
         plan = get_plan(company.subscription_plan)
         if plan.get('max_branches') is not None:
             from plan_catalog import check_location_limits
@@ -14384,6 +14620,10 @@ def update_company_info():
                 flash(message, 'error')
                 return redirect(url_for('company_settings'))
         company.branch_name = branch_name or None
+        company.sales_invoice_start = invoice_start
+        company.sales_invoice_prefix = invoice_prefix
+        company.sales_invoice_digits = invoice_digits
+        company.repair_industry = repair_industry
         company.company_name = request.form.get("company_name", company.company_name).strip()
         company.address      = request.form.get("address",      company.address)
         company.phone        = request.form.get("phone",        company.phone)
@@ -14756,7 +14996,7 @@ def add_company_user():
     return redirect(url_for("company_settings"))
 
 
-@app.route("/company/revoke-user/<email>/<company_id>")
+@app.route("/company/revoke-user/<email>/<company_id>", methods=["POST"])
 @login_required
 @owner_required
 def revoke_company_user(email, company_id):
@@ -14778,7 +15018,7 @@ def revoke_company_user(email, company_id):
     return redirect(url_for("company_settings"))
 
 
-@app.route("/company/remove-user/<user_id>")
+@app.route("/company/remove-user/<user_id>", methods=["POST"])
 @login_required
 @owner_required
 def remove_company_user(user_id):
@@ -14794,7 +15034,7 @@ def remove_company_user(user_id):
     return redirect(url_for("company_settings"))
 
 
-@app.route("/company/delete-user/<email>", methods=["GET", "POST"])
+@app.route("/company/delete-user/<email>", methods=["POST"])
 @login_required
 @owner_required
 @require_admin_password
@@ -15452,20 +15692,46 @@ def _build_customer_invoice_statement_ledger(cdb, company_id, c, since=None, unt
     running_balance = getattr(c, "invoice_opening_balance", None) or 0.0
 
     if running_balance:
-        ledger.append({
-            "date": since.date() if since else (c.created_at or today_ist()),
-            "type": "Balance Carried Forward" if since else "Opening Balance",
-            "ref": "—",
-            "payment_mode": "",
-            "debit": running_balance,
-            "credit": 0,
-            "balance": running_balance,
-            "status": "",
-            "awb": "", "consignee": "", "destination": "", "carrier_ref": "", "carrier": "",
-            "chrg_wt": 0, "act_wt": 0, "vol_wt": 0,
-            "grand_total": 0, "other_charges": 0, "billing_amount": 0,
-            "per_kg": 0,
-        })
+        unpacked = []
+        if not since:
+            try:
+                from party_import import opening_statement
+                op_bills = opening_statement(cdb, company_id, 'client', c, fallback_date=c.created_at or today_ist())
+                for b in op_bills:
+                    amt = b['amount'] or 0
+                    unpacked.append({
+                        "date": b['date'],
+                        "type": "Opening Bill" if b['kind'] == 'bill' else "Opening Balance (On Account)",
+                        "ref": b['bill_no'] or "—",
+                        "payment_mode": "",
+                        "debit": amt if amt >= 0 else 0,
+                        "credit": -amt if amt < 0 else 0,
+                        "balance": b['balance'],
+                        "status": "",
+                        "awb": "", "consignee": "", "destination": "", "carrier_ref": "", "carrier": "",
+                        "chrg_wt": 0, "act_wt": 0, "vol_wt": 0,
+                        "grand_total": 0, "other_charges": 0, "billing_amount": 0,
+                        "per_kg": 0,
+                    })
+            except Exception:
+                unpacked = []
+        if unpacked:
+            ledger.extend(unpacked)
+        else:
+            ledger.append({
+                "date": since.date() if since else (c.created_at or today_ist()),
+                "type": "Balance Carried Forward" if since else "Opening Balance",
+                "ref": "—",
+                "payment_mode": "",
+                "debit": running_balance,
+                "credit": 0,
+                "balance": running_balance,
+                "status": "",
+                "awb": "", "consignee": "", "destination": "", "carrier_ref": "", "carrier": "",
+                "chrg_wt": 0, "act_wt": 0, "vol_wt": 0,
+                "grand_total": 0, "other_charges": 0, "billing_amount": 0,
+                "per_kg": 0,
+            })
 
     for e in events:
         running_balance += (e["debit"] or 0) - (e["credit"] or 0)
@@ -15796,16 +16062,38 @@ def creditor_statement(supplier_pk):
     running_balance = s.opening_balance or 0.0
 
     if running_balance:
-        ledger.append({
-            "date": s.statement_cutoff.date() if s.statement_cutoff else (s.created_at or today_ist()),
-            "type": "Balance Carried Forward" if s.statement_cutoff else "Opening Balance",
-            "ref": "—",
-            "payment_mode": "",
-            "debit": 0,
-            "credit": running_balance,
-            "balance": running_balance,
-            "status": "",
-        })
+        unpacked = []
+        if not s.statement_cutoff:
+            try:
+                from party_import import opening_statement
+                op_bills = opening_statement(cdb, company_id, 'supplier', s, fallback_date=s.created_at or today_ist())
+                for b in op_bills:
+                    amt = b['amount'] or 0
+                    unpacked.append({
+                        "date": b['date'],
+                        "type": "Opening Bill" if b['kind'] == 'bill' else "Opening Balance (On Account)",
+                        "ref": b['bill_no'] or "—",
+                        "payment_mode": "",
+                        "debit": -amt if amt < 0 else 0,
+                        "credit": amt if amt >= 0 else 0,
+                        "balance": b['balance'],
+                        "status": "",
+                    })
+            except Exception:
+                unpacked = []
+        if unpacked:
+            ledger.extend(unpacked)
+        else:
+            ledger.append({
+                "date": s.statement_cutoff.date() if s.statement_cutoff else (s.created_at or today_ist()),
+                "type": "Balance Carried Forward" if s.statement_cutoff else "Opening Balance",
+                "ref": "—",
+                "payment_mode": "",
+                "debit": 0,
+                "credit": running_balance,
+                "balance": running_balance,
+                "status": "",
+            })
 
     for e in events:
         running_balance += (e["credit"] or 0) - (e["debit"] or 0)
@@ -16955,6 +17243,8 @@ def create_backup():
 @app.route("/backup/restore/<backup_id>", methods=["POST"])
 @login_required
 @require_permission("backup", "edit")
+@owner_required
+@require_admin_password
 def restore_backup(backup_id):
     """Restore from a backup"""
     company_id = get_current_company()
@@ -16962,7 +17252,7 @@ def restore_backup(backup_id):
     
     try:
         from backup_utils import restore_from_backup
-        result = restore_from_backup(backup_id, user.get('email'))
+        result = restore_from_backup(backup_id, user.get('email'), company_id)
         
         flash(f"Restore completed successfully! Company data restored from backup {backup_id}", "success")
         
@@ -17001,7 +17291,7 @@ def delete_backup_record(backup_id):
     
     try:
         from backup_utils import delete_backup
-        if delete_backup(backup_id):
+        if delete_backup(backup_id, company_id):
             flash("Backup deleted successfully", "success")
         else:
             flash("Backup not found", "error")
@@ -17070,6 +17360,8 @@ def schedule_backup():
 @app.route("/backup/upload-to-cloud/<backup_id>", methods=["POST"])
 @login_required
 @require_permission("backup", "edit")
+@owner_required
+@require_admin_password
 def upload_backup_to_cloud_route(backup_id):
     """Upload existing backup to cloud"""
     company_id = get_current_company()
@@ -17097,17 +17389,13 @@ def upload_backup_to_cloud_route(backup_id):
     
     return redirect(url_for("backup"))
 
-# Start backup scheduler
-try:
-    from backup_scheduler import start_backup_scheduler
-    start_backup_scheduler()
-except Exception as e:
-    print(f"Could not start backup scheduler: {e}")
-
+# Backups run in the separate scheduler process; never inside web workers.
 
 @app.route("/backup/upload", methods=["POST"])
 @login_required
 @require_permission("backup", "edit")
+@owner_required
+@require_admin_password
 def upload_backup():
     """
     Upload a backup .zip file and restore it.
@@ -17949,7 +18237,7 @@ _COA_NORMAL = {
 def _ensure_finance_step12_15_tables(cdb):
     """Create only the new finance tables; safe for existing company DBs."""
     engine = cdb.get_bind()
-    for model in (BankReconciliation, BankReconciliationItem, FixedAsset):
+    for model in (BankReconciliation, BankReconciliationItem, FixedAsset, AssetCategory):
         model.__table__.create(bind=engine, checkfirst=True)
 
 
@@ -18408,30 +18696,53 @@ def bank_reconciliation():
 @login_required
 @require_permission("finance", "view")
 def fixed_assets():
-    """Step 14: fixed-asset register with straight-line book value."""
+    from fixed_asset_accounting import category_names, resolve_category, post_acquisition
+    from financial_validation import number
     cdb = get_cdb()
     company_id = get_current_company()
     _ensure_finance_step12_15_tables(cdb)
+    _ensure_journal_tables(cdb)
+    _ensure_chart_of_accounts(cdb, company_id)
     if request.method == "POST":
-        code = (request.form.get("asset_code") or "").strip()
-        name = (request.form.get("name") or "").strip()
-        if not code or not name:
-            flash("Asset code and name are required.", "error")
-            return redirect(url_for("fixed_assets"))
-        asset = FixedAsset(
-            company_id=company_id, asset_code=code, name=name,
-            category=(request.form.get("category") or "").strip() or None,
-            purchase_date=date.fromisoformat(request.form["purchase_date"]),
-            purchase_cost=_money(request.form.get("purchase_cost")),
-            salvage_value=_money(request.form.get("salvage_value")),
-            useful_life_months=max(1, int(request.form.get("useful_life_months") or 60)),
-            notes=(request.form.get("notes") or "").strip() or None,
-        )
-        cdb.add(asset); cdb.commit()
-        flash("Fixed asset added.", "success")
+        if not has_permission("finance", "create"):
+            abort(403)
+        try:
+            f = request.form
+            if f.get("action") == "post_purchase":
+                asset = cdb.query(FixedAsset).filter_by(id=int(f.get("asset_id", 0)), company_id=company_id).filter(FixedAsset.status != "Deleted").first()
+                if not asset:
+                    abort(404)
+            else:
+                code = (f.get("asset_code") or "").strip()
+                name = (f.get("name") or "").strip()
+                if not code or len(code) > 30 or not name or len(name) > 180:
+                    raise ValueError("Enter an asset code (up to 30 characters) and name (up to 180 characters).")
+                if cdb.query(FixedAsset).filter_by(company_id=company_id, asset_code=code).first():
+                    raise ValueError("That asset code already exists. Choose a unique code.")
+                cost = number(f.get("purchase_cost"), "Purchase cost", positive=True)
+                salvage = number(f.get("salvage_value") or 0, "Salvage value", maximum=cost)
+                life = int(f.get("useful_life_months") or 60)
+                if life < 1 or life > 12000:
+                    raise ValueError("Useful life must be between 1 and 12000 months.")
+                asset = FixedAsset(company_id=company_id, asset_code=code, name=name,
+                    category=resolve_category(cdb, company_id, f),
+                    purchase_date=date.fromisoformat(f.get("purchase_date") or ""),
+                    purchase_cost=cost, salvage_value=salvage, useful_life_months=life,
+                    notes=(f.get("notes") or "").strip() or None)
+                cdb.add(asset)
+                cdb.flush()
+            post_acquisition(cdb, company_id, asset, f.get("credit_account"), _post_auto_journal)
+            cdb.commit()
+            flash("Asset purchase posted. It is included in financial reports from its purchase date.", "success")
+        except (ValueError, TypeError) as error:
+            cdb.rollback()
+            flash(str(error), "error")
         return redirect(url_for("fixed_assets"))
 
-    assets = cdb.query(FixedAsset).filter_by(company_id=company_id).order_by(FixedAsset.purchase_date.desc()).all()
+    assets = cdb.query(FixedAsset).filter_by(company_id=company_id).filter(FixedAsset.status != "Deleted").order_by(FixedAsset.purchase_date.desc()).all()
+    accounts = cdb.query(ChartOfAccount).filter(ChartOfAccount.company_id == company_id,
+        ChartOfAccount.is_active == True, ChartOfAccount.account_type.in_(("Asset", "Liability", "Equity")),
+        ~ChartOfAccount.code.in_(("1600", "1610"))).order_by(ChartOfAccount.code).all()
     today = today_ist()
     view_rows = []
     for a in assets:
@@ -18441,8 +18752,48 @@ def fixed_assets():
         monthly = depreciable / Decimal(a.useful_life_months)
         calc_dep = min(depreciable, monthly * months)
         book_value = _money(a.purchase_cost) - calc_dep
-        view_rows.append(dict(asset=a, monthly=monthly, calculated_depreciation=calc_dep, book_value=book_value))
-    return render_template("fixed_assets.html", active="fixed_assets", rows=view_rows)
+        entry = _existing_source_journal(cdb, company_id, "fixed_asset_purchase", a.id)
+        view_rows.append(dict(asset=a, monthly=monthly, calculated_depreciation=calc_dep,
+            book_value=book_value, purchase_posted=bool(entry and entry.status == "Posted")))
+    return render_template("fixed_assets.html", active="fixed_assets", rows=view_rows,
+        categories=category_names(cdb, company_id), funding_accounts=accounts)
+
+
+@app.route("/finance/fixed-assets/<int:asset_id>/delete", methods=["POST"])
+@login_required
+@require_permission("finance", "view")
+@require_admin_password
+def delete_fixed_asset(asset_id):
+    cdb = get_cdb()
+    company_id = get_current_company()
+    if not has_permission("finance", "delete"):
+        abort(403)
+    _ensure_finance_step12_15_tables(cdb)
+    _ensure_journal_tables(cdb)
+    asset = cdb.query(FixedAsset).filter_by(id=asset_id, company_id=company_id).first()
+    if not asset:
+        abort(404)
+    if asset.status == "Deleted":
+        flash("This asset has already been deleted.", "info")
+        return redirect(url_for("fixed_assets"))
+    try:
+        depreciation_entries = cdb.query(JournalEntry).filter(
+            JournalEntry.company_id == company_id,
+            JournalEntry.source_type == "asset_depreciation",
+            JournalEntry.source_id.like(f"{asset.id}:%"),
+            JournalEntry.status == "Posted").all()
+        for entry in depreciation_entries:
+            _reverse_source_journal(cdb, company_id, "asset_depreciation", entry.source_id,
+                                    reason=f"Asset deleted - {asset.asset_code}: {asset.name}")
+        _reverse_source_journal(cdb, company_id, "fixed_asset_purchase", asset.id,
+                                reason=f"Asset deleted - {asset.asset_code}: {asset.name}")
+        asset.status = "Deleted"
+        cdb.commit()
+        flash("Asset deleted. Its posted purchase and depreciation entries were reversed today; earlier reports retain their history.", "success")
+    except ValueError as error:
+        cdb.rollback()
+        flash(str(error), "error")
+    return redirect(url_for("fixed_assets"))
 
 
 @app.route("/finance/fixed-assets/<int:asset_id>/post-depreciation", methods=["POST"])
@@ -18451,33 +18802,38 @@ def fixed_assets():
 def post_asset_depreciation(asset_id):
     cdb = get_cdb()
     company_id = get_current_company()
+    if not has_permission("finance", "create"):
+        abort(403)
     _ensure_finance_step12_15_tables(cdb)
+    _ensure_journal_tables(cdb)
     _ensure_chart_of_accounts(cdb, company_id)
-    asset = cdb.query(FixedAsset).filter_by(id=asset_id, company_id=company_id).first_or_404()
-    amount = _money(request.form.get("amount"))
-    if amount <= 0:
-        flash("Depreciation amount must be greater than zero.", "error")
-        return redirect(url_for("fixed_assets"))
-    remaining = max(Decimal("0.00"), _money(asset.purchase_cost)-_money(asset.salvage_value)-_money(asset.accumulated_depreciation))
-    amount = min(amount, remaining)
-    if amount <= 0:
-        flash("This asset is already fully depreciated to its salvage value.", "error")
-        return redirect(url_for("fixed_assets"))
-
-    entry = _post_auto_journal(cdb, company_id,
-        source_type="asset_depreciation", source_id=f"{asset.id}:{today_ist().isoformat()}",
-        entry_date=today_ist(), reference=asset.asset_code,
-        narration=f"Depreciation - {asset.name}",
-        lines=[
-            ("6700", amount, 0, f"Depreciation - {asset.name}", None, None),
-            ("1610", 0, amount, f"Accumulated depreciation - {asset.name}", None, None),
-        ])
-    if entry:
+    asset = cdb.query(FixedAsset).filter_by(id=asset_id, company_id=company_id).filter(FixedAsset.status != "Deleted").first()
+    if not asset:
+        abort(404)
+    try:
+        from financial_validation import number
+        purchase = _existing_source_journal(cdb, company_id, "fixed_asset_purchase", asset.id)
+        if not purchase or purchase.status != "Posted":
+            raise ValueError("Post the asset purchase before posting depreciation.")
+        source_id = f"{asset.id}:{today_ist().isoformat()}"
+        if _existing_source_journal(cdb, company_id, "asset_depreciation", source_id):
+            raise ValueError("Depreciation for this asset/date is already posted.")
+        amount = number(request.form.get("amount"), "Depreciation amount", positive=True)
+        remaining = max(Decimal("0.00"), _money(asset.purchase_cost)-_money(asset.salvage_value)-_money(asset.accumulated_depreciation))
+        if amount > remaining:
+            raise ValueError("Depreciation exceeds the remaining depreciable value.")
+        _post_auto_journal(cdb, company_id,
+            source_type="asset_depreciation", source_id=source_id,
+            entry_date=today_ist(), reference=asset.asset_code,
+            narration=f"Depreciation - {asset.name}",
+            rows=[("6700", amount, 0, f"Depreciation - {asset.name}"),
+                  ("1610", 0, amount, f"Accumulated depreciation - {asset.name}")])
         asset.accumulated_depreciation = _money(asset.accumulated_depreciation) + amount
         cdb.commit()
         flash("Depreciation posted to the journal.", "success")
-    else:
-        flash("Depreciation for this asset/date is already posted.", "warning")
+    except (ValueError, TypeError) as error:
+        cdb.rollback()
+        flash(str(error), "error")
     return redirect(url_for("fixed_assets"))
 
 
@@ -18496,6 +18852,7 @@ _DEFAULT_COA = (
     ("1400", "Inventory", "Asset", "Inventory"),
     ("1500", "Input Tax Credit", "Asset", "Tax"),
     ("1600", "Fixed Assets", "Asset", "Fixed Assets"),
+    ("1610", "Accumulated Depreciation", "Asset", "Fixed Assets"),
     ("1700", "Other Current Assets", "Asset", "Other Assets"),
     ("1800", "Supplier Advances", "Asset", "Advances"),
     ("1710", "Employee Loans & Advances", "Asset", "Other Assets"),
@@ -18541,6 +18898,7 @@ _GCC_COA = (
     ("1400", "Inventory", "Asset", "Inventory"),
     ("1500", "Recoverable Input VAT", "Asset", "Tax"),
     ("1600", "Fixed Assets", "Asset", "Fixed Assets"),
+    ("1610", "Accumulated Depreciation", "Asset", "Fixed Assets"),
     ("1700", "Other Current Assets", "Asset", "Other Assets"),
     ("1800", "Supplier Advances", "Asset", "Advances"),
     ("1710", "Employee Loans & Advances", "Asset", "Other Assets"),
@@ -19097,6 +19455,59 @@ def _auto_post_expense(cdb, company_id, exp, txn):
     )
 
 
+def _auto_post_cash_transaction(cdb, company_id, txn):
+    """Post a manual Cash in Hand income/expense entry to the central journal."""
+    if not txn or not txn.id:
+        return None
+    amount = _money(txn.amount)
+    if amount <= 0:
+        return None
+    cat = (txn.category or "").strip().lower()
+    typ = (txn.type or "").strip().lower()
+    if typ == "income":
+        income_map = {
+            "investment": "3100",
+            "owner's capital": "3100",
+            "loan received": "2300",
+            "sales": "4100",
+            "customer payment": "1300",
+            "refund received": "4300",
+            "other income": "4300",
+        }
+        counterpart = income_map.get(cat, "4300")
+        rows = [
+            ("1100", amount, 0, txn.description or txn.category or "Cash inflow"),
+            (counterpart, 0, amount, txn.category or txn.description or "Cash income"),
+        ]
+    elif typ == "expense":
+        expense_map = {
+            "purchase": "5100",
+            "salary": "6100",
+            "rent": "6200",
+            "utilities": "6300",
+            "transport": "6400",
+            "maintenance": "6500",
+            "loan payment": "2300",
+            "tax payment": "2200",
+            "office supplies": "6800",
+            "other expense": "6800",
+        }
+        counterpart = expense_map.get(cat, "6800")
+        rows = [
+            (counterpart, amount, 0, txn.category or txn.description or "Cash expense"),
+            ("1100", 0, amount, txn.description or txn.category or "Cash outflow"),
+        ]
+    else:
+        return None
+    return _post_auto_journal(
+        cdb, company_id, txn.date,
+        f"Cash {typ.title()}: {txn.description or txn.category}",
+        "cash_transaction", txn.id,
+        txn.reference or f"CASH-{txn.id}",
+        rows,
+    )
+
+
 @app.route("/finance/journals")
 @login_required
 @require_permission("finance", "view")
@@ -19320,6 +19731,26 @@ register_finance_notes(app, login_required, require_permission, get_cdb, get_cur
 register_finance_workspace(app, login_required, require_permission, get_cdb,
                            get_current_company, has_permission, today_ist, get_company_by_id)
 
+def _generate_party_code(cdb, kind):
+    cid = get_current_company()
+    co = Company.query.filter_by(company_id=cid).first()
+    cname = co.company_name if co else ""
+    if kind == 'clients':
+        prefix = _company_name_prefix(cname, from_end=True)
+        return _next_numbered_id(cdb, Client.client_id, prefix, extra_filters=[Client.company_id == cid])
+    else:
+        prefix = _company_name_prefix(cname, from_end=False)
+        return _next_numbered_id(cdb, Supplier.supplier_id, prefix, extra_filters=[Supplier.company_id == cid])
+
+from party_import import register_party_masters
+register_party_masters(app, login_required, require_permission, get_cdb, get_current_company,
+                       has_permission, get_current_user, _generate_party_code, today_ist, company_currency_symbol)
+
+from product_import import register_product_masters
+register_product_masters(app, login_required, require_permission, get_cdb, get_current_company,
+                         has_permission, get_current_user, _next_numbered_id, today_ist,
+                         company_currency_symbol, billing_rate)
+
 # Register Phase-1 canonical BI metric engine.
 # Existing /api/bi/dashboard stays intact until the Phase-2 dashboard migration.
 from bi import register_bi_routes
@@ -19381,13 +19812,32 @@ def apps_hub():
         users_count = cdb.query(CompanyUser).filter_by(company_id=company_id, is_active=True).count()
     except Exception:
         pass
-    return render_template("apps_hub.html", company=company, user=user, company_users_count=users_count, public_plans=PUBLIC_PLANS, current_plan=get_plan(company.subscription_plan) if company else {})
+    return render_template("apps_hub.html", company=company, user=user, company_users_count=users_count, public_plans={k:v for k,v in PUBLIC_PLANS.items() if v.get('market', 'IN') == PUBLIC_PLANS.get(company.subscription_plan if company else '', {}).get('market', 'IN')}, current_plan=get_plan(company.subscription_plan) if company else {})
 
 
+from private_documents import register_private_documents
+register_private_documents(app, login_required, require_permission, get_current_company, get_cdb)
+
+from redis_service import register_redis
+register_redis(app, login_required, owner_required)
+from password_recovery import register_password_recovery
+register_password_recovery(app, mail)
+from session_security import register_session_security, resolve_live_identity
+register_session_security(app, lambda identity, cid: resolve_live_identity(identity, cid, get_customer_session), get_current_company)
 from module_access import register_module_access
 from admin_access import register_admin_access
 register_module_access(app, get_current_user, get_current_company, get_customer_session, today_ist)
 register_admin_access(app, get_current_user, get_customer_session, today_ist)
+from support_assistant import register_support_assistant
+register_support_assistant(app, get_current_user, get_current_company,
+                           get_customer_session, has_permission, today_ist)
+from ai_automation import register_ai_automation
+register_ai_automation(app, db, get_current_user, get_current_company,
+                       get_customer_session, has_permission=has_permission,
+                       has_module_access=lambda m: app.extensions.get('module_access', lambda _: True)(m),
+                       application='erp', company_lookup=get_company_by_id)
+from database_access import register_database_access
+register_database_access(app, get_current_user)
 from hr_user_access import register_hr_user_access
 register_hr_user_access(app, get_current_user, get_current_company, get_customer_session, get_company_by_id)
 
@@ -19395,30 +19845,21 @@ from trial_subscriptions import register_trial_subscriptions, start_trial_remind
 app.config['PUBLIC_APP_URL'] = os.getenv('PUBLIC_APP_URL', '')
 register_trial_subscriptions(app, login_required, get_current_user, today_ist)
 
-if __name__ == "__main__":
+from meta_whatsapp_routes import register_meta_whatsapp
+register_meta_whatsapp(app, login_required, get_current_user, get_current_company, get_company_by_id)
+from whatsapp_business.routes import register_whatsapp_business
+register_whatsapp_business(app, db, login_required, get_current_user, get_current_company, get_company_by_id)
+
+from offline_sync import register_offline_sync
+register_offline_sync(app, login_required, get_current_user, get_current_company, get_cdb, get_company_by_id)
+
+if os.environ.get('QIYADAH_INITIALIZE_DATABASE') == '1':
     with app.app_context():
-        db.create_all()
-        seed_database()  # Only platform data
-        start_trial_reminders(app, mail, today_ist)
-        
-        # Seed customer databases for existing companies
-        companies = Company.query.all()
-        for company in companies:
-            try:
-                seed_customer_database(company.company_id)
-            except Exception as e:
-                print(f"Could not seed customer DB for {company.company_id}: {e}")
-    app.run(debug=True, port=5020)
-else:
-    # When run by Gunicorn / Render, seed after the app is fully loaded
-    with app.app_context():
-        seed_database()  # Only platform data
-        start_trial_reminders(app, mail, today_ist)
-        
-        # Seed customer databases for existing companies
-        companies = Company.query.all()
-        for company in companies:
-            try:
-                seed_customer_database(company.company_id)
-            except Exception as e:
-                print(f"Could not seed customer DB for {company.company_id}: {e}")
+        seed_database()
+        from production_maintenance import ensure_payment_indexes
+        ensure_payment_indexes(db.engine)
+        for company in Company.query.all():
+            init_customer_db_for_company(company)
+
+if __name__ == '__main__':
+    app.run(debug=False, host='127.0.0.1', port=5020)

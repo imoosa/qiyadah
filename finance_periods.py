@@ -41,7 +41,7 @@ OPENINGS = {
     'suppliers': ('opening_balance', 'statement_cutoff'),
     'bank_accounts': ('opening_balance',),
 }
-PROTECTED = set(DATED) | set(CHILDREN) | set(OPENINGS) | {'statement_closings'}
+PROTECTED = set(DATED) | set(CHILDREN) | set(OPENINGS) | {'statement_closings', 'party_opening_bills'}
 
 
 def setup_period_control(engine, company):
@@ -104,7 +104,10 @@ def guard_financial_flush(db, context, instances):
     for obj in financial:
         old = saved_row(db, obj)
         company = getattr(obj, 'company_id', None)
-        if company is not None and company != control['company_id'] or old and old.get('company_id', company) != control['company_id']:
+        old_company = old.get('company_id') if (old and 'company_id' in old) else None
+        if company is not None and str(company) != str(control['company_id']):
+            raise ClosedPeriodError('Financial changes must belong to the selected company.')
+        if old_company is not None and str(old_company) != str(control['company_id']):
             raise ClosedPeriodError('Financial changes must belong to the selected company.')
         if not cutoff:
             continue
@@ -127,7 +130,7 @@ def guard_financial_flush(db, context, instances):
                         check_date(getattr(parent, DATED[parent_name], None) or date.today(), cutoff)
             for pk in parent_ids - {None}:
                 parent = db.connection().execute(select(parent_table).where(parent_table.c.id == pk).with_for_update()).mappings().first()
-                if parent is None or parent.get('company_id') != control['company_id']:
+                if parent is None or str(parent.get('company_id')) != str(control['company_id']):
                     raise ClosedPeriodError('Financial line has a missing or wrong-company parent.')
                 check_date(parent[DATED[parent_name]], cutoff)
         elif name in OPENINGS:
@@ -136,6 +139,8 @@ def guard_financial_flush(db, context, instances):
                     (not old and field == 'opening_balance' and getattr(obj, field, 0))
                     for field in OPENINGS[name]):
                 raise ClosedPeriodError('Opening balances and accounting classifications cannot change while a period is closed. Reopen first.')
+        elif name == 'party_opening_bills':
+            raise ClosedPeriodError('Opening bills cannot change while a period is closed. Reopen first.')
         else:
             raise ClosedPeriodError('Statement closing changes require the financial period to be reopened first.')
 

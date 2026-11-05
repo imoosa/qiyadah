@@ -157,7 +157,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/departments", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_masters", "view")
+    @require_permission("hr_masters", "view", method_actions={'POST': 'create'})
     def hr_departments():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         if request.method=="POST":
@@ -173,7 +173,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/designations", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_masters", "view")
+    @require_permission("hr_masters", "view", method_actions={'POST': 'create'})
     def hr_designations():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         if request.method=="POST":
@@ -190,7 +190,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/shifts", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_shifts", "view")
+    @require_permission("hr_shifts", "view", method_actions={'POST': 'create'})
     def hr_shifts():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         if request.method=="POST":
@@ -239,7 +239,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/holidays", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_holidays", "view")
+    @require_permission("hr_holidays", "view", method_actions={'POST': 'create'})
     def hr_holidays():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         if request.method=="POST":
@@ -339,7 +339,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/leave-types", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_leave", "view")
+    @require_permission("hr_leave", "view", method_actions={'POST': 'create'})
     def hr_leave_types():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         if request.method=="POST":
@@ -363,7 +363,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/leave-balances", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_leave", "view")
+    @require_permission("hr_leave", "view", method_actions={'POST': 'edit'})
     def hr_leave_balances():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         year=request.args.get("year",type=int) or request.form.get("year",type=int) or date.today().year
@@ -390,7 +390,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/leaves", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_leave", "view")
+    @require_permission("hr_leave", "view", method_actions={'POST': 'create'})
     def hr_leaves():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         employees=cdb.query(HREmployee).filter_by(company_id=company_id,status="Active").order_by(HREmployee.full_name).all()
@@ -464,14 +464,21 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
     @require_permission("hr_overtime", "view")
     def hr_overtime():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
+        rows=cdb.query(HROvertimeRequest).filter_by(company_id=company_id).order_by(HROvertimeRequest.id.desc()).limit(250).all()
+        return render_template("hr_overtime.html",active="hr_overtime",rows=rows)
+
+    @app.route('/hr/overtime/sync', methods=['POST'])
+    @login_required
+    @require_permission('hr_overtime', 'create')
+    def hr_overtime_sync():
+        cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         # Auto-create requests for calculated OT that has not yet entered approval.
         candidates=cdb.query(HRAttendance).filter(HRAttendance.company_id==company_id,HRAttendance.overtime_minutes>0).all()
         for a in candidates:
             if not cdb.query(HROvertimeRequest).filter_by(company_id=company_id,attendance_id=a.id).first():
                 cdb.add(HROvertimeRequest(company_id=company_id,attendance_id=a.id,employee_id=a.employee_id,requested_minutes=a.overtime_minutes,status="Pending"))
         cdb.commit()
-        rows=cdb.query(HROvertimeRequest).filter_by(company_id=company_id).order_by(HROvertimeRequest.id.desc()).limit(250).all()
-        return render_template("hr_overtime.html",active="hr_overtime",rows=rows)
+        return redirect(url_for('hr_overtime'))
 
     @app.route("/hr/overtime/<int:ot_id>/decision", methods=["POST"])
     @login_required
@@ -492,7 +499,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/salary-components", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_salary", "view")
+    @require_permission("hr_salary", "view", method_actions={'POST': 'create'})
     def hr_salary_components():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         if request.method=="POST":
@@ -518,7 +525,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/salary-structures", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_salary", "view")
+    @require_permission("hr_salary", "view", method_actions={'POST': 'create'})
     def hr_salary_structures():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         if request.method=="POST":
@@ -538,7 +545,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/salary-structures/<int:structure_id>", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_salary", "view")
+    @require_permission("hr_salary", "view", method_actions={'POST': 'edit'})
     def hr_salary_structure_view(structure_id):
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         st=_first_or_404(cdb.query(HRSalaryStructure).filter_by(id=structure_id,company_id=company_id))
@@ -570,7 +577,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/salary-assignments", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_salary", "view")
+    @require_permission("hr_salary", "view", method_actions={'POST': 'create'})
     def hr_salary_assignments():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         employees=cdb.query(HREmployee).filter_by(company_id=company_id,status="Active").order_by(HREmployee.full_name).all()
@@ -606,7 +613,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/payroll", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_payroll", "view")
+    @require_permission("hr_payroll", "view", method_actions={'POST': 'create'})
     def hr_payroll():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         if request.method=="POST":
@@ -731,7 +738,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/statutory", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_statutory", "view")
+    @require_permission("hr_statutory", "view", method_actions={'POST': 'create'})
     def hr_statutory():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         _seed_india_statutory_defaults(cdb,company_id)
@@ -756,7 +763,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/statutory/employees", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_statutory", "view")
+    @require_permission("hr_statutory", "view", method_actions={'POST': 'edit'})
     def hr_employee_statutory():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         employees=cdb.query(HREmployee).filter_by(company_id=company_id,status="Active").order_by(HREmployee.full_name).all()
@@ -789,7 +796,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/loans", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_loans", "view")
+    @require_permission("hr_loans", "view", method_actions={'POST': 'create'})
     def hr_loans():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         employees=cdb.query(HREmployee).filter_by(company_id=company_id,status="Active").order_by(HREmployee.full_name).all()
@@ -827,7 +834,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/expense-claims", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_claims", "view")
+    @require_permission("hr_claims", "view", method_actions={'POST': 'create'})
     def hr_expense_claims():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         employees=cdb.query(HREmployee).filter_by(company_id=company_id,status="Active").order_by(HREmployee.full_name).all()
@@ -1143,7 +1150,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/recruitment", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_recruitment","view")
+    @require_permission("hr_recruitment","view", method_actions={'POST': 'create'})
     def hr_recruitment():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         if request.method=="POST":
@@ -1173,7 +1180,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/recruitment/<int:job_id>", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_recruitment","view")
+    @require_permission("hr_recruitment","view", method_actions={'POST': 'create'})
     def hr_recruitment_job(job_id):
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         job=_first_or_404(cdb.query(HRJobOpening).filter_by(id=job_id,company_id=company_id))
@@ -1231,7 +1238,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/onboarding", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_onboarding","view")
+    @require_permission("hr_onboarding","view", method_actions={'POST': 'create'})
     def hr_onboarding():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         if request.method=="POST":
@@ -1258,7 +1265,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/performance", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_performance","view")
+    @require_permission("hr_performance","view", method_actions={'POST': 'create'})
     def hr_performance():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         emps=cdb.query(HREmployee).filter_by(company_id=company_id,status="Active").order_by(HREmployee.full_name).all()
@@ -1281,7 +1288,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/assets", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_assets","view")
+    @require_permission("hr_assets","view", method_actions={'POST': 'create'})
     def hr_assets():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         emps=cdb.query(HREmployee).filter_by(company_id=company_id,status="Active").order_by(HREmployee.full_name).all()
@@ -1313,7 +1320,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/movements", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_movements","view")
+    @require_permission("hr_movements","view", method_actions={'POST': 'create'})
     def hr_movements():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         emps=cdb.query(HREmployee).filter_by(company_id=company_id,status="Active").order_by(HREmployee.full_name).all()
@@ -1340,7 +1347,7 @@ def register_hr_workspace(app, login_required, require_permission, get_cdb,
 
     @app.route("/hr/exits", methods=["GET","POST"])
     @login_required
-    @require_permission("hr_exits","view")
+    @require_permission("hr_exits","view", method_actions={'POST': 'create'})
     def hr_exits():
         cdb=get_cdb(); company_id=get_current_company(); ensure_tables(cdb)
         emps=cdb.query(HREmployee).filter_by(company_id=company_id,status="Active").order_by(HREmployee.full_name).all()

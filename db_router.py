@@ -55,7 +55,11 @@ _session_cache: dict = {}
 
 def _db_name(company_id) -> str:
     """Return the MySQL database name for a company."""
-    return f"qiy_{str(company_id).lower()}"
+    import re
+    identifier = str(company_id)
+    if not re.fullmatch(r'[A-Za-z0-9_]{1,50}', identifier):
+        raise ValueError('Invalid company database identifier')
+    return f"qiy_{identifier.lower()}"
 
 
 def _build_uri(company_id: str) -> str:
@@ -251,7 +255,6 @@ CUSTOMER_SCHEMA_PATCHES = [
     "ALTER TABLE suppliers ADD COLUMN statement_cutoff DATETIME NULL",
 
     # whatsapp_logs
-    "ALTER TABLE whatsapp_logs ADD COLUMN manifest_id INTEGER NULL",
     "ALTER TABLE whatsapp_logs ADD COLUMN manual_link TEXT NULL",
 
     # ── Multi-Currency & Localized Tax Patches ──────────────────────────────────
@@ -338,24 +341,45 @@ CUSTOMER_SCHEMA_PATCHES = [
 
 
 def _ensure_customer_schema(engine):
-    """Run idempotent ALTER TABLE statements on a customer database engine."""
+    """Apply tracked patches; only known duplicate-column/index errors are benign."""
+    import hashlib
+    from sqlalchemy import MetaData, Table, Column, String, select
+    migrations = Table('qiyadah_schema_patches', MetaData(), Column('digest', String(64), primary_key=True))
+    migrations.create(engine, checkfirst=True)
     with engine.connect() as conn:
-        for stmt in CUSTOMER_SCHEMA_PATCHES:
-            try:
-                conn.execute(text(stmt))
+        mysql = engine.dialect.name in ('mysql', 'mariadb')
+        if mysql and conn.execute(text("SELECT GET_LOCK(CONCAT('qiy_schema_', DATABASE()), 30)")).scalar() != 1:
+            raise RuntimeError('Timed out waiting for schema migration lock')
+        try:
+            for stmt in CUSTOMER_SCHEMA_PATCHES:
+                digest = hashlib.sha256(stmt.encode()).hexdigest()
+                if conn.execute(select(migrations.c.digest).where(migrations.c.digest == digest)).first():
+                    continue
+                try:
+                    conn.execute(text(stmt))
+                    conn.commit()
+                except Exception as error:
+                    conn.rollback()
+                    code = getattr(getattr(error, 'orig', None), 'args', (None,))[0]
+                    if code not in (1060, 1061, 1146):
+                        raise RuntimeError(f'Customer schema migration failed: {digest}') from error
+                conn.execute(migrations.insert().values(digest=digest))
                 conn.commit()
-            except Exception:
-                pass
+        finally:
+            if mysql:
+                conn.execute(text("SELECT RELEASE_LOCK(CONCAT('qiy_schema_', DATABASE()))"))
 
 
-def _get_or_create(company_id: str):
+def _get_or_create(company_id: str, initialize=False):
     """
     Build (or return cached) scoped_session factory for a company.
     Creates the MySQL database and all customer tables on first call.
     """
     if company_id not in _engine_cache:
         # 1. Make sure the database exists on this VPS
-        _create_database_if_missing(company_id)
+        initialize = initialize or os.environ.get('QIYADAH_INITIALIZE_DATABASE') == '1'
+        if initialize:
+            _create_database_if_missing(company_id)
 
         # 2. Build engine pointed at that database
         uri    = _build_uri(company_id)
@@ -363,16 +387,21 @@ def _get_or_create(company_id: str):
             uri, 
             pool_pre_ping=True,   
             pool_recycle=3600,    
-            pool_size=10,
-            max_overflow=20,
+            pool_size=int(os.environ.get("TENANT_DB_POOL_SIZE", "2")),
+            max_overflow=int(os.environ.get("TENANT_DB_MAX_OVERFLOW", "3")),
         )
 
         # 3. Create all customer tables if they don't exist yet
-        customer_db.metadata.create_all(engine)
-        _ensure_customer_schema(engine)
-        setup_period_control(engine, company_id)
+        if initialize:
+            customer_db.metadata.create_all(engine)
+            _ensure_customer_schema(engine)
+            setup_period_control(engine, company_id)
+            from offline_sync import setup_offline_schema
+            setup_offline_schema(engine, company_id)
 
-        factory = scoped_session(sessionmaker(bind=engine, info={'finance_period_company': company_id}))
+        from offline_sync import schema_ready
+        factory = scoped_session(sessionmaker(bind=engine, info={'finance_period_company': company_id,
+            'offline_schema_ready': schema_ready(engine)}))
         _engine_cache[company_id]  = engine
         _session_cache[company_id] = factory
 
@@ -453,7 +482,7 @@ def init_customer_db_for_company(company, platform_session=None):
     backwards compatibility but only company.company_id is used.
     """
     company_id = company.company_id if hasattr(company, "company_id") else company
-    factory    = _get_or_create(company_id)
+    factory    = _get_or_create(company_id, initialize=True)
     return factory
 
 
